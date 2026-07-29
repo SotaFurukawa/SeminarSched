@@ -194,6 +194,10 @@ Resolved non-ASCII path: $physicalPath
         -Destination (Join-Path $portableRoot "README.txt")
     Copy-Item -LiteralPath (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") `
         -Destination (Join-Path $portableRoot "THIRD_PARTY_NOTICES.md")
+    Copy-Item -LiteralPath (Join-Path $repoRoot "PRIVACY.md") `
+        -Destination (Join-Path $portableRoot "PRIVACY.md")
+    Copy-Item -LiteralPath (Join-Path $repoRoot "docs\code_signing_policy.md") `
+        -Destination (Join-Path $portableRoot "CODE_SIGNING_POLICY.md")
     $projectLicense = Join-Path $repoRoot "LICENSE"
     if (Test-Path -LiteralPath $projectLicense -PathType Leaf) {
         Copy-Item -LiteralPath $projectLicense -Destination (Join-Path $portableRoot "LICENSE")

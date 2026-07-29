@@ -181,15 +181,16 @@ DB、log、事前sentinelはuninstall後も保持された。最深部が約264�
 現時点の判定は **リリース候補成果物のlocal受入は進んだが、本番公開はBLOCKED** である。
 少なくとも次が未完了である。
 
-- project license、Qt / Inno Setupのcommunity・commercial利用判断と責任者承認。
+- GPL-3.0-onlyは採用済み。Qt完成artifactの対応ソース・notice監査と、
+  Inno SetupをSignPath署名対象にできるかの確認。
 - portable / installerのclean Windows、Python未導入、offline環境での起動。
 - installerの旧版からの上書きupgrade。local fresh install / uninstallはPASS済み。
 - packaged GUIで新規projectからPDF、終了、再読込みまでのend-to-end。
-- GitHub-hosted release workflowとartifact再download。
+- GitHub-hosted通常CIはPASS済み。tag起動のrelease workflowとartifact再downloadは未確認。
 - 配布版の実GUI性能、scroll、中止操作、viewer／printer確認。
 - 未署名成果物の配布判断と、約264文字のinstall pathでexit 5となる既知制限の扱い。
 
-現在のrepositoryにはHEADとremoteがなく、全sourceがuntrackedであるため、tagを
-triggerとするrelease workflowは実行できない。tagとGitHub Releaseは作成していない。
+repositoryはGitHubへ公開済みで、通常CIのlint・型検査・testは成功した。tagを
+triggerとするrelease workflowは未実行で、tagとGitHub Releaseは作成していない。
 FAIL / PARTIAL / NOT TESTEDをRelease noteへ転記し、license、clean Windows等の受入、
 repository初期化方針、配布責任者の明示承認が揃うまでtagや本番Releaseを作成しない。

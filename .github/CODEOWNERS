@@ -1,0 +1,9 @@
+# Release, signing, and build-boundary changes require owner review.
+* @SotaFurukawa
+
+/.github/workflows/ @SotaFurukawa
+/installer/ @SotaFurukawa
+/packaging/ @SotaFurukawa
+/scripts/ @SotaFurukawa
+/docs/code_signing_policy.md @SotaFurukawa
+/PRIVACY.md @SotaFurukawa

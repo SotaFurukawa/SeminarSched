@@ -144,7 +144,10 @@ def validate_distribution(source: Path) -> tuple[Path, ...]:
         source / "summer_scheduler" / "ui" / "qml" / "Main.qml",
         source / "summer_scheduler" / "resources" / "default_settings.yaml",
         source / "THIRD_PARTY_NOTICES.md",
+        source / "PRIVACY.md",
+        source / "CODE_SIGNING_POLICY.md",
         source / "licenses" / "THIRD_PARTY_NOTICES.txt",
+        source / "licenses" / "Qt-Community-GPL-3.0-only" / "LICENSE.txt",
         source / "licenses" / "Nuitka-4.0" / "LICENSE.txt",
         source / "licenses" / "Nuitka-4.0" / "LICENSE-RUNTIME.txt",
     )

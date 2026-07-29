@@ -6,6 +6,10 @@
 夏期講習などの不定期講習を対象とした、Windows向けの完全ローカル型デスクトップ
 アプリです。UIにはPySide6とQML、データ保存にはSQLiteとSQLAlchemy 2を使用します。
 
+[Code signing policy](docs/code_signing_policy.md) |
+[Privacy policy](PRIVACY.md) |
+[Security policy](SECURITY.md)
+
 現在は **v1.0.0-rc.1 / Phase 7リリース候補** です。これは本番公開済みの正式版を
 意味しません。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
@@ -81,6 +85,14 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 しないでください。公式Releaseの取得元、ファイル名、SHA-256を確認し、所属組織の
 許可がある場合だけWindowsの案内に従います。解決しない場合は
 [`docs/troubleshooting.md`](docs/troubleshooting.md)を参照してください。
+
+### Code signing policy
+
+SignPath Foundationの無料OSSコード署名へ申請準備中です。現在の成果物は未署名であり、
+申請承認済み・署名済みとは表示しません。担当者、手動承認、署名対象、プライバシー、
+署名後の検証方針は[`docs/code_signing_policy.md`](docs/code_signing_policy.md)、
+申請時と承認後に行う作業は
+[`docs/signpath_application.md`](docs/signpath_application.md)を参照してください。
 
 ## 仕様と設計文書
 
@@ -580,7 +592,9 @@ Windows受入、CHANGELOG、第三者notice、成果物の再downloadとSHA-256�
 
 ソースコードの公開許諾と、Windowsバイナリを法的・技術的に配布できる状態は別です。
 署名済みバイナリを公開する前に、完成artifactに含まれるQt moduleと第三者ライセンスを
-再棚卸しし、SignPath等の署名経路とclean Windows受入を完了します。
+再棚卸しし、SignPathの承認・署名後検証とclean Windows受入を完了します。初回申請では
+portable ZIP内の自作EXEだけを対象とし、Inno Setup生成installerはSignPathから適格性の
+確認が得られるまで署名対象へ含めません。
 
 ## 現在の既知の制限
 

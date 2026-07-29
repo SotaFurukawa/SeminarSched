@@ -620,7 +620,7 @@ Phase 1 の受入確認後に停止し、Phase 2 の指示を待つ。
 | 出力失敗で既存ファイルを壊す | 業務成果物を失う | 同一directoryの一時ファイルへ生成し、成功後だけ原子的に置換する |
 | 過密なPDF設定で文字が読めない | 出力は成功しても業務利用できない | 最小文字サイズを下回る設定を明示エラーにし、日数・講師列数の調整を求める |
 | 配布時の QML / migration resource 欠落 | 開発環境では動くが配布物で起動しない | pyside6-deploy／Nuitkaのstandalone treeをportable／installerの共通正本とし、内容検査とPythonをPATHから外すsmokeをscript／CIへ追加。clean Windows実行は未確認 |
-| 配布licenseまたは実データ混入 | 公開停止、権利侵害、個人情報漏えい | runtime license収集と配布treeの禁止pattern検査を行う。project自身のLICENSE、Qt配布方式、Inno条件の承認まで本番Releaseを停止 |
+| 配布licenseまたは実データ混入 | 公開停止、権利侵害、個人情報漏えい | runtime license収集と配布treeの禁止pattern検査を行う。GPL-3.0-onlyのLICENSE、Qt完成artifact、Inno条件の確認まで本番Releaseを停止 |
 
 ## 10. 未決事項
 
@@ -662,8 +662,9 @@ Phase 0時点の未決事項を次に示す。解決した項目には状態を�
     部分境界を偽実装しない。
 14. Undo / Redo履歴のアプリ再起動をまたぐ復元。Phase 5はprocess内stackと永続
     AuditLogを分け、再起動後に監査ログをcommandとして自動再生しない。
-15. **Phase 7で公開停止条件として明確化**: プロジェクト自身の`LICENSE`、Qt
-    Community EditionのLGPLv3等またはQt commercial licenseの選択、Inno Setupの
-    利用条件は配布責任者が決定する。技術的なbuild成功だけで本番公開しない。
+15. **Phase 7で公開停止条件として明確化**: プロジェクト自身はGPL-3.0-onlyを
+    採用した。Qt Community Editionの対応ソース・notice、Inno Setupの利用条件と
+    SignPath署名対象の適格性は配布責任者が確認する。技術的なbuild成功だけで
+    本番公開しない。
 
 これらを決める際にも、マスター仕様のハード制約をソフト化したり、対象機能を削除したりしない。

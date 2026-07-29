@@ -151,6 +151,16 @@ jobs:
             -Version $env:RELEASE_VERSION `
             -Iscc (Resolve-Path "build\inno-setup\ISCC.exe")
 
+      - name: Verify unsigned application boundary
+        shell: pwsh
+        run: |
+          ./scripts/verify_authenticode.ps1 `
+            -Path @(
+              "build\portable\SummerCourseScheduler\SummerCourseScheduler.exe",
+              "dist\SummerCourseScheduler-Setup-$env:RELEASE_VERSION.exe"
+            ) `
+            -RequireUnsigned
+
       - name: Install, smoke test, and uninstall
         shell: pwsh
         run: |
@@ -279,6 +289,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $notes = @"
+          ## Code signing policy
+
+          Signing status: **Unsigned release candidate**. This draft must not be
+          described as signed unless its Authenticode signature is separately verified.
+
+          Free code signing provided by SignPath.io, certificate by SignPath Foundation.
+          SignPath application status and policy:
+          https://github.com/SotaFurukawa/SeminarSched/blob/main/docs/code_signing_policy.md
+
+          Privacy policy:
+          https://github.com/SotaFurukawa/SeminarSched/blob/main/PRIVACY.md
+          "@
           gh release create $env:GITHUB_REF_NAME `
             "build/release-artifact-download/SummerCourseScheduler-Portable-$env:RELEASE_VERSION.zip" `
             "build/release-artifact-download/SummerCourseScheduler-Setup-$env:RELEASE_VERSION.exe" `
@@ -287,4 +310,5 @@ jobs:
             --prerelease `
             --verify-tag `
             --generate-notes `
+            --notes $notes `
             --title "SummerCourseScheduler $env:RELEASE_VERSION (draft)"

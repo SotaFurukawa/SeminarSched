@@ -6,7 +6,9 @@
 ## [Unreleased]
 
 - 本番 GitHub Release は未公開。
-- プロジェクト自身の配布ライセンスは未決。候補と公開前の確認事項は
+- SignPath Foundation申請に必要なCode signing policy、プライバシーポリシー、
+  役割、申請・有効化手順、Authenticode検証scriptを追加。
+- プロジェクト自身はGPL-3.0-only。第三者コンポーネントの公開前確認事項は
   [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) を参照。
 
 ## [1.0.0-rc.1] - 2026-07-29
@@ -48,5 +50,5 @@
   通常の短い日本語pathは確認済みだが、OS上限近傍のpath対応は保証しない。
 - 選択範囲だけの部分再最適化、一括ロック、再起動をまたぐUndo / Redoは未実装。
 - 指定参考PDFが不在のため、実帳票との視覚的な直接比較は未実施。
-- プロジェクト自身のライセンスと、QtのLGPLv3または商用ライセンスに基づく配布方針は
-  公開前に権利者の承認が必要。
+- Qt Community EditionのGPLv3互換性、対応ソース、第三者noticeは完成artifactに対して
+  公開前の最終監査が必要。

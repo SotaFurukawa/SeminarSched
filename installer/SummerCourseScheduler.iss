@@ -44,9 +44,10 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 VersionInfoVersion={#MyAppFileVersion}
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppName} セットアップ
-VersionInfoProductName={#MyAppName}
+VersionInfoProductName=SummerCourseScheduler
 VersionInfoProductVersion={#MyAppFileVersion}
 VersionInfoProductTextVersion={#MyAppVersion}
+InfoBeforeFile={#SourceDirectory}\PRIVACY.md
 
 [Languages]
 Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"

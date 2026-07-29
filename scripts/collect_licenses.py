@@ -24,7 +24,7 @@ _ROOT_DISTRIBUTIONS = (
     "PyYAML",
     "SQLAlchemy",
 )
-_LICENSE_MARKERS = ("authors", "copying", "copyright", "license", "notice")
+_LICENSE_MARKERS = ("authors", "copying", "copyright", "licence", "license", "notice")
 
 
 class LicenseCollectionError(RuntimeError):
@@ -112,6 +112,23 @@ def collect_licenses(output_directory: Path) -> Path:
     if not required.issubset(seen_names):
         missing = ", ".join(sorted(required - seen_names))
         raise LicenseCollectionError(f"必須依存ライセンスを解決できません: {missing}")
+
+    qt_license_source = Path(__file__).resolve().parents[1] / "LICENSE"
+    if not qt_license_source.is_file():
+        raise LicenseCollectionError(f"Qt Community GPLv3本文がありません: {qt_license_source}")
+    qt_license_destination = output_directory / "Qt-Community-GPL-3.0-only" / "LICENSE.txt"
+    qt_license_destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(qt_license_source, qt_license_destination)
+    copied_file_count += 1
+    notices.extend(
+        [
+            "Qt / PySide6 / Shiboken6 Community Edition",
+            "  Distribution license selected by this project: GPL-3.0-only",
+            "  Source: https://code.qt.io/cgit/pyside/pyside-setup.git/",
+            "  Copied license files: 1",
+            "",
+        ]
+    )
 
     python_license = Path(sys.base_prefix) / "LICENSE.txt"
     if not python_license.is_file():

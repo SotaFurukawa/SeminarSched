@@ -114,6 +114,11 @@ def test_license_collection_includes_nuitka_runtime_exception_not_compiler(
     assert (output / "Nuitka-4.0" / "LICENSE.txt").is_file()
     assert not any(path.suffix == ".py" for path in output.rglob("*"))
     assert any(path.name == "LICENSE.txt" and "CPython-" in str(path) for path in output.rglob("*"))
+    assert any(
+        path.name == "LICENCE.rst" and path.parent.name.startswith("openpyxl-")
+        for path in output.rglob("*")
+    )
+    assert (output / "Qt-Community-GPL-3.0-only" / "LICENSE.txt").is_file()
 
 
 def test_pyside_deploy_spec_is_relative_standalone_and_complete() -> None:
@@ -150,8 +155,10 @@ def test_installer_preserves_user_data_and_has_safe_shortcuts() -> None:
     assert "ChangesAssociations=no" in text
     assert ".jukuschedule association is intentionally not registered" in text
     assert "VersionInfoVersion={#MyAppFileVersion}" in text
+    assert "VersionInfoProductName=SummerCourseScheduler" in text
     assert "VersionInfoProductVersion={#MyAppFileVersion}" in text
     assert "VersionInfoProductTextVersion={#MyAppVersion}" in text
+    assert "InfoBeforeFile={#SourceDirectory}\\PRIVACY.md" in text
 
     build_script = (REPOSITORY_ROOT / "scripts" / "build_installer.ps1").read_text(encoding="utf-8")
     assert '"/DMyAppFileVersion=$fileVersion"' in build_script
@@ -170,6 +177,8 @@ def test_release_workflow_is_tag_only_and_creates_only_a_draft_prerelease() -> N
     assert "pytest" in text
     assert "build_windows.ps1" in text
     assert "build_installer.ps1" in text
+    assert "verify_authenticode.ps1" in text
+    assert "-RequireUnsigned" in text
     assert "verify-checksums" in text
     assert "Expand-Archive" in text
     assert "actions/download-artifact@v4" in text
@@ -179,8 +188,40 @@ def test_release_workflow_is_tag_only_and_creates_only_a_draft_prerelease() -> N
     assert '& (Join-Path $installRoot "SummerCourseScheduler.exe") --smoke-test' not in text
     assert "--draft" in text
     assert "--prerelease" in text
+    assert "## Code signing policy" in text
+    assert "Unsigned release candidate" in text
     assert "gh release create" in text
     assert "gh release upload" not in text
+
+
+def test_signpath_application_material_is_explicit_and_not_preactivated() -> None:
+    readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
+    policy = (REPOSITORY_ROOT / "docs" / "code_signing_policy.md").read_text(encoding="utf-8")
+    application = (REPOSITORY_ROOT / "docs" / "signpath_application.md").read_text(encoding="utf-8")
+    verification = (REPOSITORY_ROOT / "scripts" / "verify_authenticode.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    attribution = (
+        "Free code signing provided by [SignPath.io](https://signpath.io/), certificate by"
+    )
+    assert "Code signing policy" in readme
+    assert attribution in policy
+    assert "申請準備中" in policy
+    assert "SotaFurukawa" in policy
+    assert "SIGNPATH_API_TOKEN" in application
+    assert "signpath/github-action-submit-signing-request@v2" in application
+    assert "Inno Setup" in application
+    assert "Get-AuthenticodeSignature" in verification
+    assert "TimeStamperCertificate" in verification
+    assert "SignPath Foundation" in verification
+    assert "RequireUnsigned" in verification
+
+    active_workflows = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (REPOSITORY_ROOT / ".github" / "workflows").glob("*.yml")
+    )
+    assert "SIGNPATH_API_TOKEN" not in active_workflows
 
 
 def test_release_requirements_are_exactly_pinned() -> None:
@@ -254,8 +295,11 @@ def _fake_standalone_tree(tmp_path: Path) -> Path:
             "20260729_0006_add_phase6_output_settings.py"
         ): b"revision = '20260729_0006'\n",
         "THIRD_PARTY_NOTICES.md": b"# notices\n",
+        "PRIVACY.md": b"# privacy\n",
+        "CODE_SIGNING_POLICY.md": b"# Code signing policy\n",
         "licenses/THIRD_PARTY_NOTICES.txt": b"generated inventory\n",
         "licenses/CPython-3.12.4/LICENSE.txt": b"PSF license\n",
+        "licenses/Qt-Community-GPL-3.0-only/LICENSE.txt": b"GPL-3.0-only\n",
         "licenses/Nuitka-4.0/LICENSE.txt": b"AGPL-3.0\n",
         "licenses/Nuitka-4.0/LICENSE-RUNTIME.txt": b"runtime exception\n",
     }

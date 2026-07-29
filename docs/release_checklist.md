@@ -16,7 +16,8 @@
 ## 2. ライセンス・権利
 
 - [ ] 権利者がプロジェクト自身のlicenseを選択し、正式な`LICENSE`を承認した。
-- [ ] QtをLGPLv3等またはQt commercial licenseのどちらで配布するか承認した。
+- [ ] Qt Community EditionをGPL-3.0-only経路で配布し、完成artifactの全module、
+  対応ソース、noticeを確認した。
 - [ ] 使用Qt moduleと完成artifactに対応するQt third-party notice / SBOMを確認した。
 - [ ] Inno Setup採用versionの`LICENSE.TXT`条件、commercial user該当性、公式の
   購入要請への対応方針を記録した。購入要請と、商用利用も許可する基礎ライセンスの
@@ -172,6 +173,22 @@ GitHub-hosted Actionsを実行していない場合、workflow fileの存在だ�
 - [ ] 利用者へSmartScreen、antivirus、組織policyの無効化を推奨していない。
 - [ ] 署名する場合、秘密鍵をhardware / secret storeで管理し、repositoryへ置いていない。
 - [ ] executableとinstallerの両方へtimestamp付き署名を行い、検証した。
+
+### SignPath Foundationを使用する場合
+
+- [ ] GitHubとSignPathの多要素認証を有効にした。
+- [ ] READMEから`Code signing policy`と`PRIVACY.md`へ到達できる。
+- [ ] Authors / Reviewers / Approversと毎回の手動承認をSignPathへ設定した。
+- [ ] GitHub-hosted runnerが生成してuploadしたunsigned artifactから署名要求した。
+- [ ] 自作の`SummerCourseScheduler.exe`だけを署名し、上流DLL/PYD/EXEを
+  プロジェクト証明書で署名していない。
+- [ ] `scripts/verify_authenticode.ps1 -RequireSigned`が、`Valid`、
+  `SignPath Foundation`、timestampを確認した。
+- [ ] 署名をすべて終えた後でsmoke testとSHA-256生成をやり直した。
+- [ ] Inno Setup生成installerを対象にする場合、SignPathから適格性の確認を得た。
+
+承認前の具体的な申請内容と承認後のCI設定は
+[`signpath_application.md`](signpath_application.md)を参照します。
 
 ## 13. 公開承認
 

@@ -487,7 +487,8 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 - 全入力・全環境で辞書式目的の全段階が`OPTIMAL`になる保証はありません。
 - 指定された参考PDFが不在のため、実帳票との直接比較は未実施です。
 - Excelへロゴ画像を埋め込みません。
-- project自身のlicenseとQt配布方針が承認されるまで本番公開できません。
+- project自身はGPL-3.0-onlyです。Qt完成artifactの配布監査、SignPath承認、
+  clean Windows受入が完了するまで署名済み本番版は公開できません。
 
 問題が起きた場合は
 [`troubleshooting.md`](troubleshooting.md)を参照してください。

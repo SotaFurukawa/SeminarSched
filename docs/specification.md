@@ -268,7 +268,8 @@ PDFとExcelの共通レイアウト、Qt選定、原子的保存、安全検証�
 QMLはbackup候補と復元操作を`WorkspaceViewModel`へ渡し、SQLiteを直接操作しない。
 backupにも元projectと同じ個人情報が含まれることをホームへ明示する。技術的に
 artifactを生成できることと、本番配布の権利・clean PC受入・公開承認は区別する。
-project自身のlicense、Qt配布方式、Inno Setup利用条件が承認されるまで、本番
+project自身はGPL-3.0-onlyを採用した。Qt Community Editionの対応ソース・notice、
+Inno Setup利用条件とSignPath署名対象の適格性が確認されるまで、署名済み本番
 GitHub Releaseを公開しない。
 
 安全な復旧は[`ADR 0009`](adr/0009-project-backup-and-recovery-safety.md)、配布と
@@ -286,8 +287,8 @@ GitHub Releaseを公開しない。
 - Undo / Redo履歴のアプリ再起動をまたぐ復元
 - Excelへのロゴ画像埋込み
 - 指定された参考PDFとの直接比較、ピクセル単位の再現
-- code signingと証明書の取得
-- project自身のlicense選択、Qt配布方式の法的判断、本番GitHub Releaseの公開
+- SignPathによる実署名（申請資料、署名境界、検証scriptまでは実装済み）
+- Qt完成artifactの配布監査、SignPath承認、本番GitHub Releaseの公開
 - Google API、クラウド同期その他、マスター仕様 33 章にある初期版の対象外機能
 
 これらのためのパッケージ境界やインターフェース方針は設計するが、空のサービスや動作しない仮実装を大量に追加しない。

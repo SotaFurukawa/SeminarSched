@@ -27,6 +27,8 @@ GNU General Public License version 3（GPL-3.0-only）で公開する。第三�
 今回のPyPI Community EditionのメタデータはPySide6、PySide6 Essentials/Addons、
 Shiboken6を `LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only` と示す。Qt公式文書も
 Qt for PythonをLGPLv3/GPLv3またはQt商用ライセンスで提供すると説明している。
+本プロジェクト自身とQt Community Editionは、今回の公開物ではGPL-3.0-onlyの経路を
+採用する。商用Qtライセンスを保有しているとは主張しない。
 
 - [Qt for Python公式概要](https://doc.qt.io/qtforpython-6/)
 - [Qt Licensing](https://doc.qt.io/qt-6/licensing.html)
@@ -57,6 +59,10 @@ compiler実行も公式上の「using」に含まれ、commercial userには最�
 配布主体はcommercial user該当性と購入・割当方針を記録し、購入要請と基礎ライセンスに
 よる使用許諾を混同しない。license key、購入情報、証明書をリポジトリやCI artifactへ
 含めない。
+
+SignPath Foundationの無料OSS署名条件は全componentにOSI承認OSS licenseを求める。
+Inno Setup生成物をこの条件の対象にできるかはSignPathの確認が取れていないため、
+初回申請ではportable ZIP内の自作EXEだけを署名対象とし、installerは対象外とする。
 
 ## 3. 実行時Python依存の監査結果
 

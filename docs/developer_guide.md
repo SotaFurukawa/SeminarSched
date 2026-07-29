@@ -133,7 +133,13 @@ QML の表示だけを確認する場合も、QML ファイルを単独起動せ
 | `scripts/build_installer.ps1` | 同じstandalone treeからInno Setup installerを生成 |
 | `scripts/package_release.py` | version、配布内容、決定的ZIP、SHA-256の検証 |
 | `scripts/collect_licenses.py` | release環境のruntime依存と全文licenseの収集 |
+| `scripts/verify_authenticode.ps1` | 署名前の境界と署名後の署名者・timestamp検証 |
 | `installer/SummerCourseScheduler.iss` | 利用者単位install、shortcut、data保持方針 |
+
+SignPath Foundation申請の信頼境界、担当者、承認後に登録するGitHub Environment /
+secret / variablesは[`code_signing_policy.md`](code_signing_policy.md)と
+[`signpath_application.md`](signpath_application.md)を正本とする。未承認のIDを仮設定
+したworkflowを有効化せず、署名後にsmokeとchecksumをやり直す。
 
 後続Phaseの追加先は次のように分離する。
 
@@ -1141,13 +1147,13 @@ uninstall、user data保持は実installerで確認する。
 ### 18.4 公開境界
 
 version、CHANGELOG、依存、成果物、SHA-256、clean Windows受入、hosted workflow、
-project license、Qt配布方式、Inno Setupの基礎ライセンス条件とcommercial userへの
+GPL-3.0-only、Qt完成artifact、Inno Setupの基礎ライセンス条件とcommercial userへの
 購入要請に対する方針を
 [`release_checklist.md`](release_checklist.md)で確認する。タグは公開操作の入力であり、
 確認前に作成・pushしない。承認後もworkflowが作るのはdraft prereleaseであり、
 artifactを再downloadしてhashと起動を確認した後、配布責任者が別途公開判断する。
-コード署名を追加する場合は秘密鍵をrepositoryやartifactへ置かず、署名後の最終成果物
-からSHA-256を計算する。
+SignPath署名では秘密鍵をrepositoryやartifactへ置かず、署名後の最終成果物から
+SHA-256を計算する。
 
 ## 19. 将来機能の追加手順
 

@@ -16,9 +16,10 @@ source環境で起動するだけでは、これらが配布物へ正しく入�
 licenseが欠ける危険がある。またproject、backup、input / output、logは個人情報を
 含み得るため、build contextやinstallerへ混入させてはならない。
 
-本番GitHub Releaseの公開、project自身のlicense、QtのLGPLv3または商用license、
-code-signing certificateは技術実装だけでは決められない。自動workflowが成功したことを
-所有者の公開承認として扱うこともできない。
+本番GitHub Releaseの公開、Qt Community Editionの完成artifact監査、
+code-signing certificateは技術実装だけでは決められない。プロジェクト自身は
+GPL-3.0-onlyを採用する。自動workflowが成功したことを所有者の公開承認として
+扱うこともできない。
 
 ## 決定
 
@@ -104,8 +105,8 @@ build machine上のstandalone directoryだけを試してportable成功としな
 ### 6. licenseをbuild inputと受入gateにする
 
 Runtime dependencyのlicense metadataと実際に同梱したfileをReleaseごとに棚卸しする。
-project license、Qt配布方式、Inno Setup利用条件が承認されるまで、本番Releaseを
-公開しない。
+GPL-3.0-onlyで配布するQt Community Editionの対応ソース・noticeと、Inno Setup
+利用条件が承認されるまで、本番Releaseを公開しない。
 
 `THIRD_PARTY_NOTICES.md`は一覧であり、全文licenseの代替ではない。Python、Qt、
 推移的Python package、Qt third-party componentの必要な全文をstandalone treeへ
@@ -132,9 +133,16 @@ build contextとartifactへ次を含めない。
 初期Release候補は未署名でもよいが、SmartScreen警告とSHA-256確認をREADMEへ明示する。
 利用者へOS保護の恒久無効化を案内しない。
 
-将来code signingを追加する場合、証明書とprivate keyをrepositoryやartifactへ置かない。
-secret storeまたはhardware-backed keyを使い、executableとinstallerへtimestamp付きで
-署名し、署名後の最終fileからchecksumを計算する。
+SignPath Foundationの無料OSS署名を申請する。証明書とprivate keyをrepository、
+GitHub Secrets、artifactへ置かず、署名鍵はSignPathの管理下に置く。GitHub-hosted
+runnerが作ったunsigned artifactだけをconnectorへ渡し、毎回SignPath上で手動承認する。
+自作の`SummerCourseScheduler.exe`だけを署名し、上流DLL/PYD/EXEはプロジェクト証明書で
+署名しない。Inno Setup生成installerはSignPathから適格性の確認を得るまで対象外とする。
+
+署名後は`Valid`、署名者`SignPath Foundation`、timestampを機械検証し、その後に
+portable smokeとchecksum生成をやり直す。申請・承認前の候補は`RequireUnsigned`で
+予期しない署名がないことを確認し、「unsigned」と明記する。詳細は
+`docs/code_signing_policy.md`と`docs/signpath_application.md`を正本とする。
 
 ## 根拠
 
@@ -162,8 +170,8 @@ secret storeまたはhardware-backed keyを使い、executableとinstallerへtim
 - dependencyにversion rangeがあるため、同じsourceでも将来のbuildで内容が変わり得る。
   Releaseごとにversionとlicenseを記録する。
 - unsigned binaryはSmartScreen警告が出る可能性がある。
-- project license、Qt license、Inno Setupの利用条件は所有者の承認が必要で、
-  技術的にbuildできることを配布可能の根拠にしない。
+- GPL-3.0-onlyは採用済みだが、Qt完成artifactとInno Setupの利用・署名条件は
+  所有者の確認が必要で、技術的にbuildできることを配布可能の根拠にしない。
 - GitHub-hosted Actions、clean Windows、installer upgrade / uninstallを実行していない
   場合は、workflowやscriptの存在だけでPASSにしない。
 
