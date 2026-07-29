@@ -1,0 +1,290 @@
+name: Windows release candidate
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Quality gate
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUTF8: "1"
+      QT_QPA_PLATFORM: offscreen
+      QT_QUICK_BACKEND: software
+      QSG_RHI_BACKEND: software
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and quality tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m pip check
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format
+        run: ruff format --check .
+
+      - name: Mypy
+        run: mypy src tests
+
+      - name: QML lint
+        shell: pwsh
+        run: |
+          $qmlImportPath = python -c "from PySide6.QtCore import QLibraryInfo; print(QLibraryInfo.path(QLibraryInfo.LibraryPath.QmlImportsPath))"
+          Get-ChildItem "src/summer_scheduler/ui/qml" -Filter "*.qml" | ForEach-Object {
+            pyside6-qmllint -I $qmlImportPath $_.FullName
+            if ($LASTEXITCODE -ne 0) {
+              throw "QML lint failed: $($_.FullName)"
+            }
+          }
+
+      - name: Pytest
+        run: pytest
+
+  windows-artifacts:
+    name: Portable ZIP and installer
+    needs: quality
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      PYTHONUTF8: "1"
+      QT_QPA_PLATFORM: offscreen
+      QT_QUICK_BACKEND: software
+      QSG_RHI_BACKEND: software
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12 x64
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+          cache: pip
+          cache-dependency-path: packaging/requirements-release.txt
+
+      - name: Resolve and validate release version
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          python scripts/package_release.py validate-tag `
+            --pyproject pyproject.toml `
+            --tag $env:GITHUB_REF_NAME
+
+      - name: Install pinned release environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r packaging/requirements-release.txt
+          python -m pip install --no-deps --no-build-isolation .
+          python -m pip check
+          python scripts/verify_release_environment.py
+
+      - name: Build deterministic portable ZIP
+        shell: pwsh
+        run: ./scripts/build_windows.ps1 -Version $env:RELEASE_VERSION
+
+      - name: Smoke test extracted portable without Python on PATH
+        shell: pwsh
+        run: |
+          $zip = Resolve-Path "dist\SummerCourseScheduler-Portable-$env:RELEASE_VERSION.zip"
+          $smokeRoot = Join-Path $env:RUNNER_TEMP "日本語 利用者\ポータブル確認"
+          $portableRoot = Join-Path $smokeRoot "展開先"
+          Expand-Archive -LiteralPath $zip -DestinationPath $portableRoot
+          $exe = Resolve-Path (
+            Join-Path $portableRoot "SummerCourseScheduler\SummerCourseScheduler.exe"
+          )
+          $env:SUMMER_SCHEDULER_DATA_DIR = Join-Path $smokeRoot "データ"
+          $env:SUMMER_SCHEDULER_LOG_DIR = Join-Path $smokeRoot "ログ"
+          $savedPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+            $smoke = Start-Process -FilePath $exe `
+              -ArgumentList "--smoke-test" -Wait -PassThru
+            if ($smoke.ExitCode -ne 0) {
+              throw "standalone smoke failed: $($smoke.ExitCode)"
+            }
+          } finally {
+            $env:PATH = $savedPath
+          }
+          if (-not (Test-Path "$env:SUMMER_SCHEDULER_DATA_DIR\summer_scheduler.db")) {
+            throw "standalone did not migrate its SQLite database"
+          }
+          if (-not (Test-Path "$env:SUMMER_SCHEDULER_LOG_DIR\summer_scheduler.log")) {
+            throw "standalone did not create its local log"
+          }
+
+      - name: Install verified Inno Setup compiler
+        shell: pwsh
+        run: ./scripts/install_inno_setup_ci.ps1
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          ./scripts/build_installer.ps1 `
+            -Version $env:RELEASE_VERSION `
+            -Iscc (Resolve-Path "build\inno-setup\ISCC.exe")
+
+      - name: Install, smoke test, and uninstall
+        shell: pwsh
+        run: |
+          $setup = Resolve-Path "dist\SummerCourseScheduler-Setup-$env:RELEASE_VERSION.exe"
+          $installRoot = Join-Path $env:RUNNER_TEMP "日本語 利用者\インストール確認"
+          $preservedData = Join-Path $env:RUNNER_TEMP "日本語 利用者\保持する利用者データ"
+          $installDirectoryArgument = '/DIR="' + $installRoot + '"'
+          $install = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/SP-",
+            $installDirectoryArgument
+          )
+          if ($install.ExitCode -ne 0) {
+            throw "installer failed: $($install.ExitCode)"
+          }
+          $env:SUMMER_SCHEDULER_DATA_DIR = $preservedData
+          $env:SUMMER_SCHEDULER_LOG_DIR = Join-Path $preservedData "logs"
+          $savedPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+            $installedExe = Join-Path $installRoot "SummerCourseScheduler.exe"
+            $smoke = Start-Process -FilePath $installedExe `
+              -ArgumentList "--smoke-test" -Wait -PassThru
+            if ($smoke.ExitCode -ne 0) {
+              throw "installed smoke failed: $($smoke.ExitCode)"
+            }
+          } finally {
+            $env:PATH = $savedPath
+          }
+          $uninstaller = Join-Path $installRoot "unins000.exe"
+          $uninstall = Start-Process -FilePath $uninstaller -Wait -PassThru -ArgumentList @(
+            "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"
+          )
+          if ($uninstall.ExitCode -ne 0) {
+            throw "uninstaller failed: $($uninstall.ExitCode)"
+          }
+          if (Test-Path (Join-Path $installRoot "SummerCourseScheduler.exe")) {
+            throw "application executable remained after uninstall"
+          }
+          if (-not (Test-Path (Join-Path $preservedData "summer_scheduler.db"))) {
+            throw "uninstall removed user data"
+          }
+
+      - name: Create and verify SHA-256 checksums
+        shell: pwsh
+        run: |
+          python scripts/package_release.py checksums `
+            --output dist/SHA256SUMS.txt `
+            "dist/SummerCourseScheduler-Portable-$env:RELEASE_VERSION.zip" `
+            "dist/SummerCourseScheduler-Setup-$env:RELEASE_VERSION.exe"
+          python scripts/package_release.py verify-checksums `
+            --checksums dist/SHA256SUMS.txt `
+            --directory dist
+
+      - name: Upload immutable build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SummerCourseScheduler-${{ env.RELEASE_VERSION }}-windows
+          path: |
+            dist/SummerCourseScheduler-Portable-${{ env.RELEASE_VERSION }}.zip
+            dist/SummerCourseScheduler-Setup-${{ env.RELEASE_VERSION }}.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Download uploaded artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: SummerCourseScheduler-${{ env.RELEASE_VERSION }}-windows
+          path: build/release-artifact-download
+
+      - name: Verify downloaded artifact checksums
+        shell: pwsh
+        run: |
+          python scripts/package_release.py verify-checksums `
+            --checksums build/release-artifact-download/SHA256SUMS.txt `
+            --directory build/release-artifact-download
+
+  draft-prerelease:
+    name: Draft prerelease
+    needs: windows-artifacts
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Check out repository without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolve and validate release version
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          python scripts/package_release.py validate-tag `
+            --pyproject pyproject.toml `
+            --tag $env:GITHUB_REF_NAME
+
+      - name: Download verified build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: SummerCourseScheduler-${{ env.RELEASE_VERSION }}-windows
+          path: build/release-artifact-download
+
+      - name: Reverify downloaded artifact checksums
+        shell: pwsh
+        run: |
+          python scripts/package_release.py verify-checksums `
+            --checksums build/release-artifact-download/SHA256SUMS.txt `
+            --directory build/release-artifact-download
+
+      - name: Create draft prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME `
+            "build/release-artifact-download/SummerCourseScheduler-Portable-$env:RELEASE_VERSION.zip" `
+            "build/release-artifact-download/SummerCourseScheduler-Setup-$env:RELEASE_VERSION.exe" `
+            "build/release-artifact-download/SHA256SUMS.txt" `
+            --draft `
+            --prerelease `
+            --verify-tag `
+            --generate-notes `
+            --title "SummerCourseScheduler $env:RELEASE_VERSION (draft)"

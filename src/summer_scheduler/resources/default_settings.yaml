@@ -1,0 +1,92 @@
+application:
+  name: "夏期講習 時間割作成"
+  organization_name: "SummerScheduler"
+
+storage:
+  # nullの場合は %LOCALAPPDATA%\\SummerScheduler\\data を使用する。
+  data_directory: null
+  database_filename: "summer_scheduler.db"
+
+logging:
+  # nullの場合は %LOCALAPPDATA%\\SummerScheduler\\logs を使用する。
+  directory: null
+  filename: "summer_scheduler.log"
+  level: "INFO"
+  max_bytes: 5242880
+  backup_count: 5
+
+backup:
+  # 自動バックアップはローカルに保存され、プロジェクトと同じ個人情報を含む。
+  automatic_generations: 5
+  automatic_interval_minutes: 5
+
+optimization:
+  default_preset: "standard"
+  fast_time_limit_seconds: 30
+  standard_time_limit_seconds: 120
+  high_quality_time_limit_seconds: 600
+  random_seed: 20260729
+  num_search_workers: 1
+  regular_teacher_priority_weights: [1, 3, 6, 10]
+  preferred_teacher_rank_weights: [9, 6, 3]
+  student_preferred_time_weight: 1
+  teacher_preferred_time_weight: 1
+  preserve_existing_assignment_weight: 1
+  optional_balance_weight: 0
+
+output:
+  paper_size: "A3"
+  orientation: "landscape"
+  visible_fields:
+    - "grade"
+    - "group"
+    - "locked"
+    - "manual"
+    - "note"
+    - "one_to_one"
+    - "subject"
+    - "warning"
+  days_per_page: 2
+  teacher_columns_per_page: 8
+  font_size: 8.0
+  margin_mm: 8.0
+  file_name_pattern: "{report}"
+  default_output_directory: null
+  student_page_mode: "one_per_page"
+  csv_with_bom: true
+  style_rules:
+    one_to_one:
+      label: "1対1"
+      marker: "[1対1]"
+      fill_color: "#FFF1CC"
+      text_color: "#18212F"
+    group:
+      label: "集団授業"
+      marker: "[集団]"
+      fill_color: "#303846"
+      text_color: "#FFFFFF"
+    locked:
+      label: "ロック"
+      marker: "[固定]"
+      fill_color: "#DCEBFF"
+      text_color: "#18212F"
+    warning:
+      label: "警告"
+      marker: "[警告]"
+      fill_color: "#FFE0E0"
+      text_color: "#18212F"
+    unconfirmed:
+      label: "未確定"
+      marker: "[未確定]"
+      fill_color: "#E8E8E8"
+      text_color: "#18212F"
+    manual:
+      label: "手動変更"
+      marker: "[手]"
+      fill_color: "#EADFFF"
+      text_color: "#18212F"
+    closed:
+      label: "休校"
+      marker: "[休校]"
+      fill_color: "#333333"
+      text_color: "#FFFFFF"

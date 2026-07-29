@@ -1,0 +1,114 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments and local environment variables
+.venv/
+.venv-release/
+venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+/config.yaml
+/config.local.yaml
+*.key
+*.p12
+*.pem
+*.pfx
+*.jks
+*.kdbx
+*.keystore
+
+# Test, lint, type-check, and coverage caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+nuitka-crash-report.xml
+crash-report.xml
+*.dmp
+*.build/
+*.dist/
+*.onefile-build/
+deployment/
+*.exe
+*.msi
+*.msix
+*.zip
+*.7z
+
+# Runtime databases and project files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-shm
+*.sqlite3-wal
+*.db3
+*.jukuschedule
+*.jukuschedule-journal
+*.jukuschedule-shm
+*.jukuschedule-wal
+
+# Local logs
+*.log
+*.log.*
+
+# Local input, output, backup, and runtime directories
+/data/
+/input/
+/inputs/
+/output/
+/outputs/
+/backup/
+/backups/
+/runtime/
+/logs/
+/snapshots/
+/var/
+*.csv
+*.xls
+*.xlsm
+*.xlsx
+*.ods
+*.pdf
+*.bak
+*.backup
+*.dump
+# Atomic export scratch files can contain the same personal data as final outputs.
+*.tmp
+
+# Reference documents may contain operational or personal information
+/docs/reference/
+
+# Local implementation briefs and work logs used during assisted development.
+# They are intentionally kept on the developer machine and are not part of the
+# public product specification or source distribution.
+/CODEX_*.md
+/docs/development_progress.md
+
+# Operating-system artifacts
+Thumbs.db
+Desktop.ini
+.DS_Store

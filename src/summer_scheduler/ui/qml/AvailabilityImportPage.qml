@@ -1,0 +1,628 @@
+pragma ComponentBehavior: Bound
+
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Dialogs as Dialogs
+import QtQuick.Layouts
+
+Item {
+    id: root
+
+    required property var viewModel
+    signal openHomeRequested
+
+    function rowValue(row, key, fallback) {
+        if (row && row[key] !== undefined && row[key] !== null)
+            return row[key]
+        return fallback
+    }
+
+    function summaryValue(key) {
+        return Number(root.rowValue(root.viewModel.importSummary, key, 0))
+    }
+
+    function headerOptions() {
+        const options = [qsTr("未選択")]
+        const headers = root.viewModel.sourceHeaders || []
+        for (let i = 0; i < headers.length; ++i)
+            options.push(String(headers[i]))
+        return options
+    }
+
+    function headerIndex(sourceHeader) {
+        const options = root.headerOptions()
+        for (let i = 1; i < options.length; ++i) {
+            if (String(options[i]) === String(sourceHeader))
+                return i
+        }
+        return 0
+    }
+
+    function sheetIndex(sheetName) {
+        const sheets = root.viewModel.sourceSheets || []
+        for (let i = 0; i < sheets.length; ++i) {
+            if (String(sheets[i]) === String(sheetName))
+                return i
+        }
+        return sheets.length > 0 ? 0 : -1
+    }
+
+    function encodingIndex(encoding) {
+        if (encoding === "utf-8-sig")
+            return 1
+        if (encoding === "cp932")
+            return 2
+        return 0
+    }
+
+    function previewRowText(row) {
+        if (!row)
+            return ""
+        const parts = []
+        const keys = Object.keys(row)
+        for (let i = 0; i < keys.length; ++i) {
+            if (i >= 8) {
+                parts.push(qsTr("…ほか%1列").arg(keys.length - i))
+                break
+            }
+            parts.push(qsTr("%1=%2").arg(keys[i]).arg(String(row[keys[i]])))
+        }
+        return parts.join("  /  ")
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 20
+        visible: !root.viewModel.hasOpenProject
+        radius: 10
+        color: "#ffffff"
+        border.color: "#dce2ea"
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 520)
+            spacing: 12
+
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("プロジェクトが開かれていません")
+                color: "#344054"
+                font.pixelSize: 18
+                font.weight: Font.DemiBold
+                horizontalAlignment: Text.AlignHCenter
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("アンケート回答はプロジェクト単位で検証・保存します。先にホームからプロジェクトを開いてください。")
+                color: "#667085"
+                font.pixelSize: 11
+                wrapMode: Text.Wrap
+                horizontalAlignment: Text.AlignHCenter
+            }
+            Button {
+                Layout.alignment: Qt.AlignHCenter
+                text: qsTr("ホームへ移動")
+                onClicked: root.openHomeRequested()
+            }
+        }
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 18
+        visible: root.viewModel.hasOpenProject
+        spacing: 9
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 12
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 1
+
+                Label {
+                    text: qsTr("アンケート取込み")
+                    color: "#18212f"
+                    font.pixelSize: 24
+                    font.weight: Font.Bold
+                }
+                Label {
+                    text: qsTr("xlsx／CSVを列マッピングし、0=不可・1=可能・2=希望として安全に反映します。")
+                    color: "#667085"
+                    font.pixelSize: 10
+                }
+            }
+
+            Button {
+                text: root.viewModel.importKind === "teacher"
+                      ? qsTr("講師テンプレートを保存…")
+                      : qsTr("生徒テンプレートを保存…")
+                onClicked: templateDialog.open()
+            }
+
+            Button {
+                text: qsTr("取込みをクリア")
+                enabled: Boolean(root.viewModel.sourcePath)
+                onClicked: {
+                    includeDeletes.checked = false
+                    root.viewModel.clearImport()
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            visible: Boolean(root.viewModel.errorMessage)
+                     || Boolean(root.viewModel.statusMessage)
+            implicitHeight: importMessage.implicitHeight + 16
+            radius: 6
+            color: root.viewModel.errorMessage ? "#fff6f5" : "#ecfdf3"
+            border.color: root.viewModel.errorMessage ? "#e5aaa6" : "#a9dec0"
+
+            Label {
+                id: importMessage
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                text: root.viewModel.errorMessage
+                      ? qsTr("✕ %1").arg(root.viewModel.errorMessage)
+                      : qsTr("✓ %1").arg(root.viewModel.statusMessage)
+                color: root.viewModel.errorMessage ? "#a23b3b" : "#176b40"
+                font.pixelSize: 10
+                wrapMode: Text.Wrap
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: sourceControls.implicitHeight + 18
+            radius: 8
+            color: "#ffffff"
+            border.color: "#dce2ea"
+
+            ColumnLayout {
+                id: sourceControls
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                spacing: 6
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Label {
+                        text: qsTr("対象")
+                        color: "#344054"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                    }
+
+                    Button {
+                        text: qsTr("生徒回答")
+                        checkable: true
+                        checked: root.viewModel.importKind === "student"
+                        onClicked: {
+                            includeDeletes.checked = false
+                            root.viewModel.setImportKind("student")
+                        }
+                    }
+                    Button {
+                        text: qsTr("講師回答")
+                        checkable: true
+                        checked: root.viewModel.importKind === "teacher"
+                        onClicked: {
+                            includeDeletes.checked = false
+                            root.viewModel.setImportKind("teacher")
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: 28
+                        color: "#dce2ea"
+                    }
+
+                    ComboBox {
+                        id: encodingBox
+
+                        Layout.preferredWidth: 150
+                        model: [
+                            {"label": qsTr("CSV: 自動判定"), "value": "auto"},
+                            {"label": "CSV: UTF-8", "value": "utf-8-sig"},
+                            {"label": "CSV: CP932", "value": "cp932"}
+                        ]
+                        textRole: "label"
+                        valueRole: "value"
+                        currentIndex: root.encodingIndex(
+                                          root.viewModel.sourceEncoding)
+                        Accessible.name: qsTr("CSV文字コード")
+                        onActivated: root.viewModel.setSourceEncoding(currentValue)
+                    }
+
+                    Button {
+                        text: qsTr("回答ファイルを選択…")
+                        highlighted: true
+                        onClicked: sourceDialog.open()
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.viewModel.sourcePath || qsTr("ファイル未選択")
+                        color: root.viewModel.sourcePath ? "#475467" : "#7a8493"
+                        font.pixelSize: 9
+                        elide: Text.ElideMiddle
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Label {
+                        text: qsTr("シート")
+                        color: "#344054"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                    }
+                    ComboBox {
+                        Layout.preferredWidth: 210
+                        model: root.viewModel.sourceSheets || []
+                        currentIndex: root.sheetIndex(
+                                          root.viewModel.selectedSheet)
+                        enabled: count > 0
+                        Accessible.name: qsTr("取込み対象シート")
+                        onActivated: root.viewModel.selectSourceSheet(currentText)
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.viewModel.sourceSheets.length > 0
+                              ? qsTr("選択中：%1／文字コード：%2")
+                                .arg(root.viewModel.selectedSheet || qsTr("未選択"))
+                                .arg(root.viewModel.sourceEncoding || "auto")
+                              : qsTr("xlsxはシート選択、CSVは文字コード判定後に列を対応付けます。")
+                        color: "#667085"
+                        font.pixelSize: 9
+                        elide: Text.ElideRight
+                    }
+
+                    Button {
+                        text: qsTr("検証して差分を作成")
+                        highlighted: true
+                        enabled: Boolean(root.viewModel.sourcePath)
+                        onClicked: {
+                            includeDeletes.checked = false
+                            root.viewModel.validateAvailabilityImport()
+                        }
+                    }
+                }
+            }
+        }
+
+        SplitView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            orientation: Qt.Horizontal
+
+            Rectangle {
+                SplitView.preferredWidth: 390
+                SplitView.minimumWidth: 320
+                color: "#ffffff"
+                border.color: "#dce2ea"
+                radius: 7
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 9
+                    spacing: 6
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("列マッピング")
+                            color: "#344054"
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Label {
+                            text: qsTr("* 必須")
+                            color: "#a23b3b"
+                            font.pixelSize: 9
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: mappingHelp.implicitHeight + 12
+                        color: "#f5f8fc"
+                        border.color: "#d9e1ec"
+                        radius: 5
+
+                        Label {
+                            id: mappingHelp
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.margins: 7
+                            text: qsTr("入力列名が異なる場合は、保存先の項目ごとに元の列を選択してください。")
+                            color: "#52647d"
+                            font.pixelSize: 9
+                            wrapMode: Text.Wrap
+                        }
+                    }
+
+                    ListView {
+                        id: mappingList
+
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 4
+                        model: root.viewModel.mappingRows || []
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                        }
+
+                        delegate: RowLayout {
+                            id: mappingDelegate
+
+                            required property var modelData
+                            width: ListView.view.width
+                            spacing: 7
+
+                            Label {
+                                Layout.preferredWidth: 142
+                                text: root.rowValue(mappingDelegate.modelData, "label", "")
+                                      + (root.rowValue(mappingDelegate.modelData,
+                                                       "required", false) ? " *" : "")
+                                color: root.rowValue(mappingDelegate.modelData,
+                                                     "required", false)
+                                       ? "#344054" : "#667085"
+                                font.pixelSize: 9
+                                elide: Text.ElideRight
+                            }
+
+                            ComboBox {
+                                Layout.fillWidth: true
+                                model: root.headerOptions()
+                                currentIndex: root.headerIndex(
+                                                  root.rowValue(
+                                                      mappingDelegate.modelData,
+                                                      "sourceHeader", ""))
+                                Accessible.name: qsTr("%1の入力列")
+                                                 .arg(root.rowValue(
+                                                          mappingDelegate.modelData,
+                                                          "label", ""))
+                                onActivated: root.viewModel.setColumnMapping(
+                                                 root.rowValue(
+                                                     mappingDelegate.modelData,
+                                                     "canonicalKey", ""),
+                                                 currentIndex > 0 ? currentText : "")
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                SplitView.fillWidth: true
+                SplitView.minimumWidth: 420
+                color: "#ffffff"
+                border.color: "#dce2ea"
+                radius: 7
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 9
+                    spacing: 6
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("先頭行プレビュー")
+                            color: "#344054"
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Label {
+                            text: qsTr("%1行").arg(previewList.count)
+                            color: "#667085"
+                            font.pixelSize: 9
+                        }
+                    }
+
+                    ListView {
+                        id: previewList
+
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 92
+                        clip: true
+                        spacing: 1
+                        model: root.viewModel.sourcePreviewRows || []
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                        }
+
+                        delegate: Rectangle {
+                            id: previewDelegate
+
+                            required property int index
+                            required property var modelData
+                            width: ListView.view.width
+                            height: 27
+                            color: index % 2 === 0 ? "#f8fafc" : "#ffffff"
+                            border.color: "#edf0f4"
+
+                            Label {
+                                anchors.fill: parent
+                                anchors.leftMargin: 7
+                                anchors.rightMargin: 7
+                                text: root.previewRowText(previewDelegate.modelData)
+                                color: "#475467"
+                                font.pixelSize: 8
+                                elide: Text.ElideRight
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                    }
+
+                    TabBar {
+                        id: resultTabs
+                        Layout.fillWidth: true
+
+                        TabButton {
+                            text: qsTr("差分（%1）")
+                                  .arg((root.viewModel.importDiffs || []).length)
+                        }
+                        TabButton {
+                            text: qsTr("エラー・警告（%1）")
+                                  .arg((root.viewModel.importIssues || []).length)
+                        }
+                    }
+
+                    StackLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        currentIndex: resultTabs.currentIndex
+
+                        Phase3DiffList {
+                            rows: root.viewModel.importDiffs
+                            emptyText: qsTr("検証すると、追加・変更・変更なし・削除候補を表示します。")
+                        }
+
+                        Phase3IssueList {
+                            rows: root.viewModel.importIssues
+                            emptyText: qsTr("検証エラー・警告はありません。")
+                        }
+                    }
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            Repeater {
+                model: [
+                    {"label": qsTr("追加"), "key": "addCount"},
+                    {"label": qsTr("変更"), "key": "changeCount"},
+                    {"label": qsTr("変更なし"), "key": "unchangedCount"},
+                    {"label": qsTr("削除候補"), "key": "deleteCandidateCount"},
+                    {"label": qsTr("エラー"), "key": "errorCount"},
+                    {"label": qsTr("警告"), "key": "warningCount"}
+                ]
+
+                delegate: Rectangle {
+                    id: summaryDelegate
+
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 42
+                    radius: 6
+                    color: root.rowValue(summaryDelegate.modelData, "key", "")
+                           === "errorCount" && root.summaryValue("errorCount") > 0
+                           ? "#fff6f5" : "#ffffff"
+                    border.color: "#dce2ea"
+
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 0
+                        Label {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: root.rowValue(summaryDelegate.modelData, "label", "")
+                            color: "#667085"
+                            font.pixelSize: 8
+                        }
+                        Label {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: root.summaryValue(
+                                      root.rowValue(summaryDelegate.modelData, "key", ""))
+                            color: "#344054"
+                            font.pixelSize: 14
+                            font.weight: Font.DemiBold
+                        }
+                    }
+                }
+            }
+
+            CheckBox {
+                id: includeDeletes
+
+                visible: root.summaryValue("deleteCandidateCount") > 0
+                text: qsTr("削除候補も反映")
+                Accessible.description: qsTr("チェックした場合のみ既存データの削除候補を反映します")
+            }
+
+            Button {
+                text: qsTr("検証済み差分を反映…")
+                highlighted: true
+                enabled: root.viewModel.canApplyImport
+                ToolTip.visible: hovered && !enabled
+                ToolTip.text: qsTr("エラーがある場合は反映できません。")
+                onClicked: applyConfirmation.open()
+            }
+        }
+    }
+
+    Dialogs.FileDialog {
+        id: sourceDialog
+        title: qsTr("アンケート回答を選択")
+        fileMode: Dialogs.FileDialog.OpenFile
+        nameFilters: [
+            qsTr("対応ファイル (*.xlsx *.csv)"),
+            qsTr("Excelブック (*.xlsx)"),
+            qsTr("CSVファイル (*.csv)")
+        ]
+        onAccepted: {
+            includeDeletes.checked = false
+            root.viewModel.inspectAvailabilitySource(
+                        selectedFile.toString(), encodingBox.currentValue)
+        }
+    }
+
+    Dialogs.FileDialog {
+        id: templateDialog
+        title: qsTr("アンケートテンプレートを保存")
+        fileMode: Dialogs.FileDialog.SaveFile
+        nameFilters: [qsTr("Excelブック (*.xlsx)")]
+        onAccepted: {
+            if (root.viewModel.importKind === "teacher")
+                root.viewModel.exportTeacherTemplate(selectedFile.toString())
+            else
+                root.viewModel.exportStudentTemplate(selectedFile.toString())
+        }
+    }
+
+    Dialogs.MessageDialog {
+        id: applyConfirmation
+        title: qsTr("アンケート差分を反映")
+        text: includeDeletes.checked
+              ? qsTr("追加・変更に加えて、削除候補も反映しますか？")
+              : qsTr("追加・変更を反映しますか？")
+        informativeText: includeDeletes.checked
+                         ? qsTr("削除候補%1件は明示的な選択により削除されます。処理全体は1トランザクションで保存されます。")
+                           .arg(root.summaryValue("deleteCandidateCount"))
+                         : qsTr("削除候補は反映せず保持します。処理全体は1トランザクションで保存されます。")
+        buttons: Dialogs.MessageDialog.Yes | Dialogs.MessageDialog.No
+        onButtonClicked: function (button) {
+            if (button === Dialogs.MessageDialog.Yes)
+                root.viewModel.applyAvailabilityImport(includeDeletes.checked)
+        }
+    }
+}
