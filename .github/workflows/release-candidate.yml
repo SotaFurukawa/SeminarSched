@@ -124,15 +124,28 @@ jobs:
           $env:SUMMER_SCHEDULER_DATA_DIR = Join-Path $smokeRoot "データ"
           $env:SUMMER_SCHEDULER_LOG_DIR = Join-Path $smokeRoot "ログ"
           $savedPath = $env:PATH
+          $smokeExitCode = $null
           try {
             $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
             $smoke = Start-Process -FilePath $exe `
               -ArgumentList "--smoke-test" -Wait -PassThru
-            if ($smoke.ExitCode -ne 0) {
-              throw "standalone smoke failed: $($smoke.ExitCode)"
-            }
+            $smokeExitCode = $smoke.ExitCode
           } finally {
             $env:PATH = $savedPath
+          }
+          if ($smokeExitCode -ne 0) {
+            $logPath = Join-Path $env:SUMMER_SCHEDULER_LOG_DIR "summer_scheduler.log"
+            if (Test-Path -LiteralPath $logPath -PathType Leaf) {
+              Write-Host "::group::Standalone application log"
+              Get-Content -LiteralPath $logPath -Encoding UTF8
+              Write-Host "::endgroup::"
+            } else {
+              Write-Warning (
+                "Standalone failed before local logging was initialized; " +
+                "no application log was created."
+              )
+            }
+            throw "standalone smoke failed: $smokeExitCode"
           }
           if (-not (Test-Path "$env:SUMMER_SCHEDULER_DATA_DIR\summer_scheduler.db")) {
             throw "standalone did not migrate its SQLite database"

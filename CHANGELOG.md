@@ -7,6 +7,15 @@
 
 - 本番 GitHub Release は未公開。
 
+## [1.0.0-rc.4] - 2026-07-30
+
+### 修正
+
+- Alembicが起動時に参照するSQLAlchemy方言を残し、MSVCのメモリ不足原因だった
+  `sqlalchemy.dialects.oracle.dictionary`だけをNuitka対象外にした。
+- packaged smoke失敗時に、ローカルログがあればActionsへ表示し、ログ初期化前の
+  失敗も明示するようにした。
+
 ## [1.0.0-rc.3] - 2026-07-29
 
 ### 修正

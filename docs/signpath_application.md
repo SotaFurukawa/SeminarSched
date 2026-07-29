@@ -8,7 +8,7 @@
 1. 公開リポジトリ
    [SotaFurukawa/SeminarSched](https://github.com/SotaFurukawa/SeminarSched)で、
    CIが成功している状態を維持する。
-2. `v1.0.0-rc.3`等のprereleaseを、将来署名したいportable ZIPと同じ構造で、
+2. `v1.0.0-rc.4`等のprereleaseを、将来署名したいportable ZIPと同じ構造で、
    **未署名であることを明記して先に公開**する。SignPathは署名対象の形式で既に
    リリースされているプロジェクトを条件としている。
 3. READMEの[Code signing policy](code_signing_policy.md)、`PRIVACY.md`、
