@@ -145,3 +145,8 @@ def test_release_build_and_workflow_run_environment_guard() -> None:
         "verify_release_environment.py"
     )
     assert "python scripts/verify_release_environment.py" in workflow
+    scrub = "python -m pip uninstall --yes argcomplete click colorama pipx userpath"
+    assert scrub in workflow
+    assert workflow.index(scrub) < workflow.index(
+        "python -m pip install -r packaging/requirements-release.txt"
+    )

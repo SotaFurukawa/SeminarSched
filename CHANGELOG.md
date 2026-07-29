@@ -6,6 +6,16 @@
 ## [Unreleased]
 
 - 本番 GitHub Release は未公開。
+
+## [1.0.0-rc.2] - 2026-07-29
+
+### 修正
+
+- GitHub-hosted Windows runnerに既定導入された補助パッケージをrelease build前に
+  除去し、固定した配布依存だけを許可する環境検証が誤検知しないようにした。
+
+### 追加
+
 - SignPath Foundation申請に必要なCode signing policy、プライバシーポリシー、
   役割、申請・有効化手順、Authenticode検証scriptを追加。
 - プロジェクト自身はGPL-3.0-only。第三者コンポーネントの公開前確認事項は
