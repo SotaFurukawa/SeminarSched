@@ -7,6 +7,15 @@
 
 - 本番 GitHub Release は未公開。
 
+## [1.0.0-rc.3] - 2026-07-29
+
+### 修正
+
+- NuitkaのWindows buildでSQLite以外の未使用SQLAlchemy方言をコンパイル対象外とし、
+  SQLite方言を明示包含した。
+- C compilerの並列job数を2へ制限し、GitHub-hosted runnerでMSVCが
+  `C1002: compiler is out of heap space`になる可能性を抑えた。
+
 ## [1.0.0-rc.2] - 2026-07-29
 
 ### 修正

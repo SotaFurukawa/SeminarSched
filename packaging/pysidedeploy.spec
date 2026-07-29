@@ -33,7 +33,7 @@ macos.permissions =
 mode = standalone
 # pyside6-deploy already enables the PySide6 plugin. Explicit data targets
 # preserve package-relative paths used by __file__ and importlib.resources.
-extra_args = --quiet --assume-yes-for-downloads --windows-console-mode=disable --msvc=latest --include-package=summer_scheduler.infrastructure.db.alembic.versions --include-package-data=ortools --include-data-dir=src/summer_scheduler/ui=summer_scheduler/ui --include-data-dir=src/summer_scheduler/resources=summer_scheduler/resources --include-data-dir=src/summer_scheduler/infrastructure/db/alembic=summer_scheduler/infrastructure/db/alembic --windows-company-name=SummerScheduler --windows-product-name=SummerCourseScheduler --windows-file-version=@FILE_VERSION@ --windows-product-version=@FILE_VERSION@
+extra_args = --quiet --assume-yes-for-downloads --windows-console-mode=disable --msvc=latest --jobs=2 --include-package=summer_scheduler.infrastructure.db.alembic.versions --include-package=sqlalchemy.dialects.sqlite --nofollow-import-to=sqlalchemy.dialects.mssql --nofollow-import-to=sqlalchemy.dialects.mysql --nofollow-import-to=sqlalchemy.dialects.oracle --nofollow-import-to=sqlalchemy.dialects.postgresql --include-package-data=ortools --include-data-dir=src/summer_scheduler/ui=summer_scheduler/ui --include-data-dir=src/summer_scheduler/resources=summer_scheduler/resources --include-data-dir=src/summer_scheduler/infrastructure/db/alembic=summer_scheduler/infrastructure/db/alembic --windows-company-name=SummerScheduler --windows-product-name=SummerCourseScheduler --windows-file-version=@FILE_VERSION@ --windows-product-version=@FILE_VERSION@
 
 [buildozer]
 

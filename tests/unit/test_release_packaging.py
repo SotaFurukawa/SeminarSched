@@ -26,8 +26,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 def test_release_version_and_tag_match_project_metadata() -> None:
     version = version_from_pyproject(REPOSITORY_ROOT / "pyproject.toml")
 
-    assert version == "1.0.0-rc.2"
-    validate_tag("v1.0.0-rc.2", version)
+    assert version == "1.0.0-rc.3"
+    validate_tag("v1.0.0-rc.3", version)
     with pytest.raises(ReleasePackagingError, match="一致しません"):
         validate_tag("v1.0.0", version)
     with pytest.raises(ReleasePackagingError, match="Semantic Versioning"):
@@ -129,6 +129,11 @@ def test_pyside_deploy_spec_is_relative_standalone_and_complete() -> None:
     assert "--windows-console-mode=disable" in text
     assert "--include-package-data=ortools" in text
     assert "--include-package=summer_scheduler.infrastructure.db.alembic.versions" in text
+    assert "--jobs=2" in text
+    assert "--include-package=sqlalchemy.dialects.sqlite" in text
+    for dialect in ("mssql", "mysql", "oracle", "postgresql"):
+        assert f"--nofollow-import-to=sqlalchemy.dialects.{dialect}" in text
+    assert "--nofollow-import-to=sqlalchemy.dialects.sqlite" not in text
     assert "summer_scheduler/ui" in text
     assert "summer_scheduler/resources" in text
     assert "Qt.labs.assetdownloader" in text
