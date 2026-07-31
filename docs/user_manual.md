@@ -1,6 +1,6 @@
 # 夏期講習時間割作成アプリ 利用者マニュアル
 
-対象: `1.0.1`
+対象: `1.0.2`
 最終更新: 2026-08-01
 
 初めて利用する場合は、先に
@@ -41,8 +41,8 @@ Releaseページ以外から受け取った実行ファイルを安易に実行�
 公開版では`SHA256SUMS.txt`とダウンロードしたファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Portable-1.0.1.zip -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Setup-1.0.1.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.0.2.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.0.2.exe -Algorithm SHA256
 ```
 
 表示されたhashがReleaseページの値と1文字でも異なる場合は使用しません。
@@ -490,7 +490,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 
 ## 20. 現在の既知の制限
 
-- `1.0.1`のGitHub Release公開と署名状態は、配布元のReleaseページで確認します。
+- `1.0.2`のGitHub Release公開と署名状態は、配布元のReleaseページで確認します。
 - clean Windows、実installer / portable、SmartScreen、install / uninstallの受入結果は
   [`acceptance_test_phase7.md`](acceptance_test_phase7.md)を参照してください。
 - 選択日・選択生徒・選択講師周辺だけの部分再最適化はありません。
