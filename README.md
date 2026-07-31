@@ -78,7 +78,12 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 
 初回起動時にapp管理SQLite DB、設定用directory、logを利用者領域へ作り、日本語の
 ホーム画面を表示します。最初に「新規プロジェクト」または「既存プロジェクトを開く」
-を選びます。業務手順は[`docs/user_manual.md`](docs/user_manual.md)を参照してください。
+を選びます。初めて利用する場合は
+[`docs/quick_start_guide.md`](docs/quick_start_guide.md)、詳しい業務手順は
+[`docs/user_manual.md`](docs/user_manual.md)を参照してください。Googleフォームの
+質問例と回答の整形方法は
+[`docs/google_forms_questionnaire_guide.md`](docs/google_forms_questionnaire_guide.md)
+にまとめています。
 
 このリリース候補はコード署名していないため、Windows SmartScreenで発行元不明の
 警告が表示される可能性があります。Windowsの保護機能や組織policyを恒久的に無効化
@@ -307,6 +312,10 @@ Phase 7の異常終了、破損、OneDrive競合、read-only、容量、権限�
   再取込み時に無視されます。
 - 真偽値は原則「はい／いいえ」で入力します。IDは名前ではなく安定した文字列IDを
   使用します。
+- 参照IDは直接入力でき、隣の確認列へ名前が表示されます。「名前から選択」の
+  プルダウンから選び、正式なIDを自動表示する入力方法も利用できます。
+- 生徒の標準最大連続コマ数、空きコマ許可、有効が空欄の場合は、順に`2`、
+  `いいえ`、`はい`として取り込みます。
 - 入力規則、列説明、参照IDの選択肢、フィルター、固定ヘッダーを含みます。
 - 取込み時は必須シート・列、型、重複、参照ID、優先度、講師資格等を行単位で検証し、
   シート、行番号、列名、新規／更新件数を反映前に表示します。

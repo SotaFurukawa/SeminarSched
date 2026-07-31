@@ -7,6 +7,8 @@ from enum import StrEnum
 from math import isfinite
 from typing import Final
 
+_NO_DEFAULT: Final = object()
+
 
 class ValueKind(StrEnum):
     """Excelセルの期待型。"""
@@ -28,6 +30,12 @@ class ColumnSpec:
     width: float
     minimum: int | None = None
     maximum: int | None = None
+    default_when_blank: object = _NO_DEFAULT
+
+    @property
+    def uses_default_when_blank(self) -> bool:
+        """空欄を既定値として受け付ける列かを返す。"""
+        return self.default_when_blank is not _NO_DEFAULT
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,17 +87,19 @@ STUDENT_SHEET: Final = SheetSpec(
             "標準最大連続コマ数",
             ValueKind.INTEGER,
             True,
-            "通常許可する最大連続コマ数。1以上。",
+            "通常許可する最大連続コマ数。1以上。空欄は2として取り込みます。",
             20,
             minimum=1,
+            default_when_blank=2,
         ),
         ColumnSpec(
             "allow_gap",
             "空きコマ許可",
             ValueKind.BOOLEAN,
             True,
-            "「はい」または「いいえ」。",
+            "「はい」または「いいえ」。空欄は「いいえ」として取り込みます。",
             14,
+            default_when_blank=False,
         ),
         ColumnSpec("note", "備考", ValueKind.TEXT, False, "任意の備考。", 28),
         ColumnSpec(
@@ -97,8 +107,9 @@ STUDENT_SHEET: Final = SheetSpec(
             "有効",
             ValueKind.BOOLEAN,
             True,
-            "使用中は「はい」、使用停止は「いいえ」。",
+            "使用中は「はい」、使用停止は「いいえ」。空欄は「はい」として取り込みます。",
             11,
+            default_when_blank=True,
         ),
     ),
     example={
@@ -132,8 +143,9 @@ TEACHER_SHEET: Final = SheetSpec(
             "空きコマ許可",
             ValueKind.BOOLEAN,
             True,
-            "「はい」または「いいえ」。",
+            "「はい」または「いいえ」。空欄は「いいえ」として取り込みます。",
             14,
+            default_when_blank=False,
         ),
         ColumnSpec("note", "備考", ValueKind.TEXT, False, "任意の備考。", 28),
         ColumnSpec(
@@ -141,8 +153,9 @@ TEACHER_SHEET: Final = SheetSpec(
             "有効",
             ValueKind.BOOLEAN,
             True,
-            "使用中は「はい」、使用停止は「いいえ」。",
+            "使用中は「はい」、使用停止は「いいえ」。空欄は「はい」として取り込みます。",
             11,
+            default_when_blank=True,
         ),
     ),
     example={
@@ -191,8 +204,9 @@ SUBJECT_SHEET: Final = SheetSpec(
             "有効",
             ValueKind.BOOLEAN,
             True,
-            "使用中は「はい」、使用停止は「いいえ」。",
+            "使用中は「はい」、使用停止は「いいえ」。空欄は「はい」として取り込みます。",
             11,
+            default_when_blank=True,
         ),
     ),
     example={
@@ -371,6 +385,34 @@ MASTER_DATA_SHEETS: Final = (
 SHEETS_BY_NAME: Final = {sheet.name: sheet for sheet in MASTER_DATA_SHEETS}
 SHEET_NAMES: Final = tuple(sheet.name for sheet in MASTER_DATA_SHEETS)
 
+# 新テンプレートだけに追加する任意の入力補助列。旧テンプレートには存在しなくてもよい。
+OPTIONAL_HELPER_HEADERS: Final = {
+    QUALIFICATION_SHEET.name: frozenset(
+        {
+            "講師名から選択",
+            "講師名（確認）",
+            "科目名から選択",
+            "科目名（確認）",
+        }
+    ),
+    LESSON_REQUEST_SHEET.name: frozenset(
+        {
+            "生徒名から選択",
+            "生徒名（確認）",
+            "科目名から選択",
+            "科目名（確認）",
+            "通常担当講師名から選択",
+            "通常担当講師名（確認）",
+            "第1希望講師名から選択",
+            "第1希望講師名（確認）",
+            "第2希望講師名から選択",
+            "第2希望講師名（確認）",
+            "第3希望講師名から選択",
+            "第3希望講師名（確認）",
+        }
+    ),
+}
+
 
 class CellValueError(ValueError):
     """セル値が列定義に合わない場合の例外。"""
@@ -379,6 +421,8 @@ class CellValueError(ValueError):
 def normalize_cell_value(value: object, column: ColumnSpec) -> object:
     """セル値をDBへ反映できるPython値へ正規化する。"""
     if value is None or (isinstance(value, str) and not value.strip()):
+        if column.uses_default_when_blank:
+            return column.default_when_blank
         if column.required:
             raise CellValueError("必須項目です。")
         return None

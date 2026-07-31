@@ -14,6 +14,7 @@ from openpyxl import load_workbook
 from summer_scheduler.infrastructure.excel.contracts import ImportIssue, IssueSeverity
 from summer_scheduler.infrastructure.excel.schema import (
     MASTER_DATA_SHEETS,
+    OPTIONAL_HELPER_HEADERS,
     CellValueError,
     SheetSpec,
     normalize_cell_value,
@@ -243,8 +244,9 @@ def _read_header_positions(
             )
 
     expected_headers = set(sheet_spec.headers)
+    optional_helpers = OPTIONAL_HELPER_HEADERS.get(sheet_spec.name, frozenset())
     for actual_header in positions:
-        if actual_header not in expected_headers:
+        if actual_header not in expected_headers and actual_header not in optional_helpers:
             issues.append(
                 ImportIssue(
                     IssueSeverity.WARNING,

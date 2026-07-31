@@ -96,6 +96,98 @@ def test_template_has_all_sheets_guidance_and_skippable_examples(
     assert dict(preview.new_counts) == dict.fromkeys(SHEET_NAMES, 0)
 
 
+def test_template_supports_id_entry_and_name_selection_helpers(
+    project_session: tuple[Database, Session, int],
+    tmp_path: Path,
+) -> None:
+    _, session, project_id = project_session
+    path = MasterDataExcelService(session, project_id).export_template(
+        tmp_path / "名前選択付きテンプレート.xlsx"
+    )
+
+    workbook = load_workbook(path, data_only=False)
+    try:
+        assert workbook.calculation.calcMode == "auto"
+        assert workbook.calculation.fullCalcOnLoad is True
+        assert workbook.calculation.forceFullCalc is True
+        qualification = workbook["講師対応科目"]
+        assert [cell.value for cell in qualification[1]][1:7] == [
+            "講師ID",
+            "講師名から選択",
+            "講師名（確認）",
+            "科目コード",
+            "科目名から選択",
+            "科目名（確認）",
+        ]
+        assert str(qualification["B3"].value).startswith("=IF(C3=")
+        assert "MATCH(B3" in str(qualification["D3"].value)
+
+        requests = workbook["受講希望"]
+        assert [cell.value for cell in requests[1]][1:7] == [
+            "生徒ID",
+            "生徒名から選択",
+            "生徒名（確認）",
+            "科目コード",
+            "科目名から選択",
+            "科目名（確認）",
+        ]
+        assert str(requests["B3"].value).startswith("=IF(C3=")
+        assert "MATCH(B3" in str(requests["D3"].value)
+        assert any(
+            "講師'!$C$3" in str(validation.formula1)
+            for validation in requests.data_validations.dataValidation
+        )
+    finally:
+        workbook.close()
+
+
+def test_blank_student_teacher_and_subject_defaults_are_applied(
+    project_session: tuple[Database, Session, int],
+    tmp_path: Path,
+) -> None:
+    _, session, project_id = project_session
+    service = MasterDataExcelService(session, project_id)
+    source = service.export_template(tmp_path / "空欄既定値.xlsx")
+
+    workbook = load_workbook(source)
+    try:
+        student = _student_row()
+        student["標準最大連続コマ数"] = None
+        student["空きコマ許可"] = None
+        student["有効"] = None
+        _append_row(workbook["生徒"], student)
+
+        teacher = _teacher_row()
+        teacher["空きコマ許可"] = None
+        teacher["有効"] = None
+        _append_row(workbook["講師"], teacher)
+
+        subject = _subject_row()
+        subject["有効"] = None
+        _append_row(workbook["科目"], subject)
+        workbook.save(source)
+    finally:
+        workbook.close()
+
+    preview = service.preview_import(source)
+    assert not preview.has_errors
+    service.apply_import(preview)
+    session.commit()
+
+    imported_student = session.scalar(select(Student).where(Student.external_id == "S-001"))
+    imported_teacher = session.scalar(select(Teacher).where(Teacher.external_id == "T-001"))
+    imported_subject = session.scalar(select(Subject).where(Subject.code == "JH_CUSTOM_MATH"))
+    assert imported_student is not None
+    assert imported_student.default_max_consecutive_slots == 2
+    assert imported_student.allow_gap is False
+    assert imported_student.active is True
+    assert imported_teacher is not None
+    assert imported_teacher.allow_gap is False
+    assert imported_teacher.active is True
+    assert imported_subject is not None
+    assert imported_subject.active is True
+
+
 def test_japanese_workbook_import_and_export_round_trip(
     project_session: tuple[Database, Session, int],
     tmp_path: Path,
@@ -400,7 +492,16 @@ def _lesson_request_row() -> dict[str, object]:
 
 def _append_row(worksheet: Worksheet, values_by_header: Mapping[str, object]) -> None:
     headers = [cell.value for cell in worksheet[1]]
-    worksheet.append([values_by_header.get(str(header)) for header in headers])
+    target_row = next(
+        row_number
+        for row_number in range(3, worksheet.max_row + 2)
+        if worksheet.cell(row=row_number, column=1).value is None
+    )
+    for column_number, header in enumerate(headers, start=1):
+        if str(header) in values_by_header:
+            worksheet.cell(row=target_row, column=column_number).value = _cell_value(
+                values_by_header[str(header)]
+            )
 
 
 def _replace_or_append(
