@@ -14,7 +14,6 @@ ScrollView {
 
     function reload() {
         projectTitle.text = root.viewModel.currentProjectTitle || ""
-        campusName.text = root.viewModel.currentCampusName || ""
         startDate.text = root.viewModel.currentStartDate || ""
         endDate.text = root.viewModel.currentEndDate || ""
         root.saveAttempted = false
@@ -85,28 +84,6 @@ ScrollView {
                         }
                     }
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 3
-
-                        Label {
-                            text: qsTr("校舎名 *")
-                            color: "#344054"
-                            font.pixelSize: 11
-                        }
-                        TextField {
-                            id: campusName
-                            Layout.fillWidth: true
-                            Accessible.name: qsTr("校舎名")
-                            onTextEdited: root.viewModel.markDirty()
-                        }
-                        Label {
-                            visible: root.saveAttempted && campusName.text.trim() === ""
-                            text: qsTr("校舎名を入力してください。")
-                            color: "#a23b3b"
-                            font.pixelSize: 10
-                        }
-                    }
                 }
 
                 RowLayout {
@@ -197,13 +174,12 @@ ScrollView {
                         onClicked: {
                             root.saveAttempted = true
                             if (projectTitle.text.trim() === ""
-                                    || campusName.text.trim() === ""
                                     || startDate.text.trim() === ""
                                     || endDate.text.trim() === "")
                                 return
                             root.viewModel.saveProjectInfo(
                                         projectTitle.text.trim(),
-                                        campusName.text.trim(),
+                                        root.viewModel.currentCampusName || "既定校舎",
                                         startDate.text.trim(),
                                         endDate.text.trim())
                         }

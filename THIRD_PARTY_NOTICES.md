@@ -60,9 +60,8 @@ compiler実行も公式上の「using」に含まれ、commercial userには最�
 よる使用許諾を混同しない。license key、購入情報、証明書をリポジトリやCI artifactへ
 含めない。
 
-SignPath Foundationの無料OSS署名条件は全componentにOSI承認OSS licenseを求める。
-Inno Setup生成物をこの条件の対象にできるかはSignPathの確認が取れていないため、
-初回申請ではportable ZIP内の自作EXEだけを署名対象とし、installerは対象外とする。
+Windows成果物は社内利用向けに未署名で配布する。コード署名の有無にかかわらず、
+Inno Setupを含む第三者componentのライセンス条件とnoticeは配布前に確認する。
 
 ## 3. 実行時Python依存の監査結果
 

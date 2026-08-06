@@ -31,7 +31,7 @@ from summer_scheduler.infrastructure.excel import (
     MasterDataExcelService,
     MasterDataImportError,
 )
-from summer_scheduler.infrastructure.excel.schema import SHEET_NAMES
+from summer_scheduler.infrastructure.excel.schema import MASTER_DATA_SHEETS, SHEET_NAMES
 
 
 @pytest.fixture
@@ -112,10 +112,10 @@ def test_template_supports_id_entry_and_name_selection_helpers(
         assert workbook.calculation.forceFullCalc is True
         qualification = workbook["講師対応科目"]
         assert [cell.value for cell in qualification[1]][1:7] == [
-            "講師ID",
+            "講師ID（必須）",
             "講師名から選択",
             "講師名（確認）",
-            "科目コード",
+            "科目コード（必須）",
             "科目名から選択",
             "科目名（確認）",
         ]
@@ -124,10 +124,10 @@ def test_template_supports_id_entry_and_name_selection_helpers(
 
         requests = workbook["受講希望"]
         assert [cell.value for cell in requests[1]][1:7] == [
-            "生徒ID",
+            "生徒ID（必須）",
             "生徒名から選択",
             "生徒名（確認）",
-            "科目コード",
+            "科目コード（必須）",
             "科目名から選択",
             "科目名（確認）",
         ]
@@ -137,8 +137,36 @@ def test_template_supports_id_entry_and_name_selection_helpers(
             "講師'!$C$3" in str(validation.formula1)
             for validation in requests.data_validations.dataValidation
         )
+        student = workbook["生徒"]
+        assert "生徒ID（必須）" in [cell.value for cell in student[1]]
+        assert any(
+            validation.formula1 == '"小1,小2,小3,小4,小5,小6,中1,中2,中3,高1,高2,高3"'
+            for validation in student.data_validations.dataValidation
+        )
     finally:
         workbook.close()
+
+
+def test_legacy_headers_without_required_marker_remain_importable(
+    project_session: tuple[Database, Session, int],
+    tmp_path: Path,
+) -> None:
+    _, session, project_id = project_session
+    service = MasterDataExcelService(session, project_id)
+    source = service.export_template(tmp_path / "旧ヘッダー互換.xlsx")
+    workbook = load_workbook(source)
+    try:
+        for sheet_spec in MASTER_DATA_SHEETS:
+            worksheet = workbook[sheet_spec.name]
+            for cell in worksheet[1]:
+                if isinstance(cell.value, str):
+                    cell.value = cell.value.removesuffix("（必須）")
+        workbook.save(source)
+    finally:
+        workbook.close()
+
+    preview = service.preview_import(source)
+    assert not preview.has_errors
 
 
 def test_blank_student_teacher_and_subject_defaults_are_applied(
@@ -186,6 +214,43 @@ def test_blank_student_teacher_and_subject_defaults_are_applied(
     assert imported_teacher.active is True
     assert imported_subject is not None
     assert imported_subject.active is True
+
+
+def test_blank_qualification_and_lesson_request_defaults_are_applied(
+    project_session: tuple[Database, Session, int],
+    tmp_path: Path,
+) -> None:
+    _, session, project_id = project_session
+    service = MasterDataExcelService(session, project_id)
+    source = service.export_template(tmp_path / "受講希望既定値.xlsx")
+    workbook = load_workbook(source)
+    try:
+        _append_row(workbook["生徒"], _student_row())
+        _append_row(workbook["講師"], _teacher_row())
+        _append_row(workbook["科目"], _subject_row())
+        qualification = _qualification_row()
+        qualification["指導可能"] = None
+        _append_row(workbook["講師対応科目"], qualification)
+        request = _lesson_request_row()
+        request["担当講師優先度"] = None
+        request["1対1必須"] = None
+        _append_row(workbook["受講希望"], request)
+        workbook.save(source)
+    finally:
+        workbook.close()
+
+    preview = service.preview_import(source)
+    assert not preview.has_errors
+    service.apply_import(preview)
+    session.commit()
+
+    qualification_entity = session.scalar(select(TeacherQualification))
+    lesson_request = session.scalar(select(LessonRequest))
+    assert qualification_entity is not None
+    assert qualification_entity.can_teach is True
+    assert lesson_request is not None
+    assert lesson_request.regular_teacher_priority == 3
+    assert lesson_request.one_to_one_required is False
 
 
 def test_japanese_workbook_import_and_export_round_trip(
@@ -498,9 +563,10 @@ def _append_row(worksheet: Worksheet, values_by_header: Mapping[str, object]) ->
         if worksheet.cell(row=row_number, column=1).value is None
     )
     for column_number, header in enumerate(headers, start=1):
-        if str(header) in values_by_header:
+        canonical_header = _canonical_header(str(header))
+        if canonical_header in values_by_header:
             worksheet.cell(row=target_row, column=column_number).value = _cell_value(
-                values_by_header[str(header)]
+                values_by_header[canonical_header]
             )
 
 
@@ -511,7 +577,8 @@ def _replace_or_append(
     values_by_header: Mapping[str, object],
 ) -> None:
     headers = [cell.value for cell in worksheet[1]]
-    key_column = headers.index(key_header) + 1
+    canonical_headers = [_canonical_header(str(header)) for header in headers]
+    key_column = canonical_headers.index(key_header) + 1
     target_row = next(
         (
             row_number
@@ -525,8 +592,12 @@ def _replace_or_append(
         return
     for column_number, header in enumerate(headers, start=1):
         worksheet.cell(row=target_row, column=column_number).value = _cell_value(
-            values_by_header.get(str(header)),
+            values_by_header.get(_canonical_header(str(header))),
         )
+
+
+def _canonical_header(header: str) -> str:
+    return header.removesuffix("（必須）")
 
 
 def _cell_value(value: object) -> str | int | float | bool | date | None:

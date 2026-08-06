@@ -26,8 +26,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 def test_release_version_and_tag_match_project_metadata() -> None:
     version = version_from_pyproject(REPOSITORY_ROOT / "pyproject.toml")
 
-    assert version == "1.0.2"
-    validate_tag("v1.0.2", version)
+    assert version == "1.0.3"
+    validate_tag("v1.0.3", version)
     with pytest.raises(ReleasePackagingError, match="一致しません"):
         validate_tag("v1.0.0", version)
     with pytest.raises(ReleasePackagingError, match="Semantic Versioning"):
@@ -196,34 +196,27 @@ def test_release_workflow_is_tag_only_and_creates_only_a_draft_prerelease() -> N
     assert '& (Join-Path $installRoot "SummerCourseScheduler.exe") --smoke-test' not in text
     assert "--draft" in text
     assert "--prerelease" in text
-    assert "## Code signing policy" in text
-    assert "Unsigned release candidate" in text
+    assert "## Unsigned internal distribution" in text
+    assert "Intentionally unsigned" in text
+    assert "SHA256SUMS.txt" in text
     assert "gh release create" in text
     assert "gh release upload" not in text
 
 
-def test_signpath_application_material_is_explicit_and_not_preactivated() -> None:
+def test_unsigned_distribution_policy_has_no_active_signpath_setup() -> None:
     readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
     policy = (REPOSITORY_ROOT / "docs" / "code_signing_policy.md").read_text(encoding="utf-8")
     application = (REPOSITORY_ROOT / "docs" / "signpath_application.md").read_text(encoding="utf-8")
-    verification = (REPOSITORY_ROOT / "scripts" / "verify_authenticode.ps1").read_text(
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "release-candidate.yml").read_text(
         encoding="utf-8"
     )
 
-    attribution = (
-        "Free code signing provided by [SignPath.io](https://signpath.io/), certificate by"
-    )
-    assert "Code signing policy" in readme
-    assert attribution in policy
-    assert "申請準備中" in policy
-    assert "SotaFurukawa" in policy
-    assert "SIGNPATH_API_TOKEN" in application
-    assert "signpath/github-action-submit-signing-request@v2" in application
-    assert "Inno Setup" in application
-    assert "Get-AuthenticodeSignature" in verification
-    assert "TimeStamperCertificate" in verification
-    assert "SignPath Foundation" in verification
-    assert "RequireUnsigned" in verification
+    assert "未署名" in readme
+    assert "意図的に未署名" in policy
+    assert "申請は不承認" in application
+    assert "SIGNPATH_API_TOKEN" not in workflow
+    assert "signpath/github-action" not in workflow.lower()
+    assert "-RequireUnsigned" in workflow
 
     active_workflows = "\n".join(
         path.read_text(encoding="utf-8")

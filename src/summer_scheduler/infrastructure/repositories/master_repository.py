@@ -22,6 +22,7 @@ from summer_scheduler.infrastructure.db.models import (
     GroupLesson,
     GroupLessonStudent,
     ImportBatch,
+    ImportSourceSnapshot,
     LessonRequest,
     OpenDate,
     Student,
@@ -234,7 +235,7 @@ class MasterRepository:
         statement = select(Student)
         if active_only:
             statement = statement.where(Student.active.is_(True))
-        statement = statement.order_by(Student.external_id, Student.id)
+        statement = statement.order_by(Student.active.desc(), Student.external_id, Student.id)
         return list(self._session.scalars(statement))
 
     def update_student(self, student: Student, **changes: object) -> Student:
@@ -275,7 +276,7 @@ class MasterRepository:
         statement = select(Teacher)
         if active_only:
             statement = statement.where(Teacher.active.is_(True))
-        statement = statement.order_by(Teacher.external_id, Teacher.id)
+        statement = statement.order_by(Teacher.active.desc(), Teacher.external_id, Teacher.id)
         return list(self._session.scalars(statement))
 
     def update_teacher(self, teacher: Teacher, **changes: object) -> Teacher:
@@ -928,6 +929,40 @@ class MasterRepository:
                 ImportBatch.id.desc(),
             )
             .limit(1)
+        )
+
+    def get_import_source_snapshot(
+        self,
+        *,
+        project_id: int,
+        import_type: str,
+    ) -> ImportSourceSnapshot | None:
+        return self._session.scalar(
+            select(ImportSourceSnapshot).where(
+                ImportSourceSnapshot.project_id == project_id,
+                ImportSourceSnapshot.import_type == import_type,
+            )
+        )
+
+    def replace_import_source_snapshot(
+        self,
+        snapshot: ImportSourceSnapshot,
+    ) -> ImportSourceSnapshot:
+        existing = self.get_import_source_snapshot(
+            project_id=snapshot.project_id,
+            import_type=snapshot.import_type,
+        )
+        if existing is None:
+            return self._create(snapshot)
+        return self._update(
+            existing,
+            {
+                "source_file_name": snapshot.source_file_name,
+                "content": snapshot.content,
+                "sha256": snapshot.sha256,
+                "size_bytes": snapshot.size_bytes,
+                "imported_at": snapshot.imported_at,
+            },
         )
 
     # ValidationIssue

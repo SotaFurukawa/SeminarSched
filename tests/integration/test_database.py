@@ -22,6 +22,7 @@ from summer_scheduler.infrastructure.db import (
 
 _PHASE5_REVISION = "20260729_0005"
 _PHASE6_REVISION = "20260729_0006"
+_HEAD_REVISION = "20260807_0007"
 
 
 def test_first_migration_creates_unicode_path_database(tmp_path: Path) -> None:
@@ -44,6 +45,7 @@ def test_first_migration_creates_unicode_path_database(tmp_path: Path) -> None:
             "group_lesson_students",
             "group_lessons",
             "import_batches",
+            "import_source_snapshots",
             "lesson_requests",
             "open_dates",
             "optimization_runs",
@@ -64,7 +66,7 @@ def test_first_migration_creates_unicode_path_database(tmp_path: Path) -> None:
             ).scalar_one()
             foreign_keys_enabled = connection.execute(text("PRAGMA foreign_keys")).scalar_one()
 
-        assert revision == get_head_revision() == "20260729_0006"
+        assert revision == get_head_revision() == _HEAD_REVISION
         assert foreign_keys_enabled == 1
     finally:
         database.dispose()
@@ -98,7 +100,7 @@ def test_migration_runtime_does_not_write_bytecode_cache(
 
     try:
         upgrade_database(database.engine)
-        assert get_head_revision() == _PHASE6_REVISION
+        assert get_head_revision() == _HEAD_REVISION
         assert sys.dont_write_bytecode is previous
         assert not list(copied.rglob("__pycache__"))
         assert not list(copied.rglob("*.py[co]"))

@@ -194,7 +194,7 @@ def _read_header_positions(
     sheet_spec: SheetSpec,
     issues: list[ImportIssue],
 ) -> dict[str, int]:
-    positions: dict[str, int] = {}
+    actual_positions: dict[str, int] = {}
     for column_number in range(1, worksheet.max_column + 1):
         value = worksheet.cell(row=1, column=column_number).value
         if value is None:
@@ -216,7 +216,7 @@ def _read_header_positions(
             )
             continue
         header = value.strip()
-        if header in positions:
+        if header in actual_positions:
             issues.append(
                 ImportIssue(
                     IssueSeverity.ERROR,
@@ -228,24 +228,47 @@ def _read_header_positions(
                 ),
             )
             continue
-        positions[header] = column_number
+        actual_positions[header] = column_number
 
-    for expected_header in sheet_spec.headers:
-        if expected_header not in positions:
+    positions: dict[str, int] = {}
+    for column in sheet_spec.columns:
+        matching_headers = tuple(
+            header
+            for header in dict.fromkeys((column.header, column.template_header))
+            if header in actual_positions
+        )
+        if len(matching_headers) > 1:
+            issues.append(
+                ImportIssue(
+                    IssueSeverity.ERROR,
+                    "旧形式と新形式の同じ列が重複しています。",
+                    sheet_name=sheet_spec.name,
+                    row_number=1,
+                    column_name=column.header,
+                    code="duplicate_header",
+                ),
+            )
+        elif matching_headers:
+            positions[column.header] = actual_positions[matching_headers[0]]
+        else:
             issues.append(
                 ImportIssue(
                     IssueSeverity.ERROR,
                     "必須列がありません。",
                     sheet_name=sheet_spec.name,
                     row_number=1,
-                    column_name=expected_header,
+                    column_name=column.header,
                     code="missing_column",
                 ),
             )
 
-    expected_headers = set(sheet_spec.headers)
+    expected_headers = {
+        header
+        for column in sheet_spec.columns
+        for header in (column.header, column.template_header)
+    }
     optional_helpers = OPTIONAL_HELPER_HEADERS.get(sheet_spec.name, frozenset())
-    for actual_header in positions:
+    for actual_header in actual_positions:
         if actual_header not in expected_headers and actual_header not in optional_helpers:
             issues.append(
                 ImportIssue(

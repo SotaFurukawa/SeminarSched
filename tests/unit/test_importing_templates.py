@@ -23,6 +23,11 @@ from summer_scheduler.infrastructure.importing import (
     write_student_availability_template,
     write_teacher_availability_template,
 )
+from summer_scheduler.infrastructure.importing.templates import (
+    STUDENT_REFERENCE_SHEET,
+    SUBJECT_REFERENCE_SHEET,
+    TEACHER_REFERENCE_SHEET,
+)
 
 
 def test_student_template_supports_dynamic_slots_rows_and_japanese_path(
@@ -44,21 +49,31 @@ def test_student_template_supports_dynamic_slots_rows_and_japanese_path(
                 "note": "確認用",
             },
         ),
+        reference_students=({"external_id": "S001", "name": "架空 青空", "grade": "中2"},),
+        reference_teachers=({"external_id": "T001", "name": "架空 一郎"},),
+        reference_subjects=({"code": "JH_MATH", "display_name": "中学校・数学"},),
     )
 
     workbook = load_workbook(destination, data_only=True)
     try:
-        assert workbook.sheetnames == [STUDENT_AVAILABILITY_SHEET, INSTRUCTIONS_SHEET]
+        assert workbook.sheetnames == [
+            STUDENT_AVAILABILITY_SHEET,
+            STUDENT_REFERENCE_SHEET,
+            TEACHER_REFERENCE_SHEET,
+            SUBJECT_REFERENCE_SHEET,
+            INSTRUCTIONS_SHEET,
+        ]
         worksheet = workbook[STUDENT_AVAILABILITY_SHEET]
         headers = tuple(cell.value for cell in worksheet[1])
         assert headers == (
             "例示行",
-            "生徒ID",
-            "生徒名",
-            "科目コード",
-            "日付",
-            "Y",
-            "夜間",
+            "生徒ID（必須）",
+            "生徒名（必須）",
+            "科目コード（必須）",
+            "科目名（確認）",
+            "日付（必須）",
+            "Y（必須）",
+            "夜間（必須）",
             "第1希望講師ID",
             "第2希望講師ID",
             "第3希望講師ID",
@@ -67,12 +82,18 @@ def test_student_template_supports_dynamic_slots_rows_and_japanese_path(
         assert worksheet["A2"].value == "はい"
         assert worksheet["A3"].value == "いいえ"
         assert worksheet["C3"].value == "架空 青空"
+        assert workbook[STUDENT_REFERENCE_SHEET]["A2"].value == "S001"
+        assert workbook[TEACHER_REFERENCE_SHEET]["B2"].value == "架空 一郎"
+        assert workbook[SUBJECT_REFERENCE_SHEET]["B2"].value == "中学校・数学"
         validations = tuple(worksheet.data_validations.dataValidation)
-        assert len(validations) == 2
-        assert {validation.formula1 for validation in validations} == {'"0,1,2"'}
+        assert len(validations) == 7
+        availability_validations = tuple(
+            validation for validation in validations if validation.formula1 == '"0,1,2"'
+        )
+        assert len(availability_validations) == 2
         assert all(
             "2:" in str(validation.sqref) and str(validation.sqref).endswith("10000")
-            for validation in validations
+            for validation in availability_validations
         )
     finally:
         workbook.close()
@@ -88,15 +109,15 @@ def test_teacher_template_has_availability_validation(tmp_path: Path) -> None:
         worksheet = workbook[TEACHER_AVAILABILITY_SHEET]
         assert tuple(cell.value for cell in worksheet[1]) == (
             "例示行",
-            "講師ID",
-            "講師名",
-            "日付",
-            "Y",
-            "Z",
-            "A",
+            "講師ID（必須）",
+            "講師名（必須）",
+            "日付（必須）",
+            "Y（必須）",
+            "Z（必須）",
+            "A（必須）",
             "備考",
         )
-        assert len(tuple(worksheet.data_validations.dataValidation)) == 3
+        assert len(tuple(worksheet.data_validations.dataValidation)) == 4
         assert "0 = 不可、1 = 可能、2 = 希望" in workbook[INSTRUCTIONS_SHEET]["B3"].value
     finally:
         workbook.close()

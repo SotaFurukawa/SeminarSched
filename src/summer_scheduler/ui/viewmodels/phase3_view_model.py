@@ -69,6 +69,7 @@ class Phase3ViewModel(QObject):
 
         self._import_kind: AvailabilityKind = "student"
         self._source_path = ""
+        self._stored_source_name = ""
         self._source_sheets: list[str] = []
         self._selected_sheet = ""
         self._source_encoding = "auto"
@@ -84,6 +85,10 @@ class Phase3ViewModel(QObject):
         self._group_preview: GroupImportPreview | None = None
         self._group_source_path = ""
         self._group_lessons: list[dict[str, object]] = []
+        self._group_dates: list[dict[str, object]] = []
+        self._group_subjects: list[dict[str, object]] = []
+        self._group_teachers: list[dict[str, object]] = []
+        self._group_slots: list[dict[str, object]] = []
         self._group_import_diffs: list[dict[str, object]] = []
         self._group_import_issues: list[dict[str, object]] = []
         self._group_import_summary = _empty_summary()
@@ -127,6 +132,15 @@ class Phase3ViewModel(QObject):
         return self._source_path
 
     sourcePath = Property(str, _get_source_path, notify=availabilityStateChanged)
+
+    def _get_stored_source_name(self) -> str:
+        return self._stored_source_name
+
+    storedSourceName = Property(
+        str,
+        _get_stored_source_name,
+        notify=availabilityStateChanged,
+    )
 
     def _get_source_sheets(self) -> list[str]:
         return self._source_sheets
@@ -197,6 +211,27 @@ class Phase3ViewModel(QObject):
 
     groupLessons = Property(list, _get_group_lessons, notify=groupStateChanged)
 
+    groupDates = Property(
+        list,
+        lambda self: self._group_dates,
+        notify=groupStateChanged,
+    )
+    groupSubjects = Property(
+        list,
+        lambda self: self._group_subjects,
+        notify=groupStateChanged,
+    )
+    groupTeachers = Property(
+        list,
+        lambda self: self._group_teachers,
+        notify=groupStateChanged,
+    )
+    groupSlots = Property(
+        list,
+        lambda self: self._group_slots,
+        notify=groupStateChanged,
+    )
+
     def _get_group_source_path(self) -> str:
         return self._group_source_path
 
@@ -265,6 +300,7 @@ class Phase3ViewModel(QObject):
             return
         self._import_kind = "student" if value == "student" else "teacher"
         self._reset_availability_source(keep_kind=True)
+        self._refresh_stored_source_name()
         self._clear_messages()
         self.availabilityStateChanged.emit()
 
@@ -356,6 +392,7 @@ class Phase3ViewModel(QObject):
                 include_deletes=include_deletes,
             )
             self._clear_availability_preview()
+            self._refresh_stored_source_name()
             self.availabilityStateChanged.emit()
             self._refresh_validation_after_data_change()
             self._set_status(
@@ -444,6 +481,47 @@ class Phase3ViewModel(QObject):
             "集団授業テンプレートを保存しました",
         )
 
+    @Slot(str, str, str, str, str, str, str, str, str, result=bool)
+    def createCalendarGroupLesson(
+        self,
+        grade: str,
+        subject_code: str,
+        day_value: str,
+        start_value: str,
+        end_value: str,
+        course_name: str,
+        teacher_external_id: str,
+        room: str,
+        note: str,
+    ) -> bool:
+        def action() -> None:
+            self._groups.create_calendar_lesson(
+                grade=grade,
+                subject_code=subject_code,
+                day=date.fromisoformat(day_value),
+                start_time=time.fromisoformat(start_value),
+                end_time=time.fromisoformat(end_value),
+                course_name=course_name,
+                teacher_external_id=teacher_external_id or None,
+                room=room,
+                note=note,
+            )
+            self._refresh_group_lessons()
+            self._refresh_validation_after_data_change()
+            self.groupStateChanged.emit()
+
+        return self._perform(action, "集団授業をカレンダーへ追加しました")
+
+    @Slot(int, result=bool)
+    def deleteCalendarGroupLesson(self, group_lesson_id: int) -> bool:
+        def action() -> None:
+            self._groups.delete_calendar_lesson(group_lesson_id)
+            self._refresh_group_lessons()
+            self._refresh_validation_after_data_change()
+            self.groupStateChanged.emit()
+
+        return self._perform(action, "集団授業を削除しました")
+
     # Validation and sample actions
 
     @Slot(result=bool)
@@ -468,14 +546,22 @@ class Phase3ViewModel(QObject):
             self._clear_group_preview()
             self._validation_has_run = False
         if self._projects.current is None:
+            self._stored_source_name = ""
             self._group_lessons = []
+            self._group_dates = []
+            self._group_subjects = []
+            self._group_teachers = []
+            self._group_slots = []
             self._validation_issues = []
             self._validation_has_run = False
             self._update_validation_summary()
         else:
+            self._refresh_stored_source_name()
+            self._refresh_group_options()
             self._refresh_group_lessons()
             self._set_validation_issues(self._validation.list_issues())
         self.projectStateChanged.emit()
+        self.availabilityStateChanged.emit()
         self.groupStateChanged.emit()
         self.validationStateChanged.emit()
 
@@ -487,9 +573,11 @@ class Phase3ViewModel(QObject):
             self._samples.create_anonymous_sample(_path_from_qml(path_value))
             self.projectChanged.emit()
             self._reset_availability_source(keep_kind=True)
+            self._refresh_stored_source_name()
             self._group_source_path = ""
             self._clear_group_preview()
             self._validation_has_run = True
+            self._refresh_group_options()
             self._refresh_group_lessons()
             self._set_validation_issues(self._validation.list_issues())
             self.projectStateChanged.emit()
@@ -612,9 +700,22 @@ class Phase3ViewModel(QObject):
             for row in self._groups.list_group_lessons()
         ]
 
+    def _refresh_group_options(self) -> None:
+        options = self._groups.calendar_options()
+        self._group_dates = list(options["dates"])
+        self._group_subjects = list(options["subjects"])
+        self._group_teachers = list(options["teachers"])
+        self._group_slots = list(options["slots"])
+
     def _refresh_validation_after_data_change(self) -> None:
         self._validation_has_run = False
         self._set_validation_issues(self._validation.list_issues())
+
+    def _refresh_stored_source_name(self) -> None:
+        if self._projects.current is None:
+            self._stored_source_name = ""
+            return
+        self._stored_source_name = self._availability.latest_source_name(self._import_kind)
 
     def _reset_availability_source(self, *, keep_kind: bool) -> None:
         if not keep_kind:

@@ -7,6 +7,7 @@ from datetime import date, time
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from PySide6.QtGui import QGuiApplication
 
 from summer_scheduler.application.availability_import_service import (
@@ -30,6 +31,11 @@ from summer_scheduler.infrastructure.importing import (
     GROUP_PARTICIPANT_SHEET,
     STUDENT_AVAILABILITY_SHEET,
     TEACHER_AVAILABILITY_SHEET,
+)
+from summer_scheduler.infrastructure.importing.templates import (
+    STUDENT_REFERENCE_SHEET,
+    SUBJECT_REFERENCE_SHEET,
+    TEACHER_REFERENCE_SHEET,
 )
 from summer_scheduler.optimization.solver import solve_optimization
 from summer_scheduler.shared.settings import load_settings
@@ -66,6 +72,16 @@ def test_anonymous_project_survives_import_optimize_edit_output_and_restart(
         teacher_book = tmp_path / "架空 講師アンケート.xlsx"
         availability.export_student_template(student_book)
         availability.export_teacher_template(teacher_book)
+        student_template = load_workbook(student_book, data_only=False)
+        try:
+            assert student_template[STUDENT_REFERENCE_SHEET]["A2"].value == "S-001"
+            assert student_template[TEACHER_REFERENCE_SHEET]["A2"].value == "T-001"
+            assert "JH_ENG" in {
+                cell.value for cell in student_template[SUBJECT_REFERENCE_SHEET]["A"]
+            }
+            assert student_template.calculation.forceFullCalc is True
+        finally:
+            student_template.close()
         _append_student_availability(student_book)
         _append_teacher_availability(teacher_book)
         student_preview = availability.prepare_import(
@@ -198,23 +214,22 @@ def test_anonymous_project_survives_import_optimize_edit_output_and_restart(
 def _append_student_availability(path: Path) -> None:
     workbook = load_workbook(path)
     try:
-        workbook[STUDENT_AVAILABILITY_SHEET].append(
-            (
-                False,
-                "S-001",
-                "架空 青空",
-                "JH_ENG",
-                date(2026, 8, 3),
-                1,
-                1,
-                1,
-                1,
-                1,
-                "T-001",
-                "",
-                "",
-                "Phase 7 匿名入力",
-            )
+        _write_template_row(
+            workbook[STUDENT_AVAILABILITY_SHEET],
+            {
+                "例示行": False,
+                "生徒ID": "S-001",
+                "生徒名": "架空 青空",
+                "科目コード": "JH_ENG",
+                "日付": date(2026, 8, 3),
+                "Y": 1,
+                "Z": 1,
+                "A": 1,
+                "B": 1,
+                "C": 1,
+                "第1希望講師ID": "T-001",
+                "備考": "Phase 7 匿名入力",
+            },
         )
         workbook.save(path)
     finally:
@@ -224,23 +239,40 @@ def _append_student_availability(path: Path) -> None:
 def _append_teacher_availability(path: Path) -> None:
     workbook = load_workbook(path)
     try:
-        workbook[TEACHER_AVAILABILITY_SHEET].append(
-            (
-                False,
-                "T-001",
-                "架空 講師あおい",
-                date(2026, 8, 3),
-                1,
-                1,
-                1,
-                1,
-                1,
-                "Phase 7 匿名入力",
-            )
+        _write_template_row(
+            workbook[TEACHER_AVAILABILITY_SHEET],
+            {
+                "例示行": False,
+                "講師ID": "T-001",
+                "講師名": "架空 講師あおい",
+                "日付": date(2026, 8, 3),
+                "Y": 1,
+                "Z": 1,
+                "A": 1,
+                "B": 1,
+                "C": 1,
+                "備考": "Phase 7 匿名入力",
+            },
         )
         workbook.save(path)
     finally:
         workbook.close()
+
+
+def _write_template_row(
+    worksheet: Worksheet,
+    values: dict[str, bool | float | str | date | None],
+) -> None:
+    target = worksheet
+    row_number = next(
+        number
+        for number in range(3, target.max_row + 2)
+        if target.cell(row=number, column=1).value is None
+    )
+    for column_number, cell in enumerate(target[1], start=1):
+        header = str(cell.value).removesuffix("（必須）")
+        if header in values:
+            target.cell(row=row_number, column=column_number).value = values[header]
 
 
 def _append_group_lesson(path: Path) -> None:

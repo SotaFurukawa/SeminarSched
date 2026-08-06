@@ -304,6 +304,17 @@ Item {
                         }
                     }
                 }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: root.viewModel.storedSourceName
+                          ? qsTr("プロジェクト内に保管済み：%1（次回反映時に差し替えます）")
+                            .arg(root.viewModel.storedSourceName)
+                          : qsTr("反映した回答原本は.jukuschedule内に保管され、元ファイルを移動しても失われません。")
+                    color: root.viewModel.storedSourceName ? "#176b40" : "#667085"
+                    font.pixelSize: 9
+                    wrapMode: Text.Wrap
+                }
             }
         }
 

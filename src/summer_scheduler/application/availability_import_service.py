@@ -11,7 +11,8 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Final, Literal, cast
 
@@ -27,6 +28,7 @@ from summer_scheduler.application.project_service import ProjectFileError, Proje
 from summer_scheduler.infrastructure.db.models import (
     AuditLog,
     ImportBatch,
+    ImportSourceSnapshot,
     Student,
     StudentAvailability,
     Subject,
@@ -150,10 +152,65 @@ class AvailabilityImportService:
         )
 
     def export_student_template(self, path: Path) -> None:
-        write_student_availability_template(path, self._slot_codes())
+        students, teachers, subjects = self._template_master_references()
+        write_student_availability_template(
+            path,
+            self._slot_codes(),
+            reference_students=students,
+            reference_teachers=teachers,
+            reference_subjects=subjects,
+        )
 
     def export_teacher_template(self, path: Path) -> None:
-        write_teacher_availability_template(path, self._slot_codes())
+        students, teachers, subjects = self._template_master_references()
+        write_teacher_availability_template(
+            path,
+            self._slot_codes(),
+            reference_students=students,
+            reference_teachers=teachers,
+            reference_subjects=subjects,
+        )
+
+    def latest_source_name(self, kind: AvailabilityKind) -> str:
+        """プロジェクト内へ保持している直近アンケート原本名を返す。"""
+        import_kind = self._kind(kind)
+        project_id = self._projects.require_project().project_id
+        database = self._projects.require_database()
+        with database.session_factory() as session:
+            snapshot = MasterRepository(session).get_import_source_snapshot(
+                project_id=project_id,
+                import_type=_IMPORT_TYPES[import_kind],
+            )
+            return snapshot.source_file_name if snapshot is not None else ""
+
+    def _template_master_references(
+        self,
+    ) -> tuple[
+        tuple[Mapping[str, object], ...],
+        tuple[Mapping[str, object], ...],
+        tuple[Mapping[str, object], ...],
+    ]:
+        """テンプレートへ同梱する有効なマスターの表示用snapshotを返す。"""
+        database = self._projects.require_database()
+        with database.session_factory() as session:
+            repository = MasterRepository(session)
+            students = tuple(
+                {
+                    "external_id": student.external_id,
+                    "name": student.name,
+                    "grade": student.grade,
+                }
+                for student in repository.list_students(active_only=True)
+            )
+            teachers = tuple(
+                {"external_id": teacher.external_id, "name": teacher.name}
+                for teacher in repository.list_teachers(active_only=True)
+            )
+            subjects = tuple(
+                {"code": subject.code, "display_name": subject.display_name}
+                for subject in repository.list_subjects(active_only=True)
+            )
+        return students, teachers, subjects
 
     def prepare_import(
         self,
@@ -237,6 +294,14 @@ class AvailabilityImportService:
         if checked.has_errors:
             raise AvailabilityImportError("検証エラーがあるため、可用性を取り込めません。")
 
+        try:
+            source_content = checked.source_path.read_bytes()
+        except OSError as exc:
+            raise AvailabilityImportError(
+                "アンケート原本をプロジェクト内へ保存できませんでした。"
+            ) from exc
+        source_hash = sha256(source_content).hexdigest()
+
         database = self._projects.require_database()
         with database.session_factory.begin() as session:
             repository = MasterRepository(session)
@@ -279,6 +344,17 @@ class AvailabilityImportService:
                     ),
                 )
             )
+            repository.replace_import_source_snapshot(
+                ImportSourceSnapshot(
+                    project_id=checked.project_id,
+                    import_type=_IMPORT_TYPES[checked.kind],
+                    source_file_name=checked.source_path.name,
+                    content=source_content,
+                    sha256=source_hash,
+                    size_bytes=len(source_content),
+                    imported_at=datetime.now(UTC),
+                )
+            )
             repository.create_audit_log(
                 AuditLog(
                     project_id=checked.project_id,
@@ -293,6 +369,7 @@ class AvailabilityImportService:
                             "unchanged": unchanged,
                             "deleted": deleted,
                             "source_file_name": checked.source_path.name,
+                            "source_sha256": source_hash,
                         },
                         ensure_ascii=False,
                         sort_keys=True,

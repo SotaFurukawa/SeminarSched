@@ -25,6 +25,7 @@ from summer_scheduler.reporting.layout import (
     LayoutSection,
     LayoutTable,
 )
+from summer_scheduler.reporting.person_names import compact_person_name_map
 from summer_scheduler.reporting.settings import OutputSettings
 
 _ONE_STUDENT_ROWS_PER_PAGE = 20
@@ -114,6 +115,7 @@ def _student_table(
     requests = {row.id: row for row in snapshot.lesson_requests}
     subjects = {row.id: row for row in snapshot.subjects}
     teachers = {row.id: row for row in snapshot.teachers}
+    teacher_display_names = compact_person_name_map(snapshot.teachers)
     slots = {row.id: row for row in snapshot.slots}
     allowed_days = selected_day_set(snapshot, selection)
     allowed_teachers = set(selection.teacher_ids)
@@ -193,7 +195,7 @@ def _student_table(
                         LayoutCell(slot.code, alignment="center"),
                         LayoutCell(f"{slot.start_time:%H:%M}–{slot.end_time:%H:%M}"),
                         LayoutCell(subject.name if "subject" in settings.visible_fields else "—"),
-                        LayoutCell(teacher.name),
+                        LayoutCell(teacher_display_names[teacher.id]),
                         LayoutCell(
                             ("1対1" if pair_size == 1 else f"1対{pair_size}")
                             if "one_to_one" in settings.visible_fields
@@ -231,7 +233,7 @@ def _student_table(
         slot_text = "/".join(slot.code for slot in overlapping) or "任意"
         sort_order = min((slot.sort_order for slot in overlapping), default=999)
         teacher_name = (
-            teachers[group.teacher_id_optional].name
+            teacher_display_names[group.teacher_id_optional]
             if group.teacher_id_optional in teachers
             else "担当未設定"
         )

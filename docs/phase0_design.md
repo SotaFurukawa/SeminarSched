@@ -7,7 +7,7 @@
 省略・緩和・変更しない。
 
 本書の実装計画部分は、Phase 0 / 1着手時点の記録である。現在は
-Phase 7および`1.0.2`まで実装している。Phase 2で確定した
+Phase 7および`1.0.3`まで実装している。Phase 2で確定した
 プロジェクトファイル、マスターの所属範囲、
 削除、Excel transactionは
 [`ADR 0005`](adr/0005-project-file-and-master-data-lifecycle.md)を参照する。
@@ -663,8 +663,8 @@ Phase 0時点の未決事項を次に示す。解決した項目には状態を�
 14. Undo / Redo履歴のアプリ再起動をまたぐ復元。Phase 5はprocess内stackと永続
     AuditLogを分け、再起動後に監査ログをcommandとして自動再生しない。
 15. **Phase 7で公開停止条件として明確化**: プロジェクト自身はGPL-3.0-onlyを
-    採用した。Qt Community Editionの対応ソース・notice、Inno Setupの利用条件と
-    SignPath署名対象の適格性は配布責任者が確認する。技術的なbuild成功だけで
-    本番公開しない。
+    採用した。Qt Community Editionの対応ソース・notice、Inno Setupの利用条件、
+    未署名表示、SHA-256、clean Windows受入は配布責任者が確認する。技術的なbuild
+    成功だけで本番公開しない。コード署名は当面採用しない。
 
 これらを決める際にも、マスター仕様のハード制約をソフト化したり、対象機能を削除したりしない。

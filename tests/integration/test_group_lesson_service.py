@@ -114,6 +114,37 @@ def test_import_diff_apply_and_explicit_deletion(
     assert group_service.list_group_lessons() == ()
 
 
+def test_calendar_options_create_and_delete_group_lesson(
+    group_service: GroupLessonService,
+) -> None:
+    options = group_service.calendar_options()
+    assert {row["value"] for row in options["dates"]} == {
+        "2026-08-01",
+        "2026-08-02",
+    }
+    assert any(row["code"] == "JH_MATH" for row in options["subjects"])
+    assert any(row["externalId"] == "T-001" for row in options["teachers"])
+
+    group_id = group_service.create_calendar_lesson(
+        grade="中2",
+        subject_code="JH_MATH",
+        day=date(2026, 8, 1),
+        start_time=time(17, 10),
+        end_time=time(18, 30),
+        course_name="受験数学",
+        teacher_external_id="T-001",
+        room="教室A",
+    )
+    listed = group_service.list_group_lessons()
+    assert len(listed) == 1
+    assert listed[0].grade == "中2"
+    assert listed[0].subject_name == "中学校・数学"
+    assert listed[0].teacher_name == "講師 一郎"
+
+    assert group_service.delete_calendar_lesson(group_id)
+    assert group_service.list_group_lessons() == ()
+
+
 def test_boundary_touch_is_allowed_but_overlapping_student_is_rejected(
     group_service: GroupLessonService,
     tmp_path: Path,
@@ -415,7 +446,7 @@ def test_participant_cannot_reference_missing_group_lesson(
     assert len(missing_reference) == 1
     assert missing_reference[0].sheet == GROUP_PARTICIPANT_SHEET
     assert missing_reference[0].row == 2
-    assert missing_reference[0].column == "集団授業ID"
+    assert missing_reference[0].column == "集団授業ID（必須）"
 
 
 def test_unknown_participant_reports_actual_sheet_row_and_source_header(
@@ -449,7 +480,7 @@ def test_unknown_participant_reports_actual_sheet_row_and_source_header(
     assert len(unknown_students) == 1
     assert unknown_students[0].sheet == GROUP_PARTICIPANT_SHEET
     assert unknown_students[0].row == 2
-    assert unknown_students[0].column == "生徒ID"
+    assert unknown_students[0].column == "生徒ID（必須）"
 
 
 def test_failed_apply_rolls_back_all_group_changes(

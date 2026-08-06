@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from collections.abc import Iterator
 from datetime import date
@@ -22,6 +23,7 @@ from summer_scheduler.infrastructure.db import create_database, upgrade_database
 from summer_scheduler.infrastructure.db.models import (
     AuditLog,
     ImportBatch,
+    ImportSourceSnapshot,
     LessonRequest,
     StudentAvailability,
     TeacherAvailability,
@@ -154,9 +156,38 @@ def test_student_import_updates_cells_and_preferences(
         levels = list(session.scalars(select(StudentAvailability.availability_level)))
         request = session.scalar(select(LessonRequest))
         batch = session.scalar(select(ImportBatch))
+        snapshot = session.scalar(select(ImportSourceSnapshot))
     assert sorted(levels) == [0, 1, 1, 2, 2]
     assert request is not None and request.preferred_teacher_1_id_optional is not None
     assert batch is not None and batch.source_file_name == source.name
+    assert snapshot is not None
+    assert snapshot.source_file_name == source.name
+    assert snapshot.content == source.read_bytes()
+    assert snapshot.sha256 == hashlib.sha256(source.read_bytes()).hexdigest()
+
+
+def test_new_import_replaces_embedded_source_snapshot(
+    import_service: AvailabilityImportService,
+    tmp_path: Path,
+) -> None:
+    first = tmp_path / "first.csv"
+    second = tmp_path / "second.csv"
+    row = ("S001", "生徒 太郎", "JH_MATH", _DAY.isoformat(), 1, 1, 1, 1, 1, "", "", "", "")
+    _write_csv(first, _STUDENT_HEADERS, [row])
+    import_service.apply_import(import_service.prepare_import("student", first))
+
+    changed_row = (
+        "S001", "生徒 太郎", "JH_MATH", _DAY.isoformat(), 2, 1, 1, 1, 1, "", "", "", ""
+    )
+    _write_csv(second, _STUDENT_HEADERS, [changed_row])
+    import_service.apply_import(import_service.prepare_import("student", second))
+
+    database = import_service._projects.require_database()
+    with database.session_factory() as session:
+        snapshots = list(session.scalars(select(ImportSourceSnapshot)))
+    assert len(snapshots) == 1
+    assert snapshots[0].source_file_name == "second.csv"
+    assert snapshots[0].content == second.read_bytes()
 
 
 def test_successful_import_persists_mapping_and_minimal_non_sensitive_audit(
@@ -212,6 +243,7 @@ def test_successful_import_persists_mapping_and_minimal_non_sensitive_audit(
         "unchanged": result.unchanged,
         "deleted": result.deleted,
         "source_file_name": source.name,
+        "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
     }
 
     persisted_payloads = (batch.mapping_json, audit.after_json or "")

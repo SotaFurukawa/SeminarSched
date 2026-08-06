@@ -92,6 +92,35 @@ def _create_base_graph(
     return campus, project, student, teacher, subject
 
 
+def test_inactive_people_are_listed_after_active_people(
+    repository: tuple[MasterRepository, Session, Database],
+) -> None:
+    repo, _session, _database = repository
+    repo.create_student(
+        Student(
+            external_id="S-001",
+            name="卒業 生徒",
+            grade="高3",
+            active=False,
+        )
+    )
+    active_student = repo.create_student(
+        Student(
+            external_id="S-999",
+            name="在籍 生徒",
+            grade="中1",
+            active=True,
+        )
+    )
+    repo.create_teacher(Teacher(external_id="T-001", name="退職 講師", active=False))
+    active_teacher = repo.create_teacher(
+        Teacher(external_id="T-999", name="在籍 講師", active=True)
+    )
+
+    assert repo.list_students()[0] is active_student
+    assert repo.list_teachers()[0] is active_teacher
+
+
 def test_typed_crud_for_all_phase2_models_does_not_commit(
     repository: tuple[MasterRepository, Session, Database],
 ) -> None:

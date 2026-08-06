@@ -6,6 +6,7 @@ import errno
 import json
 import logging
 import os
+import re
 import shutil
 import sqlite3
 from contextlib import closing
@@ -37,7 +38,10 @@ from summer_scheduler.infrastructure.db.models import (
     Campus,
     CourseProject,
     OpenDate,
+    Student,
     Subject,
+    Teacher,
+    TeacherQualification,
     TimeSlot,
 )
 
@@ -45,6 +49,8 @@ PROJECT_EXTENSION: Final = ".jukuschedule"
 _RECENT_PROJECTS_KEY: Final = "recent_projects"
 _MAX_RECENT_PROJECTS: Final = 10
 _RECOVERY_MARKER_FILENAME: Final = "recovery-session.json"
+_DEFAULT_CAMPUS_NAME: Final = "既定校舎"
+_INVALID_FILENAME_PATTERN: Final = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +121,41 @@ class ProjectSummary:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class _StudentMasterSnapshot:
+    external_id: str
+    name: str
+    grade: str
+    default_max_consecutive_slots: int
+    allow_gap: bool
+    note: str | None
+    active: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _TeacherMasterSnapshot:
+    external_id: str
+    name: str
+    allow_gap: bool
+    note: str | None
+    active: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _QualificationMasterSnapshot:
+    teacher_external_id: str
+    subject_code: str
+    can_teach: bool
+    note: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _PeopleMasterSnapshot:
+    students: tuple[_StudentMasterSnapshot, ...]
+    teachers: tuple[_TeacherMasterSnapshot, ...]
+    qualifications: tuple[_QualificationMasterSnapshot, ...]
+
+
 class ProjectService:
     """アプリ管理DBと現在のプロジェクトDBを分離して扱う。"""
 
@@ -124,11 +165,21 @@ class ProjectService:
         backup_directory: Path,
         *,
         automatic_backup_generations: int = 5,
+        workspace_directory: Path | None = None,
     ) -> None:
         if automatic_backup_generations < 1:
             raise ValueError("自動バックアップ世代数は1以上で指定してください")
         self._registry_database = registry_database
         self._backup_directory = backup_directory.resolve()
+        self._workspace_directory = (
+            workspace_directory.resolve()
+            if workspace_directory is not None
+            else (self._backup_directory.parent / "workspace").resolve()
+        )
+        self._student_directory = self._workspace_directory / "生徒"
+        self._teacher_directory = self._workspace_directory / "講師"
+        self._projects_directory = self._workspace_directory / "プロジェクト"
+        self._ensure_workspace_directories()
         self._automatic_backup_generations = automatic_backup_generations
         self._project_database: Database | None = None
         self._current: ProjectSummary | None = None
@@ -155,6 +206,26 @@ class ProjectService:
     def safety_warning(self) -> str:
         """直近の非致命的なバックアップ警告を返す。"""
         return self._safety_warning
+
+    @property
+    def workspace_directory(self) -> Path:
+        """利用者が場所を選ばず使える共通作業領域を返す。"""
+        return self._workspace_directory
+
+    @property
+    def student_directory(self) -> Path:
+        """年度をまたいで使う生徒資料の既定保存先を返す。"""
+        return self._student_directory
+
+    @property
+    def teacher_directory(self) -> Path:
+        """年度をまたいで使う講師資料の既定保存先を返す。"""
+        return self._teacher_directory
+
+    @property
+    def projects_directory(self) -> Path:
+        """講習プロジェクトの既定保存先を返す。"""
+        return self._projects_directory
 
     def require_database(self) -> Database:
         """プロジェクト未選択時は日本語エラーにする。"""
@@ -363,6 +434,32 @@ class ProjectService:
 
         return self.open_project(target)
 
+    def create_project_in_workspace(
+        self,
+        *,
+        title: str,
+        start_date: date,
+        end_date: date,
+    ) -> ProjectSummary:
+        """利用者へ保存先や校舎名を求めず、既定領域へ新規作成する。"""
+        inherited_people = self._snapshot_current_people()
+        stem = _safe_project_stem(title)
+        target = self._projects_directory / f"{stem}{PROJECT_EXTENSION}"
+        suffix = 2
+        while target.exists():
+            target = self._projects_directory / f"{stem}-{suffix}{PROJECT_EXTENSION}"
+            suffix += 1
+        created = self.create_project(
+            target,
+            title=title,
+            campus_name=_DEFAULT_CAMPUS_NAME,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if inherited_people is not None:
+            self._restore_people_snapshot(inherited_people)
+        return created
+
     def open_project(self, path: Path) -> ProjectSummary:
         """既存プロジェクトを検証・migrationして開く。"""
         target = _normalize_project_path(path)
@@ -560,6 +657,106 @@ class ProjectService:
             return []
         return [item for item in value if isinstance(item, dict)]
 
+    def _ensure_workspace_directories(self) -> None:
+        try:
+            for directory in (
+                self._student_directory,
+                self._teacher_directory,
+                self._projects_directory,
+                self._backup_directory,
+            ):
+                directory.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            _raise_storage_error("アプリの保存フォルダを準備", exc)
+
+    def _snapshot_current_people(self) -> _PeopleMasterSnapshot | None:
+        if self._project_database is None:
+            return None
+        with self._project_database.session_factory() as session:
+            students = tuple(
+                _StudentMasterSnapshot(
+                    row.external_id,
+                    row.name,
+                    row.grade,
+                    row.default_max_consecutive_slots,
+                    row.allow_gap,
+                    row.note,
+                    row.active,
+                )
+                for row in session.scalars(
+                    select(Student).order_by(Student.active.desc(), Student.external_id)
+                )
+            )
+            teachers = tuple(
+                _TeacherMasterSnapshot(
+                    row.external_id,
+                    row.name,
+                    row.allow_gap,
+                    row.note,
+                    row.active,
+                )
+                for row in session.scalars(
+                    select(Teacher).order_by(Teacher.active.desc(), Teacher.external_id)
+                )
+            )
+            teacher_external_ids = {
+                row.id: row.external_id for row in session.scalars(select(Teacher))
+            }
+            subject_codes = {row.id: row.code for row in session.scalars(select(Subject))}
+            qualifications = tuple(
+                _QualificationMasterSnapshot(
+                    teacher_external_ids[row.teacher_id],
+                    subject_codes[row.subject_id],
+                    row.can_teach,
+                    row.note,
+                )
+                for row in session.scalars(select(TeacherQualification))
+                if row.teacher_id in teacher_external_ids and row.subject_id in subject_codes
+            )
+        return _PeopleMasterSnapshot(students, teachers, qualifications)
+
+    def _restore_people_snapshot(self, snapshot: _PeopleMasterSnapshot) -> None:
+        database = self.require_database()
+        with database.session_factory.begin() as session:
+            students = [
+                Student(
+                    external_id=row.external_id,
+                    name=row.name,
+                    grade=row.grade,
+                    default_max_consecutive_slots=row.default_max_consecutive_slots,
+                    allow_gap=row.allow_gap,
+                    note=row.note,
+                    active=row.active,
+                )
+                for row in snapshot.students
+            ]
+            teachers = [
+                Teacher(
+                    external_id=row.external_id,
+                    name=row.name,
+                    allow_gap=row.allow_gap,
+                    note=row.note,
+                    active=row.active,
+                )
+                for row in snapshot.teachers
+            ]
+            session.add_all([*students, *teachers])
+            session.flush()
+            teacher_ids = {row.external_id: row.id for row in teachers}
+            subject_ids = {
+                row.code: row.id for row in session.scalars(select(Subject))
+            }
+            session.add_all(
+                TeacherQualification(
+                    teacher_id=teacher_ids[row.teacher_external_id],
+                    subject_id=subject_ids[row.subject_code],
+                    can_teach=row.can_teach,
+                    note=row.note,
+                )
+                for row in snapshot.qualifications
+                if row.teacher_external_id in teacher_ids and row.subject_code in subject_ids
+            )
+
     def _create_pre_migration_backup(self, source: Path) -> Path:
         target = self._backup_directory / _backup_filename(
             source,
@@ -680,6 +877,13 @@ def _load_project_summary(database: Database, path: Path) -> ProjectSummary:
             end_date=project.end_date,
             last_opened_at=datetime.now(tz=UTC),
         )
+
+
+def _safe_project_stem(title: str) -> str:
+    normalized = _INVALID_FILENAME_PATTERN.sub("_", title.strip()).rstrip(". ")
+    if not normalized:
+        normalized = "新規プロジェクト"
+    return normalized[:100]
 
 
 def _check_project_integrity(path: Path) -> IntegrityCheckResult:

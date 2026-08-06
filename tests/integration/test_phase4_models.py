@@ -161,13 +161,13 @@ def test_upgrade_from_0003_preserves_data_and_matches_metadata(
 
         upgrade_database(database.engine)
 
-        assert get_head_revision() == "20260729_0006"
+        assert get_head_revision() == "20260807_0007"
         tables = set(inspect(database.engine).get_table_names())
         assert {"assignments", "optimization_runs"} <= tables
         with database.engine.connect() as connection:
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "20260729_0006"
+                == "20260807_0007"
             )
 
         project_id, request_id, teacher_id, slot_id = ids

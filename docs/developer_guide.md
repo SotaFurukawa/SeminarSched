@@ -1,8 +1,19 @@
 # 開発者ガイド
 
+## Guided workspace（2026-08-07）
+
+`ProjectService`がworkspaceの`生徒`、`講師`、`プロジェクト`を作成し、QMLへは
+`WorkspaceViewModel.projectsDirectoryUrl`を公開する。インストールディレクトリへ実行時
+データを書かない。新規プロジェクトの人物継承は、生徒、講師、講師対応科目だけをsnapshot
+して新DBへ書き込み、LessonRequestやAvailabilityは講習固有データとして継承しない。
+
+Alembic `20260807_0007`は`import_source_snapshots`を追加する。種別ごとに1件を保持し、
+Availability取込みの同一transactionでBLOB、SHA-256、元ファイル名を更新する。
+詳細はADR 0011を参照する。
+
 ## 1. この文書の位置づけ
 
-このガイドは`1.0.2`時点の実装を説明する。公開版の機能仕様と
+このガイドは`1.0.3`時点の実装を説明する。公開版の機能仕様と
 ハード制約は[`specification.md`](specification.md)、初期設計は
 [`phase0_design.md`](phase0_design.md)、主要な判断理由は[`adr/`](adr/)を参照する。
 このガイドは、仕様に定めたハード制約やデータ安全性要件を緩和しない。
@@ -133,13 +144,12 @@ QML の表示だけを確認する場合も、QML ファイルを単独起動せ
 | `scripts/build_installer.ps1` | 同じstandalone treeからInno Setup installerを生成 |
 | `scripts/package_release.py` | version、配布内容、決定的ZIP、SHA-256の検証 |
 | `scripts/collect_licenses.py` | release環境のruntime依存と全文licenseの収集 |
-| `scripts/verify_authenticode.ps1` | 署名前の境界と署名後の署名者・timestamp検証 |
+| `scripts/verify_authenticode.ps1` | 自作EXEとinstallerが方針どおり未署名であることの検証 |
 | `installer/SummerCourseScheduler.iss` | 利用者単位install、shortcut、data保持方針 |
 
-SignPath Foundation申請の信頼境界、担当者、承認後に登録するGitHub Environment /
-secret / variablesは[`code_signing_policy.md`](code_signing_policy.md)と
-[`signpath_application.md`](signpath_application.md)を正本とする。未承認のIDを仮設定
-したworkflowを有効化せず、署名後にsmokeとchecksumをやり直す。
+リリースは意図的に未署名とし、署名用Environment、secret、variables、外部connectorを
+構成しない。未署名境界とSHA-256確認は
+[`code_signing_policy.md`](code_signing_policy.md)を正本とする。
 
 後続Phaseの追加先は次のように分離する。
 
@@ -876,6 +886,9 @@ availability、資格、1対1、定員、空きコマ、連続上限等の条件
 - 未配置・警告: 必要／配置済／不足、理由、解決候補、優先度、通常担当、1対1、備考と、
   severity、issue type、日時、人物、内容、対応状況。
 
+表セルの人物名は`reporting/person_names.py`で一元的に短縮する。姓が一意なら姓だけ、
+同姓者が複数ならフルネームとし、氏名文字列を各builderが独自に分割しない。
+
 `LayoutDocument`以下は帳票metadata、section、物理page、table、row、cell、列幅、
 row / column span、文字配置、役割、表示ruleを持つ不変型である。ExcelとPDFが同じ
 中間表現を消費し、形式別に業務データを再解釈しない。
@@ -1085,7 +1098,7 @@ py -3.12 -m venv .venv-release
 ```powershell
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.2
+  -Version 1.0.3
 ```
 
 scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し、
@@ -1093,7 +1106,7 @@ scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し�
 既定YAML、全Alembic revision、Qt Quick／PDF、OR-Tools native runtime、
 `THIRD_PARTY_NOTICES.md`、収集したlicenseが必要で、DB、`.jukuschedule`、log、
 入出力、backup、user config、build crash reportを拒否する。検査後に
-`dist/SummerCourseScheduler-Portable-1.0.2.zip`を決定的順序で作る。
+`dist/SummerCourseScheduler-Portable-1.0.3.zip`を決定的順序で作る。
 
 2026-07-29に同一build machineで生成した未公開候補は143,564,844 bytes、
 SHA-256 `5611f8e62b6e7e8e9ac456ca91186f5a52e207573fb866b377ccbaf0796eba2f`だった。
@@ -1115,13 +1128,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.2 `
+  -Version 1.0.3 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.0.2.zip `
-  dist\SummerCourseScheduler-Setup-1.0.2.exe
+  dist\SummerCourseScheduler-Portable-1.0.3.zip `
+  dist\SummerCourseScheduler-Setup-1.0.3.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `
@@ -1152,8 +1165,7 @@ GPL-3.0-only、Qt完成artifact、Inno Setupの基礎ライセンス条件とcom
 [`release_checklist.md`](release_checklist.md)で確認する。タグは公開操作の入力であり、
 確認前に作成・pushしない。承認後もworkflowが作るのはdraft prereleaseであり、
 artifactを再downloadしてhashと起動を確認した後、配布責任者が別途公開判断する。
-SignPath署名では秘密鍵をrepositoryやartifactへ置かず、署名後の最終成果物から
-SHA-256を計算する。
+最終未署名成果物からSHA-256を計算し、artifact再download後にも検証する。
 
 ## 19. 将来機能の追加手順
 
@@ -1209,10 +1221,10 @@ Excel / CSV / PDFはInfrastructure adapterとして実装し、Application Servi
 - standalone／portable／installer／checksumの生成scriptとrelease workflowは
   実装済みである。同一build machineではportable smoke、短いlocal pathへのfresh
   install、installed smoke、uninstall、user data保持が成功した。一方、Python未導入の
-  clean Windows、offline、上書きupgrade、実GUI操作、署名、GitHub-hosted runは
+  clean Windows、offline、上書きupgrade、実GUI操作、GitHub-hosted runは
   `NOT TESTED`である。およそ264文字の過長install pathはexit 5でrollbackした。
-- 本番tag／GitHub Release／コード署名は未実施である。完成artifactのQt module、
-  第三者notice、SBOMと署名経路を確認するまで、Windowsバイナリを公開しない。
+- 本番tag／GitHub Releaseは未実施である。コード署名は採用せず、完成artifactのQt
+  module、第三者notice、SBOM、SHA-256、未署名表示を確認するまで公開しない。
 
 Phase 7のsource実装完了と、法的・運用的に配布可能な本番Releaseは別状態である。
 残項目は[`acceptance_test_phase7.md`](acceptance_test_phase7.md)と

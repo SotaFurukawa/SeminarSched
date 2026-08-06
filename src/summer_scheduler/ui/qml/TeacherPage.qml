@@ -352,6 +352,14 @@ Item {
                                                   ? qsTr("有効") : qsTr("停止中"))
                             onClicked: root.loadTeacher(modelData)
 
+                            background: Rectangle {
+                                radius: 6
+                                color: !root.rowValue(teacherDelegate.modelData, "active", true)
+                                       ? "#e7e7e7"
+                                       : teacherDelegate.highlighted ? "#e8f0ff" : "transparent"
+                                border.color: teacherDelegate.highlighted ? "#bfd3f5" : "transparent"
+                            }
+
                             contentItem: RowLayout {
                                 spacing: 9
 
@@ -517,7 +525,7 @@ Item {
 
                                 CheckBox {
                                     id: teacherActive
-                                    text: qsTr("有効な講師として使用する")
+                                    text: qsTr("在籍中（外すと退職・休止として末尾に表示）")
                                     checked: true
                                     Accessible.name: text
                                     onClicked: root.viewModel.markDirty()

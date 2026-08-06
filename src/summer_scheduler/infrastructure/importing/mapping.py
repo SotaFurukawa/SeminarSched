@@ -43,7 +43,8 @@ _EXAMPLE_MARKERS = frozenset(
 def normalize_header(value: str) -> str:
     """全半角・大小文字・空白の差を吸収して列名を比較する。"""
     normalized = unicodedata.normalize("NFKC", value).casefold()
-    return "".join(character for character in normalized if not character.isspace())
+    compact = "".join(character for character in normalized if not character.isspace())
+    return compact.removesuffix("(必須)")
 
 
 def suggest_column_mapping(

@@ -37,6 +37,13 @@ class ColumnSpec:
         """空欄を既定値として受け付ける列かを返す。"""
         return self.default_when_blank is not _NO_DEFAULT
 
+    @property
+    def template_header(self) -> str:
+        """新規テンプレートで表示する、入力必須性を含むヘッダー。"""
+        if self.required and not self.uses_default_when_blank:
+            return f"{self.header}（必須）"
+        return self.header
+
 
 @dataclass(frozen=True, slots=True)
 class SheetSpec:
@@ -81,7 +88,14 @@ STUDENT_SHEET: Final = SheetSpec(
             17,
         ),
         ColumnSpec("name", "氏名", ValueKind.TEXT, True, "生徒の氏名。", 18),
-        ColumnSpec("grade", "学年", ValueKind.TEXT, True, "例：中学2年。", 14),
+        ColumnSpec(
+            "grade",
+            "学年",
+            ValueKind.TEXT,
+            True,
+            "小1～小6、中1～中3、高1～高3から選択します。",
+            14,
+        ),
         ColumnSpec(
             "default_max_consecutive_slots",
             "標準最大連続コマ数",
@@ -116,7 +130,7 @@ STUDENT_SHEET: Final = SheetSpec(
         "is_example": True,
         "external_id": "S-EXAMPLE",
         "name": "架空 花子",
-        "grade": "中学2年",
+        "grade": "中2",
         "default_max_consecutive_slots": 2,
         "allow_gap": False,
         "note": "この行は架空の例示行で、取込み時に無視されます。",
@@ -245,8 +259,9 @@ QUALIFICATION_SHEET: Final = SheetSpec(
             "指導可能",
             ValueKind.BOOLEAN,
             True,
-            "指導可能なら「はい」、不可なら「いいえ」。自動推定しません。",
+            "指導可能なら「はい」、不可なら「いいえ」。空欄は「はい」として取り込みます。",
             14,
+            default_when_blank=True,
         ),
         ColumnSpec("note", "備考", ValueKind.TEXT, False, "任意の備考。", 28),
     ),
@@ -302,10 +317,11 @@ LESSON_REQUEST_SHEET: Final = SheetSpec(
             "担当講師優先度",
             ValueKind.INTEGER,
             True,
-            "1～5。5は通常担当講師に固定するハード制約です。",
+            "1～5。空欄は3。5は通常担当講師に固定するハード制約です。",
             18,
             minimum=1,
             maximum=5,
+            default_when_blank=3,
         ),
         ColumnSpec(
             "preferred_teacher_1_external_id",
@@ -336,8 +352,9 @@ LESSON_REQUEST_SHEET: Final = SheetSpec(
             "1対1必須",
             ValueKind.BOOLEAN,
             True,
-            "「はい」は1対1を必須とするハード制約です。",
+            "「はい」は1対1を必須とするハード制約です。空欄は「いいえ」。",
             13,
+            default_when_blank=False,
         ),
         ColumnSpec(
             "max_consecutive_slots_override",

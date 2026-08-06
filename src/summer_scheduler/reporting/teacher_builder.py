@@ -32,6 +32,7 @@ from summer_scheduler.reporting.layout import (
     LayoutSection,
     LayoutTable,
 )
+from summer_scheduler.reporting.person_names import compact_person_name_map
 from summer_scheduler.reporting.settings import OutputSettings
 
 _GROUP_ROWS_PER_PAGE = 24
@@ -118,6 +119,7 @@ def _teacher_page(
     allowed_students = {row.id for row in selected_students(snapshot, selection)}
     requests = {row.id: row for row in snapshot.lesson_requests}
     students = {row.id: row for row in snapshot.students}
+    student_display_names = compact_person_name_map(snapshot.students)
     subjects = {row.id: row for row in snapshot.subjects}
     slots = tuple(row for row in snapshot.slots if row.enabled)
     assignments_by_cell: dict[tuple[date, int], list[AssignmentRecord]] = defaultdict(list)
@@ -209,7 +211,7 @@ def _teacher_page(
                     student_cells.extend(
                         (
                             LayoutCell(
-                                f"{marker}{student.name}",
+                                f"{marker}{student_display_names[student.id]}",
                                 style_codes=tuple(codes),
                             ),
                             LayoutCell(

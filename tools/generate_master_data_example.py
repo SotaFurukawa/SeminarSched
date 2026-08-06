@@ -19,15 +19,15 @@ from summer_scheduler.infrastructure.excel.template import write_master_data_wor
 DEFAULT_OUTPUT = Path("generated_examples/master_data_example_50_students_20_teachers.xlsx")
 
 _GRADE_LEVELS = (
-    ("小学4年", "elementary"),
-    ("小学5年", "elementary"),
-    ("小学6年", "elementary"),
-    ("中学1年", "junior_high"),
-    ("中学2年", "junior_high"),
-    ("中学3年", "junior_high"),
-    ("高校1年", "high_school"),
-    ("高校2年", "high_school"),
-    ("高校3年", "high_school"),
+    ("小4", "elementary"),
+    ("小5", "elementary"),
+    ("小6", "elementary"),
+    ("中1", "junior_high"),
+    ("中2", "junior_high"),
+    ("中3", "junior_high"),
+    ("高1", "high_school"),
+    ("高2", "high_school"),
+    ("高3", "high_school"),
 )
 
 _SUBJECTS_BY_LEVEL = {

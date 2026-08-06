@@ -18,8 +18,8 @@
 
 ## 2. 実装済みのスコープ
 
-Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.0.2`の
-公開準備版である。正式な署名済みWindows Releaseは未公開である。
+Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.0.3`の
+公開準備版である。Windows成果物は社内利用向けに未署名で配布する方針である。
 
 ### Phase 0：設計
 
@@ -212,6 +212,8 @@ materializeするmodelセルを200件に限定し、構築と20日分の日付�
   未確定、凡例、校舎、講習名、更新日時、ページ番号を扱う
 - 生徒別時間割の1人1ページ／複数人まとめ、講師別時間割の連続勤務範囲・合計稼働、
   未配置一覧と警告一覧
+- 時間割表の人物名は姓が一意なら姓だけを表示し、同姓者が複数いる場合は該当者の
+  フルネームを表示する。個人別帳票の本人見出しは常にフルネームとする
 - 現在の他Assignmentを動かさず対象1sessionだけを仮追加し、独立validatorを通った
   最大3件だけを「単独配置可」とする未配置解決候補
 - openpyxlによる編集可能なExcel。A3 / A4、縦横、罫線、結合、印刷範囲、
@@ -245,7 +247,7 @@ PDFとExcelの共通レイアウト、Qt選定、原子的保存、安全検証�
 
 ### Phase 7：品質保証・バックアップ・Windows配布
 
-- app version `1.0.2`をpackage metadata、Qt application、About、log、帳票へ
+- app version `1.0.3`をpackage metadata、Qt application、About、log、帳票へ
   表示し、Alembic schema revisionとは別の版として扱う
 - project open直後と設定間隔ごとの自動backup。既定5分間隔・project別5世代で、
   `%LOCALAPPDATA%\SummerScheduler\backups`へ保存する
@@ -269,8 +271,8 @@ QMLはbackup候補と復元操作を`WorkspaceViewModel`へ渡し、SQLiteを直
 backupにも元projectと同じ個人情報が含まれることをホームへ明示する。技術的に
 artifactを生成できることと、本番配布の権利・clean PC受入・公開承認は区別する。
 project自身はGPL-3.0-onlyを採用した。Qt Community Editionの対応ソース・notice、
-Inno Setup利用条件とSignPath署名対象の適格性が確認されるまで、署名済み本番
-GitHub Releaseを公開しない。
+Inno Setup利用条件、SHA-256、clean Windows受入を確認するまで、本番GitHub Releaseを
+公開しない。成果物は未署名であることを明記する。
 
 安全な復旧は[`ADR 0009`](adr/0009-project-backup-and-recovery-safety.md)、配布と
 公開gateは
@@ -287,8 +289,8 @@ GitHub Releaseを公開しない。
 - Undo / Redo履歴のアプリ再起動をまたぐ復元
 - Excelへのロゴ画像埋込み
 - 指定された参考PDFとの直接比較、ピクセル単位の再現
-- SignPathによる実署名（申請資料、署名境界、検証scriptまでは実装済み）
-- Qt完成artifactの配布監査、SignPath承認、本番GitHub Releaseの公開
+- コード署名（当面採用せず、未署名配布を正式方針とする）
+- Qt完成artifactの配布監査と本番GitHub Releaseの公開
 - Google API、クラウド同期その他、マスター仕様 33 章にある初期版の対象外機能
 
 これらのためのパッケージ境界やインターフェース方針は設計するが、空のサービスや動作しない仮実装を大量に追加しない。

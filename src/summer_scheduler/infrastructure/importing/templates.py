@@ -29,10 +29,14 @@ from summer_scheduler.infrastructure.importing.schemas import (
 STUDENT_AVAILABILITY_SHEET = "生徒希望"
 TEACHER_AVAILABILITY_SHEET = "講師希望"
 INSTRUCTIONS_SHEET = "説明"
+STUDENT_REFERENCE_SHEET = "生徒マスター参照"
+TEACHER_REFERENCE_SHEET = "講師マスター参照"
+SUBJECT_REFERENCE_SHEET = "科目マスター参照"
 
 _HEADER_FILL: Final = PatternFill(fill_type="solid", fgColor="1F4E78")
 _EXAMPLE_FILL: Final = PatternFill(fill_type="solid", fgColor="FFF2CC")
 _HEADER_FONT: Final = Font(color="FFFFFF", bold=True)
+_HEADER_ALIGNMENT: Final = Alignment(horizontal="center", vertical="center", wrap_text=True)
 _MAX_INPUT_ROW: Final = 10_000
 
 
@@ -45,21 +49,37 @@ class _TemplateColumn:
     availability: bool = False
     date_value: bool = False
     time_value: bool = False
+    required: bool = False
+
+    @property
+    def display_header(self) -> str:
+        if self.required:
+            return f"{self.header}（必須）"
+        return self.header
 
 
 def write_student_availability_template(
     path: Path,
     slot_codes: Sequence[str] = DEFAULT_SLOT_CODES,
     rows: Sequence[Mapping[str, object]] = (),
+    reference_students: Sequence[Mapping[str, object]] = (),
+    reference_teachers: Sequence[Mapping[str, object]] = (),
+    reference_subjects: Sequence[Mapping[str, object]] = (),
 ) -> None:
     """生徒アンケートテンプレートを既存／架空行付きで出力する。"""
     slots = _validated_slots(slot_codes)
     columns = (
         _example_column(),
-        _TemplateColumn("student_id", "生徒ID", comment="生徒マスターのID"),
-        _TemplateColumn("student_name", "生徒名", width=20),
-        _TemplateColumn("subject_code", "科目コード", comment="科目マスターのコード"),
-        _TemplateColumn("date", "日付", date_value=True),
+        _TemplateColumn("student_id", "生徒ID", comment="生徒マスターのID", required=True),
+        _TemplateColumn("student_name", "生徒名", width=20, required=True),
+        _TemplateColumn(
+            "subject_code",
+            "科目コード",
+            comment="科目マスターのコード",
+            required=True,
+        ),
+        _TemplateColumn("subject_name_confirm", "科目名（確認）", width=22),
+        _TemplateColumn("date", "日付", date_value=True, required=True),
         *(_slot_column(code) for code in slots),
         _TemplateColumn("preferred_teacher_1", "第1希望講師ID", width=18),
         _TemplateColumn("preferred_teacher_2", "第2希望講師ID", width=18),
@@ -86,6 +106,13 @@ def write_student_availability_template(
         example,
         rows,
     )
+    _write_master_reference_sheets(
+        workbook,
+        reference_students,
+        reference_teachers,
+        reference_subjects,
+    )
+    _add_student_reference_helpers(workbook)
     _write_instructions_sheet(
         workbook,
         (
@@ -106,14 +133,17 @@ def write_teacher_availability_template(
     path: Path,
     slot_codes: Sequence[str] = DEFAULT_SLOT_CODES,
     rows: Sequence[Mapping[str, object]] = (),
+    reference_students: Sequence[Mapping[str, object]] = (),
+    reference_teachers: Sequence[Mapping[str, object]] = (),
+    reference_subjects: Sequence[Mapping[str, object]] = (),
 ) -> None:
     """講師アンケートテンプレートを既存／架空行付きで出力する。"""
     slots = _validated_slots(slot_codes)
     columns = (
         _example_column(),
-        _TemplateColumn("teacher_id", "講師ID", comment="講師マスターのID"),
-        _TemplateColumn("name", "講師名", width=20),
-        _TemplateColumn("date", "日付", date_value=True),
+        _TemplateColumn("teacher_id", "講師ID", comment="講師マスターのID", required=True),
+        _TemplateColumn("name", "講師名", width=20, required=True),
+        _TemplateColumn("date", "日付", date_value=True, required=True),
         *(_slot_column(code) for code in slots),
         _TemplateColumn("note", "備考", width=28),
     )
@@ -133,6 +163,13 @@ def write_teacher_availability_template(
         example,
         rows,
     )
+    _write_master_reference_sheets(
+        workbook,
+        reference_students,
+        reference_teachers,
+        reference_subjects,
+    )
+    _add_teacher_reference_helpers(workbook)
     _write_instructions_sheet(
         workbook,
         (
@@ -154,21 +191,21 @@ def write_group_lessons_template(
     """集団授業と受講者の2シートを持つテンプレートを出力する。"""
     lesson_columns = (
         _example_column(),
-        _TemplateColumn("group_lesson_id", "集団授業ID", width=18),
-        _TemplateColumn("grade", "学年"),
-        _TemplateColumn("subject_code", "科目コード"),
+        _TemplateColumn("group_lesson_id", "集団授業ID", width=18, required=True),
+        _TemplateColumn("grade", "学年", required=True),
+        _TemplateColumn("subject_code", "科目コード", required=True),
         _TemplateColumn("course_name", "コース名", width=22),
-        _TemplateColumn("date", "日付", date_value=True),
-        _TemplateColumn("start_time", "開始時刻", time_value=True),
-        _TemplateColumn("end_time", "終了時刻", time_value=True),
+        _TemplateColumn("date", "日付", date_value=True, required=True),
+        _TemplateColumn("start_time", "開始時刻", time_value=True, required=True),
+        _TemplateColumn("end_time", "終了時刻", time_value=True, required=True),
         _TemplateColumn("teacher_id", "担当講師ID", width=18),
         _TemplateColumn("room", "教室"),
         _TemplateColumn("note", "備考", width=28),
     )
     participant_columns = (
         _example_column(),
-        _TemplateColumn("group_lesson_id", "集団授業ID", width=18),
-        _TemplateColumn("student_id", "生徒ID", width=18),
+        _TemplateColumn("group_lesson_id", "集団授業ID", width=18, required=True),
+        _TemplateColumn("student_id", "生徒ID", width=18, required=True),
     )
     workbook = _new_workbook("集団授業入力テンプレート")
     _write_data_sheet(
@@ -219,6 +256,9 @@ def _new_workbook(title: str) -> Any:
     workbook.remove(workbook.worksheets[0])
     workbook.properties.title = title
     workbook.properties.creator = "夏期講習時間割作成アプリ"
+    workbook.calculation.calcMode = "auto"
+    workbook.calculation.fullCalcOnLoad = True
+    workbook.calculation.forceFullCalc = True
     return workbook
 
 
@@ -232,7 +272,7 @@ def _write_data_sheet(
     worksheet = workbook.create_sheet(sheet_name)
     worksheet.freeze_panes = "A2"
     worksheet.sheet_view.showGridLines = False
-    worksheet.append([column.header for column in columns])
+    worksheet.append([column.display_header for column in columns])
     worksheet.append([_excel_value(example.get(column.key)) for column in columns])
     for source_row in rows:
         row = dict(source_row)
@@ -349,7 +389,128 @@ def _slot_column(code: str) -> _TemplateColumn:
         width=10,
         comment="0 = 不可、1 = 可能、2 = 希望",
         availability=True,
+        required=True,
     )
+
+
+def _write_master_reference_sheets(
+    workbook: Any,
+    students: Sequence[Mapping[str, object]],
+    teachers: Sequence[Mapping[str, object]],
+    subjects: Sequence[Mapping[str, object]],
+) -> None:
+    """アンケートと同じブックへ、編集時に照合できるマスターを同梱する。"""
+    definitions = (
+        (
+            STUDENT_REFERENCE_SHEET,
+            ("生徒ID", "氏名", "学年"),
+            ("external_id", "name", "grade"),
+            students,
+        ),
+        (
+            TEACHER_REFERENCE_SHEET,
+            ("講師ID", "氏名"),
+            ("external_id", "name"),
+            teachers,
+        ),
+        (
+            SUBJECT_REFERENCE_SHEET,
+            ("科目コード", "表示名"),
+            ("code", "display_name"),
+            subjects,
+        ),
+    )
+    for sheet_name, headers, keys, rows in definitions:
+        worksheet = workbook.create_sheet(sheet_name)
+        worksheet.freeze_panes = "A2"
+        worksheet.sheet_view.showGridLines = False
+        worksheet.append(list(headers))
+        for row in rows:
+            worksheet.append([row.get(key) for key in keys])
+        for cell in worksheet[1]:
+            cell.fill = _HEADER_FILL
+            cell.font = _HEADER_FONT
+            cell.alignment = _HEADER_ALIGNMENT
+        for column_number in range(1, len(headers) + 1):
+            worksheet.column_dimensions[get_column_letter(column_number)].width = 20
+        last_column = get_column_letter(len(headers))
+        worksheet.auto_filter.ref = f"A1:{last_column}{max(worksheet.max_row, 2)}"
+
+
+def _add_student_reference_helpers(workbook: Any) -> None:
+    worksheet = workbook[STUDENT_AVAILABILITY_SHEET]
+    first_input_row = max(worksheet.max_row + 1, 3)
+    student_id = _template_column_letter(worksheet, "生徒ID")
+    student_name = _template_column_letter(worksheet, "生徒名")
+    subject_code = _template_column_letter(worksheet, "科目コード")
+    subject_name = _template_column_letter(worksheet, "科目名（確認）")
+    _add_reference_validation(
+        worksheet,
+        student_id,
+        f"=INDIRECT(\"'{STUDENT_REFERENCE_SHEET}'!$A$2:$A$10000\")",
+    )
+    _add_reference_validation(
+        worksheet,
+        subject_code,
+        f"=INDIRECT(\"'{SUBJECT_REFERENCE_SHEET}'!$A$2:$A$10000\")",
+    )
+    for header in ("第1希望講師ID", "第2希望講師ID", "第3希望講師ID"):
+        _add_reference_validation(
+            worksheet,
+            _template_column_letter(worksheet, header),
+            f"=INDIRECT(\"'{TEACHER_REFERENCE_SHEET}'!$A$2:$A$10000\")",
+        )
+    for row_number in range(3, 1001):
+        if row_number >= first_input_row:
+            worksheet[f"{student_name}{row_number}"] = (
+                f'=IF({student_id}{row_number}="","",IFERROR(INDEX('
+                f"'{STUDENT_REFERENCE_SHEET}'!$B$2:$B$10000,"
+                f"MATCH({student_id}{row_number},'{STUDENT_REFERENCE_SHEET}'!"
+                '$A$2:$A$10000,0)),"ID不明"))'
+            )
+        worksheet[f"{subject_name}{row_number}"] = (
+            f'=IF({subject_code}{row_number}="","",IFERROR(INDEX('
+            f"'{SUBJECT_REFERENCE_SHEET}'!$B$2:$B$10000,"
+            f"MATCH({subject_code}{row_number},'{SUBJECT_REFERENCE_SHEET}'!"
+            '$A$2:$A$10000,0)),"コード不明"))'
+        )
+
+
+def _add_teacher_reference_helpers(workbook: Any) -> None:
+    worksheet = workbook[TEACHER_AVAILABILITY_SHEET]
+    first_input_row = max(worksheet.max_row + 1, 3)
+    teacher_id = _template_column_letter(worksheet, "講師ID")
+    teacher_name = _template_column_letter(worksheet, "講師名")
+    _add_reference_validation(
+        worksheet,
+        teacher_id,
+        f"=INDIRECT(\"'{TEACHER_REFERENCE_SHEET}'!$A$2:$A$10000\")",
+    )
+    for row_number in range(3, 1001):
+        if row_number >= first_input_row:
+            worksheet[f"{teacher_name}{row_number}"] = (
+                f'=IF({teacher_id}{row_number}="","",IFERROR(INDEX('
+                f"'{TEACHER_REFERENCE_SHEET}'!$B$2:$B$10000,"
+                f"MATCH({teacher_id}{row_number},'{TEACHER_REFERENCE_SHEET}'!"
+                '$A$2:$A$10000,0)),"ID不明"))'
+            )
+
+
+def _add_reference_validation(worksheet: Any, column_letter: str, formula: str) -> None:
+    validation = DataValidation(type="list", formula1=formula, allow_blank=True)
+    validation.errorTitle = "マスターを確認してください"
+    validation.error = "同じブックのマスター参照シートにあるIDを選択してください。"
+    validation.showErrorMessage = True
+    worksheet.add_data_validation(validation)
+    validation.add(f"{column_letter}2:{column_letter}{_MAX_INPUT_ROW}")
+
+
+def _template_column_letter(worksheet: Any, header: str) -> str:
+    for column_number in range(1, worksheet.max_column + 1):
+        actual = str(worksheet.cell(row=1, column=column_number).value or "")
+        if actual == header or actual == f"{header}（必須）":
+            return get_column_letter(column_number)
+    raise AssertionError(f"{worksheet.title}に列「{header}」がありません。")
 
 
 def _validated_slots(slot_codes: Sequence[str]) -> tuple[str, ...]:

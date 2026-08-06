@@ -17,6 +17,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     Time,
@@ -784,6 +785,42 @@ class ImportBatch(Base):
         nullable=False,
         default="{}",
         server_default="{}",
+    )
+
+
+class ImportSourceSnapshot(Base):
+    """最後に反映したアンケート原本をプロジェクトファイル内へ保持する。"""
+
+    __tablename__ = "import_source_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "import_type",
+            name="uq_import_source_snapshots_project_type",
+        ),
+        CheckConstraint("length(trim(import_type)) > 0", name="import_type_not_blank"),
+        CheckConstraint(
+            "length(trim(source_file_name)) > 0",
+            name="source_file_name_not_blank",
+        ),
+        CheckConstraint("size_bytes >= 0", name="size_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("course_projects.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    import_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utc_now,
+        server_default=func.current_timestamp(),
     )
 
 

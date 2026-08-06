@@ -163,7 +163,7 @@ def test_upgrade_from_0004_preserves_rows_and_sets_compatible_defaults(
 
         upgrade_database(database.engine)
 
-        assert get_head_revision() == "20260729_0006"
+        assert get_head_revision() == "20260807_0007"
         with database.session_factory.begin() as session:
             assignment = session.query(Assignment).one()
             audit = session.query(AuditLog).one()

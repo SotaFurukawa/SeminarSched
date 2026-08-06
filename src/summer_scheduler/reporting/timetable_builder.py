@@ -36,6 +36,7 @@ from summer_scheduler.reporting.layout import (
     LayoutSection,
     LayoutTable,
 )
+from summer_scheduler.reporting.person_names import compact_person_name_map
 from summer_scheduler.reporting.settings import OutputSettings
 
 _GROUP_ROWS_PER_PAGE = 24
@@ -106,6 +107,8 @@ def _build_page(
 ) -> LayoutPage:
     requests = {row.id: row for row in snapshot.lesson_requests}
     students = {row.id: row for row in snapshot.students}
+    student_display_names = compact_person_name_map(snapshot.students)
+    teacher_display_names = compact_person_name_map(snapshot.teachers)
     subjects = {row.id: row for row in snapshot.subjects}
     assignments_by_cell: dict[tuple[object, int, int], list[AssignmentRecord]] = defaultdict(list)
     allowed_students = set(selection.student_ids)
@@ -137,7 +140,11 @@ def _build_page(
                 LayoutCell("日付", role="header", alignment="center"),
                 LayoutCell("コマ・時刻", role="header", alignment="center"),
                 *(
-                    LayoutCell(teacher.name, role="header", alignment="center")
+                    LayoutCell(
+                        teacher_display_names[teacher.id],
+                        role="header",
+                        alignment="center",
+                    )
                     for teacher in teachers
                 ),
             )
@@ -195,6 +202,7 @@ def _build_page(
                     groups_by_cell.get(key, ()),
                     requests=requests,
                     students=students,
+                    student_display_names=student_display_names,
                     subjects=subjects,
                     settings=settings,
                     project_confirmed=snapshot.project.status == "confirmed",
@@ -237,7 +245,9 @@ def _build_page(
     date_text = (
         f"{format_day(dates[0].day)} ～ {format_day(dates[-1].day)}" if dates else "対象日なし"
     )
-    teacher_text = "、".join(row.name for row in teachers) or "対象講師なし"
+    teacher_text = (
+        "、".join(teacher_display_names[row.id] for row in teachers) or "対象講師なし"
+    )
     return LayoutPage(
         heading="夏期講習時間割",
         subheading=f"{date_text}／講師: {teacher_text}",
@@ -258,6 +268,7 @@ def _cell_content(
     *,
     requests: dict[int, LessonRequestRecord],
     students: dict[int, StudentRecord],
+    student_display_names: dict[int, str],
     subjects: dict[int, SubjectRecord],
     settings: OutputSettings,
     project_confirmed: bool,
@@ -298,7 +309,7 @@ def _cell_content(
             markers.append(settings.style("unconfirmed").marker)
             style_codes.append("unconfirmed")
         prefix = "".join(markers)
-        details = [f"{index}. {prefix}{student.name}"]
+        details = [f"{index}. {prefix}{student_display_names[student.id]}"]
         if "grade" in settings.visible_fields:
             details.append(student.grade)
         if "subject" in settings.visible_fields:

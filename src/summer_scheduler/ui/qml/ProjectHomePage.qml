@@ -10,6 +10,7 @@ Item {
 
     required property var viewModel
     signal openSettingsRequested
+    signal navigateRequested(int pageIndex)
     property string pendingSwitchAction: ""
     property string pendingRecentPath: ""
     property string pendingRestorePath: ""
@@ -25,9 +26,7 @@ Item {
     }
 
     function openNewProjectDialog() {
-        newProjectPath.text = ""
         newProjectTitle.text = ""
-        newProjectCampus.text = ""
         newProjectStart.text = ""
         newProjectEnd.text = ""
         newProjectValidation.visible = false
@@ -145,7 +144,7 @@ Item {
 
                         Label {
                             Layout.fillWidth: true
-                            text: qsTr(".jukuscheduleファイルには、校舎・講習期間・生徒・講師・科目などのデータが保存されます。")
+                            text: qsTr(".jukuscheduleファイルには、講習期間・生徒・講師・科目・アンケート原本などが保存されます。")
                             color: "#667085"
                             font.pixelSize: 11
                             wrapMode: Text.Wrap
@@ -202,8 +201,7 @@ Item {
                                 }
 
                                 Label {
-                                    text: qsTr("%1　%2 ～ %3")
-                                          .arg(root.viewModel.currentCampusName || qsTr("校舎未設定"))
+                                    text: qsTr("%1 ～ %2")
                                           .arg(root.viewModel.currentStartDate || "----/--/--")
                                           .arg(root.viewModel.currentEndDate || "----/--/--")
                                     color: "#667085"
@@ -424,6 +422,115 @@ Item {
                     }
                 }
 
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: root.viewModel.hasOpenProject
+                    implicitHeight: workflowContent.implicitHeight + 32
+                    radius: 12
+                    color: "#ffffff"
+                    border.color: "#cfd9e8"
+
+                    ColumnLayout {
+                        id: workflowContent
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: 18
+                        anchors.rightMargin: 18
+                        spacing: 12
+
+                        Label {
+                            text: qsTr("時間割完成までの4ステップ")
+                            color: "#18212f"
+                            font.pixelSize: 17
+                            font.weight: Font.DemiBold
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("上から順に進めれば、必要な作業を迷わず完了できます。")
+                            color: "#667085"
+                            font.pixelSize: 10
+                        }
+
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: width >= 900 ? 4 : 2
+                            columnSpacing: 10
+                            rowSpacing: 10
+
+                            Repeater {
+                                model: [
+                                    {"number": "1", "title": qsTr("授業日を決める"),
+                                     "detail": qsTr("講習期間・開校日・コマ"),
+                                     "button": qsTr("授業日を設定"), "page": 8},
+                                    {"number": "2", "title": qsTr("アンケートを取込む"),
+                                     "detail": qsTr("生徒・講師の回答を検証"),
+                                     "button": qsTr("アンケート取込み"), "page": 4},
+                                    {"number": "3", "title": qsTr("時間割を配置する"),
+                                     "detail": qsTr("集団授業確認・自動配置・編集"),
+                                     "button": qsTr("時間割を作成"), "page": 5},
+                                    {"number": "4", "title": qsTr("個人時間割を作る"),
+                                     "detail": qsTr("生徒別Excel・PDFを出力"),
+                                     "button": qsTr("出力へ進む"), "page": 7}
+                                ]
+
+                                delegate: Rectangle {
+                                    id: workflowStep
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 132
+                                    radius: 9
+                                    color: "#f8fafc"
+                                    border.color: "#dce4ef"
+
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 11
+                                        spacing: 5
+
+                                        RowLayout {
+                                            Rectangle {
+                                                Layout.preferredWidth: 27
+                                                Layout.preferredHeight: 27
+                                                radius: 14
+                                                color: "#2767c5"
+                                                Label {
+                                                    anchors.centerIn: parent
+                                                    text: workflowStep.modelData.number
+                                                    color: "#ffffff"
+                                                    font.bold: true
+                                                }
+                                            }
+                                            Label {
+                                                Layout.fillWidth: true
+                                                text: workflowStep.modelData.title
+                                                color: "#263548"
+                                                font.pixelSize: 12
+                                                font.weight: Font.DemiBold
+                                                wrapMode: Text.Wrap
+                                            }
+                                        }
+                                        Label {
+                                            Layout.fillWidth: true
+                                            text: workflowStep.modelData.detail
+                                            color: "#667085"
+                                            font.pixelSize: 9
+                                            wrapMode: Text.Wrap
+                                        }
+                                        Item { Layout.fillHeight: true }
+                                        Button {
+                                            Layout.fillWidth: true
+                                            text: workflowStep.modelData.button
+                                            onClicked: root.navigateRequested(
+                                                           Number(workflowStep.modelData.page))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 GridLayout {
                     Layout.fillWidth: true
                     visible: root.viewModel.hasOpenProject
@@ -608,18 +715,6 @@ Item {
                 Accessible.name: qsTr("プロジェクト名")
             }
 
-            Label {
-                text: qsTr("校舎名 *")
-                color: "#344054"
-                font.pixelSize: 11
-            }
-            TextField {
-                id: newProjectCampus
-                Layout.fillWidth: true
-                placeholderText: qsTr("例：中央校")
-                Accessible.name: qsTr("校舎名")
-            }
-
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 12
@@ -657,26 +752,24 @@ Item {
                 }
             }
 
-            Label {
-                text: qsTr("保存先 *")
-                color: "#344054"
-                font.pixelSize: 11
-            }
-
-            RowLayout {
+            Rectangle {
                 Layout.fillWidth: true
+                implicitHeight: storageNotice.implicitHeight + 18
+                radius: 6
+                color: "#f5f8fc"
+                border.color: "#d9e1ec"
 
-                TextField {
-                    id: newProjectPath
-                    Layout.fillWidth: true
-                    readOnly: true
-                    placeholderText: qsTr(".jukuscheduleファイルを選択")
-                    Accessible.name: qsTr("プロジェクト保存先")
-                }
-
-                Button {
-                    text: qsTr("選択…")
-                    onClicked: newProjectFileDialog.open()
+                Label {
+                    id: storageNotice
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    text: qsTr("保存先はアプリが自動管理します。現在のプロジェクトを開いたまま作成すると、生徒・講師・指導可能科目を新しい講習へ引き継ぎます。")
+                    color: "#52647d"
+                    font.pixelSize: 10
+                    wrapMode: Text.Wrap
                 }
             }
 
@@ -684,7 +777,7 @@ Item {
                 id: newProjectValidation
                 Layout.fillWidth: true
                 visible: false
-                text: qsTr("すべての必須項目と保存先を入力してください。")
+                text: qsTr("プロジェクト名、開始日、終了日を入力してください。")
                 color: "#a23b3b"
                 font.pixelSize: 10
                 wrapMode: Text.Wrap
@@ -704,31 +797,18 @@ Item {
             onRejected: newProjectDialog.close()
             onAccepted: {
                 const complete = newProjectTitle.text.trim().length > 0
-                                 && newProjectCampus.text.trim().length > 0
                                  && newProjectStart.text.trim().length > 0
                                  && newProjectEnd.text.trim().length > 0
-                                 && newProjectPath.text.length > 0
                 newProjectValidation.visible = !complete
                 if (complete) {
-                    root.viewModel.createProject(
-                                newProjectPath.text,
+                    if (root.viewModel.createProjectInWorkspace(
                                 newProjectTitle.text.trim(),
-                                newProjectCampus.text.trim(),
                                 newProjectStart.text.trim(),
-                                newProjectEnd.text.trim())
-                    newProjectDialog.close()
+                                newProjectEnd.text.trim()))
+                        newProjectDialog.close()
                 }
             }
         }
-    }
-
-    Dialogs.FileDialog {
-        id: newProjectFileDialog
-
-        title: qsTr("新規プロジェクトの保存先")
-        fileMode: Dialogs.FileDialog.SaveFile
-        nameFilters: [qsTr("塾時間割プロジェクト (*.jukuschedule)")]
-        onAccepted: newProjectPath.text = selectedFile.toString()
     }
 
     Dialogs.FileDialog {
@@ -736,6 +816,7 @@ Item {
 
         title: qsTr("プロジェクトを開く")
         fileMode: Dialogs.FileDialog.OpenFile
+        currentFolder: root.viewModel.projectsDirectoryUrl
         nameFilters: [qsTr("塾時間割プロジェクト (*.jukuschedule)")]
         onAccepted: root.viewModel.openProject(selectedFile.toString())
     }

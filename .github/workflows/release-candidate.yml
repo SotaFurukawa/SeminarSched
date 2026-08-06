@@ -304,13 +304,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $notes = @"
-          ## Code signing policy
+          ## Unsigned internal distribution
 
-          Signing status: **Unsigned release candidate**. This draft must not be
-          described as signed unless its Authenticode signature is separately verified.
+          Signing status: **Intentionally unsigned**. This build is distributed for
+          approved internal use and must not be described as signed.
 
-          Free code signing provided by SignPath.io, certificate by SignPath Foundation.
-          SignPath application status and policy:
+          Verify the downloaded files against the attached `SHA256SUMS.txt` before use.
+          Distribution and integrity policy:
           https://github.com/SotaFurukawa/SeminarSched/blob/main/docs/code_signing_policy.md
 
           Privacy policy:

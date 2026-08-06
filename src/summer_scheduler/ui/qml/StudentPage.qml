@@ -401,6 +401,14 @@ Item {
                                                   ? qsTr("有効") : qsTr("停止中"))
                             onClicked: root.loadStudent(modelData)
 
+                            background: Rectangle {
+                                radius: 6
+                                color: !root.rowValue(studentDelegate.modelData, "active", true)
+                                       ? "#e7e7e7"
+                                       : studentDelegate.highlighted ? "#e8f0ff" : "transparent"
+                                border.color: studentDelegate.highlighted ? "#bfd3f5" : "transparent"
+                            }
+
                             contentItem: RowLayout {
                                 spacing: 9
 
@@ -631,7 +639,7 @@ Item {
 
                                 CheckBox {
                                     id: studentActive
-                                    text: qsTr("有効な生徒として使用する")
+                                    text: qsTr("在籍中（外すと卒業・退会として末尾に表示）")
                                     checked: true
                                     Accessible.name: text
                                     onClicked: root.viewModel.markDirty()

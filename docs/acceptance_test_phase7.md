@@ -181,8 +181,8 @@ DB、log、事前sentinelはuninstall後も保持された。最深部が約264�
 現時点の判定は **リリース候補成果物のlocal受入は進んだが、本番公開はBLOCKED** である。
 少なくとも次が未完了である。
 
-- GPL-3.0-onlyは採用済み。Qt完成artifactの対応ソース・notice監査と、
-  Inno SetupをSignPath署名対象にできるかの確認。
+- GPL-3.0-onlyは採用済み。Qt完成artifactの対応ソース・notice監査と、Inno Setupの
+  配布条件確認。コード署名は採用せず、未署名表示とSHA-256確認を必須とする。
 - portable / installerのclean Windows、Python未導入、offline環境での起動。
 - installerの旧版からの上書きupgrade。local fresh install / uninstallはPASS済み。
 - packaged GUIで新規projectからPDF、終了、再読込みまでのend-to-end。

@@ -1,6 +1,6 @@
 # Release前チェックリスト
 
-このチェックリストは `v1.0.2` Releaseを検証するためのものです。
+このチェックリストは `v1.0.3` Releaseを検証するためのものです。
 チェックが埋まっただけで本番公開を許可しません。本番タグとGitHub Releaseには
 リポジトリ所有者の明示承認が必要です。
 
@@ -10,7 +10,7 @@
 - [ ] `CHANGELOG.md`が実装と一致し、存在しない機能を記載していない。
 - [ ] `pyproject.toml`、`summer_scheduler.__version__`、About、ログ、帳票のapp versionが一致する。
 - [ ] DB schema revisionとapp versionを別々に表示している。
-- [ ] Release tagはソース内versionと一致する `v1.0.2` である。
+- [ ] Release tagはソース内versionと一致する `v1.0.3` である。
 - [ ] git statusとdiffを確認し、無関係な変更、生成物、実データがない。
 
 ## 2. ライセンス・権利
@@ -99,7 +99,7 @@ pytest
   migration、YAML resourceを含む。
 - [ ] source、test、cache、build report、実データを不要に含めていない。
 - [ ] `THIRD_PARTY_NOTICES.md`と全文license directoryを含む。
-- [ ] artifact名が `SummerCourseScheduler-Portable-1.0.2.zip` と一致する。
+- [ ] artifact名が `SummerCourseScheduler-Portable-1.0.3.zip` と一致する。
 - [ ] ZIPを日本語名の別directoryへ展開して起動した。
 - [ ] Python、Node.js、Qt、Visual StudioのないWindows x64で起動した。
 - [ ] 管理者権限なし、offline、USB相当の別driveで確認した。
@@ -109,7 +109,7 @@ pytest
 
 ## 8. Windows installer
 
-- [ ] artifact名が `SummerCourseScheduler-Setup-1.0.2.exe` と一致する。
+- [ ] artifact名が `SummerCourseScheduler-Setup-1.0.3.exe` と一致する。
 - [ ] app名、version、publisher、install先が正しい。
 - [ ] Start menu shortcutと任意desktop shortcutが正しい。
 - [ ] `.jukuschedule`関連付けを採用する場合、引用符・icon・open動作を確認した。
@@ -171,24 +171,10 @@ GitHub-hosted Actionsを実行していない場合、workflow fileの存在だ�
 - [ ] 未署名成果物でpublisherが「不明」となり得ることをRelease noteに明記した。
 - [ ] 「詳細情報」から進む前に、公式Release URLとSHA-256確認を案内した。
 - [ ] 利用者へSmartScreen、antivirus、組織policyの無効化を推奨していない。
-- [ ] 署名する場合、秘密鍵をhardware / secret storeで管理し、repositoryへ置いていない。
-- [ ] executableとinstallerの両方へtimestamp付き署名を行い、検証した。
-
-### SignPath Foundationを使用する場合
-
-- [ ] GitHubとSignPathの多要素認証を有効にした。
-- [ ] READMEから`Code signing policy`と`PRIVACY.md`へ到達できる。
-- [ ] Authors / Reviewers / Approversと毎回の手動承認をSignPathへ設定した。
-- [ ] GitHub-hosted runnerが生成してuploadしたunsigned artifactから署名要求した。
-- [ ] 自作の`SummerCourseScheduler.exe`だけを署名し、上流DLL/PYD/EXEを
-  プロジェクト証明書で署名していない。
-- [ ] `scripts/verify_authenticode.ps1 -RequireSigned`が、`Valid`、
-  `SignPath Foundation`、timestampを確認した。
-- [ ] 署名をすべて終えた後でsmoke testとSHA-256生成をやり直した。
-- [ ] Inno Setup生成installerを対象にする場合、SignPathから適格性の確認を得た。
-
-承認前の具体的な申請内容と承認後のCI設定は
-[`signpath_application.md`](signpath_application.md)を参照します。
+- [ ] `verify_authenticode.ps1 -RequireUnsigned`で自作EXEとinstallerが未署名であることを確認した。
+- [ ] SignPath、署名証明書、署名用Secret、署名要求stepがworkflowにない。
+- [ ] `SHA256SUMS.txt`を最終成果物から作成し、再download後にも検証した。
+- [ ] 利用組織の管理者または配布責任者が未署名配布を承認した。
 
 ## 13. 公開承認
 

@@ -6,11 +6,11 @@
 夏期講習などの不定期講習を対象とした、Windows向けの完全ローカル型デスクトップ
 アプリです。UIにはPySide6とQML、データ保存にはSQLiteとSQLAlchemy 2を使用します。
 
-[Code signing policy](docs/code_signing_policy.md) |
+[Unsigned distribution policy](docs/code_signing_policy.md) |
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在は **v1.0.2の公開準備版** です。GitHub Releaseを公開するまでは配布版を
+現在は **v1.0.3の公開準備版** です。GitHub Releaseを公開するまでは配布版を
 意味しません。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
@@ -38,15 +38,15 @@ Releaseはまだ公開していません。選択日・選択生徒・選択講�
 clean Windows受入、公開内容を承認したReleaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.0.2.exe`
-- `SummerCourseScheduler-Portable-1.0.2.zip`
+- `SummerCourseScheduler-Setup-1.0.3.exe`
+- `SummerCourseScheduler-Portable-1.0.3.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.0.2.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.0.2.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.0.3.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.0.3.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -83,7 +83,10 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 [`docs/user_manual.md`](docs/user_manual.md)を参照してください。Googleフォームの
 質問例と回答の整形方法は
 [`docs/google_forms_questionnaire_guide.md`](docs/google_forms_questionnaire_guide.md)
-にまとめています。
+にまとめています。生徒・保護者用および講師用フォームと回答原本Google Sheetsは、
+[`tools/google_forms/create_student_questionnaire.gs`](tools/google_forms/create_student_questionnaire.gs)
+と[`tools/google_forms/create_teacher_questionnaire.gs`](tools/google_forms/create_teacher_questionnaire.gs)
+から自動作成できます。
 
 このリリース候補はコード署名していないため、Windows SmartScreenで発行元不明の
 警告が表示される可能性があります。Windowsの保護機能や組織policyを恒久的に無効化
@@ -91,13 +94,12 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 許可がある場合だけWindowsの案内に従います。解決しない場合は
 [`docs/troubleshooting.md`](docs/troubleshooting.md)を参照してください。
 
-### Code signing policy
+### 未署名配布方針
 
-SignPath Foundationの無料OSSコード署名へ申請準備中です。現在の成果物は未署名であり、
-申請承認済み・署名済みとは表示しません。担当者、手動承認、署名対象、プライバシー、
-署名後の検証方針は[`docs/code_signing_policy.md`](docs/code_signing_policy.md)、
-申請時と承認後に行う作業は
-[`docs/signpath_application.md`](docs/signpath_application.md)を参照してください。
+社内利用向け成果物は意図的に未署名で配布します。SignPath申請は終了しており、今後の
+リリース操作に署名要求や証明書設定はありません。公式ReleaseとSHA-256を確認し、利用
+組織の許可を得たPCだけで使用してください。詳細は
+[`docs/code_signing_policy.md`](docs/code_signing_policy.md)を参照してください。
 
 ## 仕様と設計文書
 
@@ -126,6 +128,8 @@ SignPath Foundationの無料OSSコード署名へ申請準備中です。現在�
 - 講師×科目の指導可否と、生徒×科目の受講希望
 - `master_data.xlsx` の出力、検証プレビュー、確認後の一括反映
 - 生徒用・講師用availabilityテンプレートと0／1／2の入力規則
+- アンケートブック内の生徒・講師・科目マスター参照、ID選択、名前・科目名確認
+- 必須列表示、学年の小1～高3選択、業務上安全な空欄既定値
 - xlsx／UTF-8 CSV／CP932 CSVのシート・文字コード・列マッピング・先頭プレビュー
 - ID、名前、期間、開校日、科目、LessonRequest、希望講師資格等の検証
 - 追加・変更・変更なし・削除候補のセル差分と、明示選択時だけの削除
@@ -505,11 +509,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.2
+  -Version 1.0.3
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.0.2.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.0.3.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -521,13 +525,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.2 `
+  -Version 1.0.3 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.0.2.zip `
-  dist\SummerCourseScheduler-Setup-1.0.2.exe
+  dist\SummerCourseScheduler-Portable-1.0.3.zip `
+  dist\SummerCourseScheduler-Setup-1.0.3.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `
@@ -536,8 +540,8 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 
 ### 2026-07-29のローカル生成・smoke結果
 
-同一build machineで生成した、未署名・未公開の技術検証用候補は次のとおりです。将来
-署名または再buildした成果物にはこのhashを流用せず、その最終形から再計算します。
+同一build machineで生成した、未署名・未公開の技術検証用候補は次のとおりです。再build
+した成果物にはこのhashを流用せず、その最終形から再計算します。
 
 | 成果物 | size | SHA-256 |
 |---|---:|---|
@@ -557,7 +561,8 @@ sentinelはuninstall後も保持されました。一方、最深pathがおよ�
 install先ではinstallerがexit 5となってrollbackし、短いpathへ変更すると成功しました。
 
 以上は同一build machine上のローカル検証です。Python未導入のclean Windows、offline、
-上書きupgrade、実GUI操作、コード署名はまだ確認していません。build成功やこのsmokeは、
+上書きupgrade、実GUI操作はまだ確認していません。成果物は方針どおり未署名です。
+build成功やこのsmokeは、
 法的な配布許可や本番公開承認の代わりになりません。
 
 ## Release候補の作成
@@ -600,10 +605,8 @@ Windows受入、CHANGELOG、第三者notice、成果物の再downloadとSHA-256�
 確認事項は[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)を参照してください。
 
 ソースコードの公開許諾と、Windowsバイナリを法的・技術的に配布できる状態は別です。
-署名済みバイナリを公開する前に、完成artifactに含まれるQt moduleと第三者ライセンスを
-再棚卸しし、SignPathの承認・署名後検証とclean Windows受入を完了します。初回申請では
-portable ZIP内の自作EXEだけを対象とし、Inno Setup生成installerはSignPathから適格性の
-確認が得られるまで署名対象へ含めません。
+未署名バイナリを配布する前に、完成artifactに含まれるQt moduleと第三者ライセンスを
+再棚卸しし、SHA-256再検証とclean Windows受入を完了します。
 
 ## 現在の既知の制限
 
@@ -612,7 +615,7 @@ Phase 7リリース候補には、次の未実装・未確認事項がありま�
 - 選択日・選択生徒・選択講師周辺だけの部分再最適化
 - セル単位、日付単位、講師単位、選択範囲単位の一括ロック
 - Undo / Redo履歴のアプリ再起動をまたぐ復元
-- 本番GitHub Release、正式tag、コード署名
+- 本番GitHub Release、正式tag
 - 完成artifactに対するQt module、第三者notice、SBOMの最終監査
 - Python未導入のclean Windows／offlineでのportable・installer起動、installerの
   上書きupgrade、packaged GUIの通し受入。fresh install／smoke／uninstallは同一

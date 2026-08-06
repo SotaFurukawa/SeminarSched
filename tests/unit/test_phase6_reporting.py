@@ -92,6 +92,39 @@ def test_student_teacher_and_issue_reports_cover_required_fields() -> None:
     assert "未対応" in issue_text
 
 
+def test_timetable_uses_family_name_unless_the_family_name_is_duplicated() -> None:
+    snapshot = _snapshot()
+    renamed = replace(
+        snapshot,
+        students=(
+            replace(snapshot.students[0], name="山田 太郎"),
+            replace(snapshot.students[1], name="山田 花子"),
+            replace(snapshot.students[2], name="佐藤 次郎"),
+        ),
+        teachers=(
+            replace(snapshot.teachers[0], name="鈴木 一郎"),
+            replace(snapshot.teachers[1], name="鈴木 花子"),
+            replace(snapshot.teachers[2], name="高橋 次郎"),
+        ),
+    )
+
+    overall_text = _document_texts(build_timetable_document(renamed, _settings()))
+    teacher_text = _document_texts(build_teacher_document(renamed, _settings()))
+    student_text = _document_texts(build_student_document(renamed, _settings()))
+
+    assert "山田 太郎" in overall_text
+    assert "山田 花子" in overall_text
+    assert "佐藤" in overall_text
+    assert "佐藤 次郎" not in overall_text
+    assert "鈴木 一郎" in overall_text
+    assert "鈴木 花子" in overall_text
+    assert "高橋" in overall_text
+    assert "高橋 次郎" not in overall_text
+    assert "山田 太郎" in teacher_text
+    assert "佐藤" in teacher_text
+    assert "鈴木 一郎" in student_text
+
+
 def test_output_selection_filters_dates_teachers_and_students() -> None:
     snapshot = _snapshot()
     selection = OutputSelection(

@@ -119,8 +119,7 @@ ApplicationWindow {
 
                 Label {
                     text: root.workspace.hasOpenProject
-                          ? qsTr("%1／%2 ～ %3")
-                            .arg(root.workspace.currentCampusName || qsTr("校舎未設定"))
+                          ? qsTr("%1 ～ %2")
                             .arg(root.workspace.currentStartDate || "----/--/--")
                             .arg(root.workspace.currentEndDate || "----/--/--")
                           : qsTr("プロジェクトを作成するか、既存ファイルを開いてください")
@@ -298,6 +297,7 @@ ApplicationWindow {
         ProjectHomePage {
             viewModel: root.workspace
             onOpenSettingsRequested: root.selectPage(8)
+            onNavigateRequested: pageIndex => root.selectPage(pageIndex)
         }
     }
 

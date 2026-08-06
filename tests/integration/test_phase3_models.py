@@ -59,6 +59,7 @@ _PHASE3_TABLES = _PHASE2_TABLES | {
 }
 _CURRENT_TABLES = _PHASE3_TABLES | {
     "assignments",
+    "import_source_snapshots",
     "optimization_runs",
     "output_settings",
 }
@@ -256,11 +257,11 @@ def test_upgrade_from_0002_preserves_data_and_matches_metadata(
 
         assert database_path.is_file()
         assert set(inspect(database.engine).get_table_names()) == _CURRENT_TABLES
-        assert get_head_revision() == "20260729_0006"
+        assert get_head_revision() == "20260807_0007"
         with database.engine.connect() as connection:
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "20260729_0006"
+                == "20260807_0007"
             )
             assert (
                 connection.execute(

@@ -130,19 +130,23 @@ build contextとartifactへ次を含めない。
 
 ### 8. SmartScreenとcode signing
 
-初期Release候補は未署名でもよいが、SmartScreen警告とSHA-256確認をREADMEへ明示する。
+2026-08-05追記: SignPath Foundation申請は公開実績要件により不承認となり、所有者は
+社内利用向け成果物を意図的に未署名で配布する方針を選択した。以下のSignPath案は
+採用しない歴史的検討記録であり、現在の手順ではない。
+
+未署名成果物のSmartScreen警告とSHA-256確認をREADMEへ明示する。
 利用者へOS保護の恒久無効化を案内しない。
 
-SignPath Foundationの無料OSS署名を申請する。証明書とprivate keyをrepository、
+検討時にはSignPath Foundationの無料OSS署名を申請する案としていた。証明書とprivate keyをrepository、
 GitHub Secrets、artifactへ置かず、署名鍵はSignPathの管理下に置く。GitHub-hosted
 runnerが作ったunsigned artifactだけをconnectorへ渡し、毎回SignPath上で手動承認する。
 自作の`SummerCourseScheduler.exe`だけを署名し、上流DLL/PYD/EXEはプロジェクト証明書で
 署名しない。Inno Setup生成installerはSignPathから適格性の確認を得るまで対象外とする。
 
-署名後は`Valid`、署名者`SignPath Foundation`、timestampを機械検証し、その後に
+この案を採用する場合は、署名後に`Valid`、署名者、timestampを機械検証し、その後に
 portable smokeとchecksum生成をやり直す。申請・承認前の候補は`RequireUnsigned`で
 予期しない署名がないことを確認し、「unsigned」と明記する。詳細は
-`docs/code_signing_policy.md`と`docs/signpath_application.md`を正本とする。
+現在の正本は`docs/code_signing_policy.md`であり、`docs/signpath_application.md`は終了記録である。
 
 ## 根拠
 

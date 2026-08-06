@@ -69,6 +69,7 @@ def bootstrap(config_path: Path | None = None) -> RuntimeContext:
         database,
         backup_directory=settings.data_directory.parent / "backups",
         automatic_backup_generations=settings.backup.automatic_generations,
+        workspace_directory=settings.data_directory.parent / "workspace",
     )
     return RuntimeContext(
         settings=settings,

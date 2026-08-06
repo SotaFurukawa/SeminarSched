@@ -155,10 +155,14 @@ class MasterDataExcelService:
 
     def _export_rows(self) -> dict[str, list[dict[str, object]]]:
         students = list(
-            self._session.scalars(select(Student).order_by(Student.external_id)),
+            self._session.scalars(
+                select(Student).order_by(Student.active.desc(), Student.external_id)
+            ),
         )
         teachers = list(
-            self._session.scalars(select(Teacher).order_by(Teacher.external_id)),
+            self._session.scalars(
+                select(Teacher).order_by(Teacher.active.desc(), Teacher.external_id)
+            ),
         )
         subjects = list(
             self._session.scalars(select(Subject).order_by(Subject.sort_order, Subject.code)),

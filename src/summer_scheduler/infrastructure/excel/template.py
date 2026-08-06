@@ -250,7 +250,9 @@ def _sheet_layout(sheet_spec: SheetSpec) -> tuple[_LayoutColumn, ...]:
     helpers = {helper.key: helper for helper in _REFERENCE_HELPERS.get(sheet_spec.name, ())}
     layout: list[_LayoutColumn] = []
     for column in sheet_spec.columns:
-        layout.append(_LayoutColumn(column.header, column.width, column.comment, canonical=column))
+        layout.append(
+            _LayoutColumn(column.template_header, column.width, column.comment, canonical=column)
+        )
         helper = helpers.get(column.key)
         if helper is not None:
             layout.extend(
@@ -329,6 +331,13 @@ def _add_column_validation(
             allow_blank=False,
         )
         validation.error = "小学校・中学校・高校から選択してください。"
+    elif column.key == "grade":
+        validation = DataValidation(
+            type="list",
+            formula1='"小1,小2,小3,小4,小5,小6,中1,中2,中3,高1,高2,高3"',
+            allow_blank=False,
+        )
+        validation.error = "小1～小6、中1～中3、高1～高3から選択してください。"
 
     if validation is not None:
         validation.errorTitle = "入力値を確認してください"
@@ -473,8 +482,17 @@ def _add_reference_helpers(workbook: Any) -> None:
 
 
 def _column_letter(worksheet: Any, header: str) -> str:
+    sheet_spec = next(
+        (spec for spec in MASTER_DATA_SHEETS if spec.name == worksheet.title),
+        None,
+    )
+    accepted = {header}
+    if sheet_spec is not None:
+        accepted.update(
+            column.template_header for column in sheet_spec.columns if column.header == header
+        )
     for column_number in range(1, worksheet.max_column + 1):
-        if worksheet.cell(row=1, column=column_number).value == header:
+        if worksheet.cell(row=1, column=column_number).value in accepted:
             return get_column_letter(column_number)
     raise AssertionError(f"{worksheet.title}に列「{header}」がありません。")
 

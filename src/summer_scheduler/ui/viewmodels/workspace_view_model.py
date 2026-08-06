@@ -184,6 +184,16 @@ class WorkspaceViewModel(QObject):
         notify=recoveryCandidatesChanged,
     )
 
+    def _get_projects_directory_url(self) -> str:
+        return QUrl.fromLocalFile(str(self._projects.projects_directory)).toString()
+
+    projectsDirectoryUrl = Property(str, _get_projects_directory_url, constant=True)
+
+    def _get_workspace_directory(self) -> str:
+        return str(self._projects.workspace_directory)
+
+    workspaceDirectory = Property(str, _get_workspace_directory, constant=True)
+
     def _get_students(self) -> list[dict[str, object]]:
         return self._students
 
@@ -284,6 +294,29 @@ class WorkspaceViewModel(QObject):
                 _path_from_qml(path_value),
                 title=title,
                 campus_name=campus_name,
+                start_date=parse_iso_date(start_date_value, "start_date"),
+                end_date=parse_iso_date(end_date_value, "end_date"),
+            )
+            self._after_project_opened()
+
+        result = self._perform(action, "プロジェクトを作成しました")
+        if result:
+            self._show_safety_warning_if_any()
+        return result
+
+    @Slot(str, str, str, result=bool)
+    def createProjectInWorkspace(
+        self,
+        title: str,
+        start_date_value: str,
+        end_date_value: str,
+    ) -> bool:
+        """保存先・校舎名を意識させず、既定のプロジェクト領域へ作成する。"""
+
+        def action() -> None:
+            self._ensure_no_unsaved_draft()
+            self._projects.create_project_in_workspace(
+                title=title,
                 start_date=parse_iso_date(start_date_value, "start_date"),
                 end_date=parse_iso_date(end_date_value, "end_date"),
             )

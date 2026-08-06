@@ -54,7 +54,7 @@ def test_availability_template_inspection_is_exposed_as_qml_primitives(
 
     assert view_model._get_has_open_project() is True
     assert view_model._get_source_path() == str(template.resolve())
-    assert "生徒ID" in view_model._get_source_headers()
+    assert "生徒ID（必須）" in view_model._get_source_headers()
     assert view_model._get_selected_sheet() == "生徒希望"
     assert any(row["canonicalKey"] == "slot:Y" for row in view_model._get_mapping_rows())
     assert view_model._get_source_preview_rows()

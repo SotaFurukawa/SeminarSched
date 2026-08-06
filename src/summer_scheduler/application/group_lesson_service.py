@@ -326,6 +326,159 @@ class GroupLessonService:
                 )
         return tuple(rows)
 
+    def calendar_options(self) -> dict[str, tuple[dict[str, object], ...]]:
+        """カレンダー登録画面で使用する有効な日付・科目・講師・コマを返す。"""
+        project = self._projects.require_project()
+        database = self._projects.require_database()
+        with database.session_factory() as session:
+            repository = MasterRepository(session)
+            return {
+                "dates": tuple(
+                    {"value": row.date.isoformat(), "label": row.date.strftime("%m/%d")}
+                    for row in repository.list_open_dates(project_id=project.project_id)
+                    if row.is_open
+                ),
+                "subjects": tuple(
+                    {"code": row.code, "label": row.display_name}
+                    for row in repository.list_subjects(active_only=True)
+                ),
+                "teachers": tuple(
+                    {"externalId": row.external_id, "label": row.name}
+                    for row in repository.list_teachers(active_only=True)
+                ),
+                "slots": tuple(
+                    {
+                        "code": row.code,
+                        "label": f"{row.code} {row.start_time:%H:%M}～{row.end_time:%H:%M}",
+                        "start": row.start_time.strftime("%H:%M"),
+                        "end": row.end_time.strftime("%H:%M"),
+                    }
+                    for row in repository.list_time_slots(
+                        project_id=project.project_id,
+                        enabled_only=True,
+                    )
+                ),
+            }
+
+    def create_calendar_lesson(
+        self,
+        *,
+        grade: str,
+        subject_code: str,
+        day: date,
+        start_time: time,
+        end_time: time,
+        course_name: str = "",
+        teacher_external_id: str | None = None,
+        room: str = "",
+        note: str = "",
+    ) -> int:
+        """画面入力した1件を既存の集団授業制約で検証して保存する。"""
+        if not grade.strip():
+            raise GroupLessonImportError("学年を選択してください")
+        if not subject_code.strip():
+            raise GroupLessonImportError("科目を選択してください")
+        if start_time >= end_time:
+            raise GroupLessonImportError("終了時刻は開始時刻より後にしてください")
+
+        project = self._projects.require_project()
+        database = self._projects.require_database()
+        with database.session_factory.begin() as session:
+            repository = MasterRepository(session)
+            code_base = f"GROUP-{day:%Y%m%d}-{start_time:%H%M}-{subject_code.strip()}"
+            group_code = code_base
+            suffix = 2
+            while repository.get_group_lesson_by_code(
+                project_id=project.project_id,
+                group_code=group_code,
+            ) is not None:
+                group_code = f"{code_base}-{suffix}"
+                suffix += 1
+            row = GroupLessonRow(
+                source_row=1,
+                group_code=group_code,
+                grade=grade.strip(),
+                subject_code=subject_code.strip(),
+                course_name=course_name.strip(),
+                day=day,
+                start_time=start_time,
+                end_time=end_time,
+                teacher_external_id=teacher_external_id.strip()
+                if teacher_external_id and teacher_external_id.strip()
+                else None,
+                room=room.strip() or None,
+                note=note.strip(),
+                student_external_ids=(),
+            )
+            issues = self._validate_rows(repository, project.project_id, (row,))
+            errors = [issue for issue in issues if issue.severity == "error"]
+            if errors:
+                raise GroupLessonImportError(errors[0].message)
+            subject = repository.get_subject_by_code(row.subject_code)
+            if subject is None:
+                raise GroupLessonImportError("科目が見つかりません")
+            expected_school_level = _school_level_for_grade(row.grade)
+            if expected_school_level is None or subject.school_level != expected_school_level:
+                raise GroupLessonImportError("学年と科目の学校段階が一致していません")
+            teacher = (
+                repository.get_teacher_by_external_id(row.teacher_external_id)
+                if row.teacher_external_id is not None
+                else None
+            )
+            created = repository.create_group_lesson(
+                GroupLesson(
+                    project_id=project.project_id,
+                    group_code=row.group_code,
+                    grade=row.grade,
+                    subject_id=subject.id,
+                    course_name=row.course_name or None,
+                    date=row.day,
+                    start_time=row.start_time,
+                    end_time=row.end_time,
+                    teacher_id_optional=teacher.id if teacher is not None else None,
+                    room_optional=row.room,
+                    note=row.note or None,
+                )
+            )
+            repository.create_audit_log(
+                AuditLog(
+                    project_id=project.project_id,
+                    action="group_lesson_created_from_calendar",
+                    entity_type="group_lesson",
+                    entity_id=str(created.id),
+                    before_json=None,
+                    after_json=json.dumps(
+                        {"group_code": created.group_code, "date": created.date.isoformat()},
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                )
+            )
+            return created.id
+
+    def delete_calendar_lesson(self, group_lesson_id: int) -> bool:
+        """画面で選択した集団授業を監査記録付きで削除する。"""
+        project = self._projects.require_project()
+        database = self._projects.require_database()
+        with database.session_factory.begin() as session:
+            repository = MasterRepository(session)
+            group = repository.get_group_lesson(group_lesson_id)
+            if group is None or group.project_id != project.project_id:
+                raise GroupLessonImportError("集団授業が見つかりません")
+            before = {"group_code": group.group_code, "date": group.date.isoformat()}
+            repository.delete_group_lesson(group.id)
+            repository.create_audit_log(
+                AuditLog(
+                    project_id=project.project_id,
+                    action="group_lesson_deleted_from_calendar",
+                    entity_type="group_lesson",
+                    entity_id=str(group_lesson_id),
+                    before_json=json.dumps(before, ensure_ascii=False, sort_keys=True),
+                    after_json=None,
+                )
+            )
+            return True
+
     def _validate_rows(
         self,
         repository: MasterRepository,
@@ -715,6 +868,17 @@ def _issue(row: GroupLessonRow, code: str, message: str) -> ImportIssueDto:
 def _issues_message(issues: Sequence[ImportIssueDto]) -> str:
     errors = [issue.message for issue in issues if issue.severity == "error"]
     return " / ".join(errors[:3]) or "取込み検証に失敗しました"
+
+
+def _school_level_for_grade(grade: str) -> str | None:
+    normalized = grade.strip()
+    if normalized.startswith("小"):
+        return "elementary"
+    if normalized.startswith("中"):
+        return "junior_high"
+    if normalized.startswith("高"):
+        return "high_school"
+    return None
 
 
 def _optional_text(value: object) -> str:

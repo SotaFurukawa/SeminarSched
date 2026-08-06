@@ -10,6 +10,7 @@ Item {
 
     required property var viewModel
     signal openHomeRequested
+    property int pendingDeleteId: 0
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -19,6 +20,27 @@ Item {
 
     function summaryValue(key) {
         return Number(root.rowValue(root.viewModel.groupImportSummary, key, 0))
+    }
+
+    function teacherOptions() {
+        const result = [{"externalId": "", "label": qsTr("担当講師なし")}]
+        const rows = root.viewModel.groupTeachers || []
+        for (let index = 0; index < rows.length; index += 1)
+            result.push(rows[index])
+        return result
+    }
+
+    function subjectOptionsForGrade(grade) {
+        const prefix = String(grade).startsWith("小") ? "小学校・"
+                     : String(grade).startsWith("中") ? "中学校・"
+                     : "高校・"
+        const result = []
+        const rows = root.viewModel.groupSubjects || []
+        for (let index = 0; index < rows.length; index += 1) {
+            if (String(rows[index].label).startsWith(prefix))
+                result.push(rows[index])
+        }
+        return result
     }
 
     Rectangle {
@@ -90,6 +112,26 @@ Item {
                 onClicked: root.viewModel.refreshPhase3()
             }
             Button {
+                text: qsTr("＋ カレンダーに追加")
+                highlighted: true
+                enabled: (root.viewModel.groupDates || []).length > 0
+                onClicked: {
+                    calendarDate.currentIndex = 0
+                    calendarGrade.currentIndex = 0
+                    calendarSubject.currentIndex = 0
+                    calendarSlot.currentIndex = 0
+                    calendarTeacher.currentIndex = 0
+                    if (calendarSlot.count > 0) {
+                        calendarStart.text = calendarSlot.model[0].start
+                        calendarEnd.text = calendarSlot.model[0].end
+                    }
+                    calendarCourse.text = ""
+                    calendarRoom.text = ""
+                    calendarNote.text = ""
+                    calendarCreateDialog.open()
+                }
+            }
+            Button {
                 text: qsTr("group_lessons.xlsxを保存…")
                 onClicked: groupTemplateDialog.open()
             }
@@ -126,7 +168,7 @@ Item {
             Layout.fillWidth: true
 
             TabButton {
-                text: qsTr("登録済み一覧（%1件）")
+                text: qsTr("カレンダー（%1件）")
                       .arg((root.viewModel.groupLessons || []).length)
             }
             TabButton {
@@ -248,8 +290,16 @@ Item {
                             required property var modelData
                             width: ListView.view.width
                             height: 43
-                            color: index % 2 === 0 ? "#ffffff" : "#f8fafc"
+                            color: index % 2 === 0 ? "#ffffff" : "#f6f9fd"
                             border.color: "#edf0f4"
+
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: 4
+                                color: "#4285f4"
+                            }
 
                             RowLayout {
                                 anchors.fill: parent
@@ -344,6 +394,15 @@ Item {
                                     color: "#667085"
                                     font.pixelSize: 9
                                     elide: Text.ElideRight
+                                }
+                                ToolButton {
+                                    text: qsTr("削除")
+                                    Accessible.name: qsTr("この集団授業を削除")
+                                    onClicked: {
+                                        root.pendingDeleteId = Number(root.rowValue(
+                                                    groupLessonDelegate.modelData, "id", 0))
+                                        deleteCalendarConfirmation.open()
+                                    }
                                 }
                             }
                         }
@@ -592,6 +651,123 @@ Item {
         onButtonClicked: function (button) {
             if (button === Dialogs.MessageDialog.Yes)
                 root.viewModel.applyGroupImport(groupIncludeDeletes.checked)
+        }
+    }
+
+    Dialog {
+        id: calendarCreateDialog
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(620, root.width - 48)
+        modal: true
+        title: qsTr("集団授業をカレンダーへ追加")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        GridLayout {
+            width: parent.width
+            columns: 2
+            columnSpacing: 12
+            rowSpacing: 8
+
+            Label { text: qsTr("授業日（必須）") }
+            ComboBox {
+                id: calendarDate
+                Layout.fillWidth: true
+                model: root.viewModel.groupDates || []
+                textRole: "label"
+                valueRole: "value"
+            }
+            Label { text: qsTr("学年（必須）") }
+            ComboBox {
+                id: calendarGrade
+                Layout.fillWidth: true
+                model: ["小1", "小2", "小3", "小4", "小5", "小6",
+                        "中1", "中2", "中3", "高1", "高2", "高3"]
+            }
+            Label { text: qsTr("科目（必須）") }
+            ComboBox {
+                id: calendarSubject
+                Layout.fillWidth: true
+                model: root.subjectOptionsForGrade(calendarGrade.currentText)
+                textRole: "label"
+                valueRole: "code"
+            }
+            Label { text: qsTr("標準コマ") }
+            ComboBox {
+                id: calendarSlot
+                Layout.fillWidth: true
+                model: root.viewModel.groupSlots || []
+                textRole: "label"
+                valueRole: "code"
+                onActivated: {
+                    calendarStart.text = model[currentIndex].start
+                    calendarEnd.text = model[currentIndex].end
+                }
+            }
+            Label { text: qsTr("開始・終了（必須）") }
+            RowLayout {
+                Layout.fillWidth: true
+                TextField {
+                    id: calendarStart
+                    Layout.fillWidth: true
+                    placeholderText: "17:10"
+                }
+                Label { text: qsTr("～") }
+                TextField {
+                    id: calendarEnd
+                    Layout.fillWidth: true
+                    placeholderText: "18:30"
+                }
+            }
+            Label { text: qsTr("担当講師") }
+            ComboBox {
+                id: calendarTeacher
+                Layout.fillWidth: true
+                model: root.teacherOptions()
+                textRole: "label"
+                valueRole: "externalId"
+            }
+            Label { text: qsTr("コース名") }
+            TextField {
+                id: calendarCourse
+                Layout.fillWidth: true
+                placeholderText: qsTr("例：中3受験数学")
+            }
+            Label { text: qsTr("教室") }
+            TextField {
+                id: calendarRoom
+                Layout.fillWidth: true
+                placeholderText: qsTr("任意")
+            }
+            Label { text: qsTr("備考") }
+            TextField {
+                id: calendarNote
+                Layout.fillWidth: true
+                placeholderText: qsTr("任意")
+            }
+        }
+
+        onAccepted: root.viewModel.createCalendarGroupLesson(
+                        String(calendarGrade.currentText),
+                        String(calendarSubject.currentValue || ""),
+                        String(calendarDate.currentValue || ""),
+                        calendarStart.text.trim(),
+                        calendarEnd.text.trim(),
+                        calendarCourse.text.trim(),
+                        String(calendarTeacher.currentValue || ""),
+                        calendarRoom.text.trim(),
+                        calendarNote.text.trim())
+    }
+
+    Dialogs.MessageDialog {
+        id: deleteCalendarConfirmation
+        title: qsTr("集団授業を削除")
+        text: qsTr("選択した集団授業を削除しますか？")
+        informativeText: qsTr("この操作はプロジェクトの監査履歴に記録されます。")
+        buttons: Dialogs.MessageDialog.Yes | Dialogs.MessageDialog.No
+        onButtonClicked: function (button) {
+            if (button === Dialogs.MessageDialog.Yes && root.pendingDeleteId > 0)
+                root.viewModel.deleteCalendarGroupLesson(root.pendingDeleteId)
+            root.pendingDeleteId = 0
         }
     }
 }
