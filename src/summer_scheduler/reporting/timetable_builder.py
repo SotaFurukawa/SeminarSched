@@ -245,9 +245,7 @@ def _build_page(
     date_text = (
         f"{format_day(dates[0].day)} ～ {format_day(dates[-1].day)}" if dates else "対象日なし"
     )
-    teacher_text = (
-        "、".join(teacher_display_names[row.id] for row in teachers) or "対象講師なし"
-    )
+    teacher_text = "、".join(teacher_display_names[row.id] for row in teachers) or "対象講師なし"
     return LayoutPage(
         heading="夏期講習時間割",
         subheading=f"{date_text}／講師: {teacher_text}",

@@ -28,7 +28,7 @@ def test_google_form_generator_uses_application_subject_names() -> None:
 def test_google_form_generator_has_stable_response_contract() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
 
-    assert 'setCollectEmail(true)' in source
+    assert "setCollectEmail(true)" in source
     assert 'setTitle("個人情報の利用目的への同意（必須）")' in source
     assert 'setTitle("姓（苗字）（必須）")' in source
     assert 'setTitle("名（必須）")' in source
@@ -37,8 +37,8 @@ def test_google_form_generator_has_stable_response_contract() -> None:
     assert "for (let index = 1; index <= 4; index += 1)" in source
     assert "受講教科（${schoolLabel}・${index}教科目）" in source
     assert "受講回数（${schoolLabel}・${index}教科目）" in source
-    assert source.count('.addPageBreakItem()') == 5
-    assert '.addCheckboxGridItem()' in source
+    assert source.count(".addPageBreakItem()") == 5
+    assert ".addCheckboxGridItem()" in source
     assert 'setTitle("受講不可日時（チェックしたコマは受講不可）")' in source
     assert "FormApp.DestinationType.SPREADSHEET" in source
 
@@ -83,12 +83,12 @@ def test_teacher_google_form_generator_matches_unavailable_grid_contract() -> No
     source = TEACHER_SCRIPT.read_text(encoding="utf-8")
 
     assert "createTeacherQuestionnaire" in source
-    assert 'setCollectEmail(false)' in source
+    assert "setCollectEmail(false)" in source
     assert 'setTitle("個人情報の利用目的への同意（必須）")' in source
     assert 'setTitle("姓（苗字）（必須）")' in source
     assert 'setTitle("名（必須）")' in source
-    assert source.count('.addPageBreakItem()') == 1
-    assert '.addCheckboxGridItem()' in source
+    assert source.count(".addPageBreakItem()") == 1
+    assert ".addCheckboxGridItem()" in source
     assert 'setTitle("出勤不可日時（チェックしたコマは出勤不可）")' in source
     assert 'setTitle("出勤不可日時の確認（必須）")' in source
     assert "FormApp.DestinationType.SPREADSHEET" in source

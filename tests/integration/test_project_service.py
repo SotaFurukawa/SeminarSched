@@ -72,7 +72,7 @@ def test_workspace_directories_and_automatic_project_path(
     assert project_service.projects_directory.is_dir()
 
     first = project_service.create_project_in_workspace(
-        title='2026年度 夏期講習:本番/確認',
+        title="2026年度 夏期講習:本番/確認",
         start_date=date(2026, 7, 20),
         end_date=date(2026, 7, 22),
     )
@@ -81,7 +81,7 @@ def test_workspace_directories_and_automatic_project_path(
     assert first.campus_name == "既定校舎"
 
     second = project_service.create_project_in_workspace(
-        title='2026年度 夏期講習:本番/確認',
+        title="2026年度 夏期講習:本番/確認",
         start_date=date(2026, 7, 20),
         end_date=date(2026, 7, 22),
     )

@@ -743,9 +743,7 @@ class ProjectService:
             session.add_all([*students, *teachers])
             session.flush()
             teacher_ids = {row.external_id: row.id for row in teachers}
-            subject_ids = {
-                row.code: row.id for row in session.scalars(select(Subject))
-            }
+            subject_ids = {row.code: row.id for row in session.scalars(select(Subject))}
             session.add_all(
                 TeacherQualification(
                     teacher_id=teacher_ids[row.teacher_external_id],

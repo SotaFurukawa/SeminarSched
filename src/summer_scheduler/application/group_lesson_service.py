@@ -388,10 +388,13 @@ class GroupLessonService:
             code_base = f"GROUP-{day:%Y%m%d}-{start_time:%H%M}-{subject_code.strip()}"
             group_code = code_base
             suffix = 2
-            while repository.get_group_lesson_by_code(
-                project_id=project.project_id,
-                group_code=group_code,
-            ) is not None:
+            while (
+                repository.get_group_lesson_by_code(
+                    project_id=project.project_id,
+                    group_code=group_code,
+                )
+                is not None
+            ):
                 group_code = f"{code_base}-{suffix}"
                 suffix += 1
             row = GroupLessonRow(

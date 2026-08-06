@@ -176,9 +176,7 @@ def test_new_import_replaces_embedded_source_snapshot(
     _write_csv(first, _STUDENT_HEADERS, [row])
     import_service.apply_import(import_service.prepare_import("student", first))
 
-    changed_row = (
-        "S001", "生徒 太郎", "JH_MATH", _DAY.isoformat(), 2, 1, 1, 1, 1, "", "", "", ""
-    )
+    changed_row = ("S001", "生徒 太郎", "JH_MATH", _DAY.isoformat(), 2, 1, 1, 1, 1, "", "", "", "")
     _write_csv(second, _STUDENT_HEADERS, [changed_row])
     import_service.apply_import(import_service.prepare_import("student", second))
 
