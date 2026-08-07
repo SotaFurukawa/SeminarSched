@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在は **v1.0.3の公開準備版** です。GitHub Releaseを公開するまでは配布版を
+現在は **v1.0.4の公開準備版** です。GitHub Releaseを公開するまでは配布版を
 意味しません。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
@@ -38,15 +38,15 @@ Releaseはまだ公開していません。選択日・選択生徒・選択講�
 clean Windows受入、公開内容を承認したReleaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.0.3.exe`
-- `SummerCourseScheduler-Portable-1.0.3.zip`
+- `SummerCourseScheduler-Setup-1.0.4.exe`
+- `SummerCourseScheduler-Portable-1.0.4.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.0.3.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.0.3.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.0.4.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.0.4.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -509,11 +509,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.3
+  -Version 1.0.4
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.0.3.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.0.4.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -525,13 +525,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.3 `
+  -Version 1.0.4 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.0.3.zip `
-  dist\SummerCourseScheduler-Setup-1.0.3.exe
+  dist\SummerCourseScheduler-Portable-1.0.4.zip `
+  dist\SummerCourseScheduler-Setup-1.0.4.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

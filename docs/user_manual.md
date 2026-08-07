@@ -24,7 +24,7 @@
 生徒画面の「在籍中」を外すと卒業・退会扱いとなり、一覧の末尾へ移動して灰色表示されます。
 講師も同様に、在籍中を外すと退職・休止として末尾へ表示されます。
 
-対象: `1.0.3`
+対象: `1.0.4`
 最終更新: 2026-08-01
 
 初めて利用する場合は、先に
@@ -70,8 +70,8 @@ Releaseページ以外から受け取った実行ファイルを安易に実行�
 公開版では`SHA256SUMS.txt`とダウンロードしたファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Portable-1.0.3.zip -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Setup-1.0.3.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.0.4.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.0.4.exe -Algorithm SHA256
 ```
 
 表示されたhashがReleaseページの値と1文字でも異なる場合は使用しません。
@@ -524,7 +524,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 
 ## 20. 現在の既知の制限
 
-- `1.0.3`のGitHub Release公開状態は配布元のReleaseページで確認します。成果物は
+- `1.0.4`のGitHub Release公開状態は配布元のReleaseページで確認します。成果物は
   方針どおり未署名です。
 - clean Windows、実installer / portable、SmartScreen、install / uninstallの受入結果は
   [`acceptance_test_phase7.md`](acceptance_test_phase7.md)を参照してください。
