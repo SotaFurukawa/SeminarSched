@@ -38,7 +38,7 @@ def upgrade() -> None:
             )
         )
         batch_op.create_check_constraint(
-            "ck_audit_logs_source_value",
+            op.f("ck_audit_logs_source_value"),
             "source IN ('system', 'manual', 'automatic', 'undo', 'redo', 'import')",
         )
         batch_op.create_index(
@@ -52,7 +52,7 @@ def downgrade() -> None:
     with op.batch_alter_table("audit_logs") as batch_op:
         batch_op.drop_index("ix_audit_logs_project_operation_id")
         batch_op.drop_constraint(
-            "ck_audit_logs_source_value",
+            op.f("ck_audit_logs_source_value"),
             type_="check",
         )
         batch_op.drop_column("operation_id_optional")

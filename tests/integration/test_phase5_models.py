@@ -164,6 +164,12 @@ def test_upgrade_from_0004_preserves_rows_and_sets_compatible_defaults(
         upgrade_database(database.engine)
 
         assert get_head_revision() == "20260807_0007"
+        audit_check_names = {
+            constraint["name"]
+            for constraint in inspect(database.engine).get_check_constraints("audit_logs")
+        }
+        assert "ck_audit_logs_source_value" in audit_check_names
+        assert "ck_audit_logs_ck_audit_logs_source_value" not in audit_check_names
         with database.session_factory.begin() as session:
             assignment = session.query(Assignment).one()
             audit = session.query(AuditLog).one()
