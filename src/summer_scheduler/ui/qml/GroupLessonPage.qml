@@ -11,6 +11,10 @@ Item {
     required property var viewModel
     signal openHomeRequested
     property int pendingDeleteId: 0
+    property int calendarWeekOffset: 0
+    property var selectedCalendarLesson: null
+
+    UiTheme { id: theme }
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -41,6 +45,99 @@ Item {
                 result.push(rows[index])
         }
         return result
+    }
+
+    function parseIsoDate(value) {
+        const parts = String(value || "").split("-")
+        if (parts.length !== 3)
+            return new Date()
+        return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+    }
+
+    function calendarBaseDate() {
+        const dates = root.viewModel.groupDates || []
+        if (dates.length > 0)
+            return root.parseIsoDate(dates[0].value)
+        return new Date()
+    }
+
+    function calendarDay(dayIndex) {
+        const base = root.calendarBaseDate()
+        const mondayOffset = (base.getDay() + 6) % 7
+        base.setDate(base.getDate() - mondayOffset
+                     + (root.calendarWeekOffset * 7) + dayIndex)
+        return base
+    }
+
+    function isoDate(dateValue) {
+        const year = dateValue.getFullYear()
+        const month = String(dateValue.getMonth() + 1).padStart(2, "0")
+        const day = String(dateValue.getDate()).padStart(2, "0")
+        return year + "-" + month + "-" + day
+    }
+
+    function calendarDayIso(dayIndex) {
+        return root.isoDate(root.calendarDay(dayIndex))
+    }
+
+    function calendarDayLabel(dayIndex) {
+        const value = root.calendarDay(dayIndex)
+        const weekdays = [qsTr("月"), qsTr("火"), qsTr("水"), qsTr("木"),
+                          qsTr("金"), qsTr("土"), qsTr("日")]
+        return qsTr("%1/%2（%3）")
+                .arg(value.getMonth() + 1)
+                .arg(value.getDate())
+                .arg(weekdays[dayIndex])
+    }
+
+    function calendarWeekLabel() {
+        return qsTr("%1 ～ %2")
+                .arg(root.calendarDayLabel(0))
+                .arg(root.calendarDayLabel(6))
+    }
+
+    function lessonsForDate(isoValue) {
+        const rows = root.viewModel.groupLessons || []
+        const result = []
+        for (let index = 0; index < rows.length; index += 1) {
+            if (String(root.rowValue(rows[index], "date", "")) === isoValue)
+                result.push(rows[index])
+        }
+        result.sort((left, right) => String(root.rowValue(left, "startTime", ""))
+                    .localeCompare(String(root.rowValue(right, "startTime", ""))))
+        return result
+    }
+
+    function dateOptionIndex(isoValue) {
+        const dates = root.viewModel.groupDates || []
+        for (let index = 0; index < dates.length; index += 1) {
+            if (String(dates[index].value) === isoValue)
+                return index
+        }
+        return -1
+    }
+
+    function resetCalendarForm(isoValue) {
+        const optionIndex = root.dateOptionIndex(isoValue)
+        calendarDate.currentIndex = optionIndex >= 0 ? optionIndex : 0
+        calendarGrade.currentIndex = 0
+        calendarSubject.currentIndex = 0
+        calendarSlot.currentIndex = 0
+        calendarTeacher.currentIndex = 0
+        if (calendarSlot.count > 0) {
+            calendarStart.text = calendarSlot.model[0].start
+            calendarEnd.text = calendarSlot.model[0].end
+        }
+        calendarCourse.text = ""
+        calendarRoom.text = ""
+        calendarNote.text = ""
+    }
+
+    function openCalendarCreate(isoValue) {
+        if (root.dateOptionIndex(isoValue) < 0)
+            return
+        root.resetCalendarForm(isoValue)
+        calendarCreateDialog.open()
     }
 
     Rectangle {
@@ -116,18 +213,7 @@ Item {
                 highlighted: true
                 enabled: (root.viewModel.groupDates || []).length > 0
                 onClicked: {
-                    calendarDate.currentIndex = 0
-                    calendarGrade.currentIndex = 0
-                    calendarSubject.currentIndex = 0
-                    calendarSlot.currentIndex = 0
-                    calendarTeacher.currentIndex = 0
-                    if (calendarSlot.count > 0) {
-                        calendarStart.text = calendarSlot.model[0].start
-                        calendarEnd.text = calendarSlot.model[0].end
-                    }
-                    calendarCourse.text = ""
-                    calendarRoom.text = ""
-                    calendarNote.text = ""
+                    root.resetCalendarForm(root.calendarDayIso(0))
                     calendarCreateDialog.open()
                 }
             }
@@ -182,249 +268,202 @@ Item {
             currentIndex: groupTabs.currentIndex
 
             Rectangle {
-                color: "#ffffff"
-                border.color: "#dce2ea"
-                radius: 8
+                color: theme.surface
+                border.color: theme.border
+                radius: theme.radiusLg
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 6
+                    anchors.margins: theme.spacingMd
+                    spacing: theme.spacingSm
 
-                    Rectangle {
+                    RowLayout {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 32
-                        color: "#eef2f6"
-                        border.color: "#dce2ea"
+                        spacing: theme.spacingSm
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 9
-                            anchors.rightMargin: 9
-                            spacing: 7
-
-                            Label {
-                                Layout.preferredWidth: 86
-                                text: qsTr("集団授業ID")
-                                color: "#475467"
-                                font.pixelSize: 9
-                                font.weight: Font.DemiBold
-                            }
-                            Label {
-                                Layout.preferredWidth: 52
-                                text: qsTr("学年")
-                                color: "#475467"
-                                font.pixelSize: 9
-                                font.weight: Font.DemiBold
-                            }
-                            Label {
-                                Layout.preferredWidth: 140
-                                text: qsTr("科目／コース")
-                                color: "#475467"
-                                font.pixelSize: 9
-                                font.weight: Font.DemiBold
-                            }
-                            Label {
-                                Layout.preferredWidth: 82
-                                text: qsTr("日付")
-                                color: "#475467"
-                                font.pixelSize: 9
-                                font.weight: Font.DemiBold
-                            }
-                            Label {
-                                Layout.preferredWidth: 112
-                                text: qsTr("時刻")
-                                color: "#475467"
-                                font.pixelSize: 9
-                                font.weight: Font.DemiBold
-                            }
-                            Label {
-                                Layout.preferredWidth: 110
-                                text: qsTr("担当講師")
-                                color: "#475467"
-                                font.pixelSize: 9
-                                font.weight: Font.DemiBold
-                            }
-                            Label {
-                                Layout.preferredWidth: 50
-                                text: qsTr("受講者")
-                                color: "#475467"
-                                font.pixelSize: 9
-                                font.weight: Font.DemiBold
-                            }
-                            Label {
-                                Layout.preferredWidth: 78
-                                text: qsTr("教室")
-                                color: "#475467"
-                                font.pixelSize: 9
-                                font.weight: Font.DemiBold
-                            }
-                            Label {
-                                Layout.fillWidth: true
-                                text: qsTr("備考")
-                                color: "#475467"
-                                font.pixelSize: 9
-                                font.weight: Font.DemiBold
-                            }
+                        AppButton {
+                            text: qsTr("‹ 前の週")
+                            onClicked: root.calendarWeekOffset -= 1
+                        }
+                        AppButton {
+                            text: qsTr("基準週")
+                            onClicked: root.calendarWeekOffset = 0
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: root.calendarWeekLabel()
+                            color: theme.textPrimary
+                            font.pixelSize: theme.bodySize
+                            font.weight: Font.DemiBold
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        AppButton {
+                            text: qsTr("次の週 ›")
+                            onClicked: root.calendarWeekOffset += 1
                         }
                     }
 
-                    ListView {
-                        id: groupLessonList
+                    InlineMessage {
+                        Layout.fillWidth: true
+                        kind: "info"
+                        message: qsTr("空いている日付の「＋ 授業を追加」から登録できます。集団授業は個別授業より先に固定予定として扱われ、コマと一致しない時刻も区間重複で検証されます。")
+                    }
+
+                    GridLayout {
+                        id: weeklyCalendar
 
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        clip: true
-                        spacing: 1
-                        model: root.viewModel.groupLessons || []
-                        boundsBehavior: Flickable.StopAtBounds
+                        columns: 7
+                        columnSpacing: theme.spacingSm
+                        rowSpacing: 0
 
-                        ScrollBar.vertical: ScrollBar {
-                            policy: ScrollBar.AsNeeded
-                        }
-
-                        delegate: Rectangle {
-                            id: groupLessonDelegate
-
-                            required property int index
-                            required property var modelData
-                            width: ListView.view.width
-                            height: 43
-                            color: index % 2 === 0 ? "#ffffff" : "#f6f9fd"
-                            border.color: "#edf0f4"
+                        Repeater {
+                            model: 7
 
                             Rectangle {
-                                anchors.left: parent.left
-                                anchors.top: parent.top
-                                anchors.bottom: parent.bottom
-                                width: 4
-                                color: "#4285f4"
-                            }
+                                id: calendarDayColumn
 
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 9
-                                anchors.rightMargin: 9
-                                spacing: 7
+                                required property int index
+                                readonly property string dayIso: root.calendarDayIso(index)
+                                readonly property bool isOpenDate:
+                                    root.dateOptionIndex(dayIso) >= 0
+                                readonly property var dayLessons:
+                                    root.lessonsForDate(dayIso)
 
-                                Label {
-                                    Layout.preferredWidth: 86
-                                    text: root.rowValue(groupLessonDelegate.modelData,
-                                                        "groupCode", "")
-                                    color: "#344054"
-                                    font.pixelSize: 9
-                                    font.weight: Font.DemiBold
-                                    elide: Text.ElideRight
-                                }
-                                Label {
-                                    Layout.preferredWidth: 52
-                                    text: root.rowValue(groupLessonDelegate.modelData,
-                                                        "grade", "")
-                                    color: "#475467"
-                                    font.pixelSize: 9
-                                    elide: Text.ElideRight
-                                }
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.minimumWidth: 112
+                                radius: theme.radiusMd
+                                color: isOpenDate ? theme.surface : theme.surfaceSubtle
+                                border.color: isOpenDate ? theme.borderStrong : theme.border
+
                                 ColumnLayout {
-                                    Layout.preferredWidth: 140
+                                    anchors.fill: parent
                                     spacing: 0
-                                    Label {
+
+                                    Rectangle {
                                         Layout.fillWidth: true
-                                        text: root.rowValue(groupLessonDelegate.modelData,
-                                                            "subjectName", "")
-                                        color: "#344054"
-                                        font.pixelSize: 9
-                                        elide: Text.ElideRight
+                                        Layout.preferredHeight: 42
+                                        radius: theme.radiusMd
+                                        color: calendarDayColumn.isOpenDate
+                                               ? theme.accentSoft : theme.surfaceSubtle
+
+                                        Label {
+                                            anchors.centerIn: parent
+                                            text: root.calendarDayLabel(calendarDayColumn.index)
+                                            color: calendarDayColumn.isOpenDate
+                                                   ? theme.accent : theme.textSecondary
+                                            font.pixelSize: theme.captionSize
+                                            font.weight: Font.DemiBold
+                                        }
                                     }
-                                    Label {
+
+                                    ListView {
+                                        id: calendarEventList
+
                                         Layout.fillWidth: true
-                                        text: root.rowValue(groupLessonDelegate.modelData,
-                                                            "courseName", "")
-                                        color: "#7a8493"
-                                        font.pixelSize: 8
-                                        elide: Text.ElideRight
+                                        Layout.fillHeight: true
+                                        Layout.margins: 6
+                                        spacing: 6
+                                        clip: true
+                                        model: calendarDayColumn.dayLessons
+                                        boundsBehavior: Flickable.StopAtBounds
+
+                                        ScrollBar.vertical: ScrollBar {
+                                            policy: ScrollBar.AsNeeded
+                                        }
+
+                                        delegate: Rectangle {
+                                            id: calendarEventCard
+
+                                            required property var modelData
+                                            width: ListView.view.width
+                                            height: eventCardContent.implicitHeight + 14
+                                            radius: theme.radiusSm
+                                            color: theme.accentSoft
+                                            border.color: theme.accent
+
+                                            ColumnLayout {
+                                                id: eventCardContent
+
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                anchors.margins: 7
+                                                spacing: 1
+
+                                                Label {
+                                                    Layout.fillWidth: true
+                                                    text: qsTr("%1～%2")
+                                                          .arg(root.rowValue(
+                                                                   calendarEventCard.modelData,
+                                                                   "startTime", ""))
+                                                          .arg(root.rowValue(
+                                                                   calendarEventCard.modelData,
+                                                                   "endTime", ""))
+                                                    color: theme.accent
+                                                    font.pixelSize: theme.captionSize
+                                                    font.weight: Font.Bold
+                                                }
+                                                Label {
+                                                    Layout.fillWidth: true
+                                                    text: qsTr("%1 %2")
+                                                          .arg(root.rowValue(
+                                                                   calendarEventCard.modelData,
+                                                                   "grade", ""))
+                                                          .arg(root.rowValue(
+                                                                   calendarEventCard.modelData,
+                                                                   "subjectName", ""))
+                                                    color: theme.textPrimary
+                                                    font.pixelSize: theme.captionSize
+                                                    font.weight: Font.DemiBold
+                                                    wrapMode: Text.Wrap
+                                                }
+                                                Label {
+                                                    Layout.fillWidth: true
+                                                    text: root.rowValue(
+                                                              calendarEventCard.modelData,
+                                                              "teacherName", qsTr("担当未設定"))
+                                                    color: theme.textSecondary
+                                                    font.pixelSize: theme.captionSize
+                                                    elide: Text.ElideRight
+                                                }
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                Accessible.name: qsTr("集団授業の詳細を開く")
+                                                onClicked: {
+                                                    root.selectedCalendarLesson =
+                                                            calendarEventCard.modelData
+                                                    calendarDetailDialog.open()
+                                                }
+                                            }
+                                        }
                                     }
-                                }
-                                Label {
-                                    Layout.preferredWidth: 82
-                                    text: root.rowValue(groupLessonDelegate.modelData,
-                                                        "date", "")
-                                    color: "#475467"
-                                    font.pixelSize: 9
-                                }
-                                Label {
-                                    Layout.preferredWidth: 112
-                                    text: qsTr("%1～%2")
-                                          .arg(root.rowValue(
-                                                   groupLessonDelegate.modelData,
-                                                   "startTime", ""))
-                                          .arg(root.rowValue(
-                                                   groupLessonDelegate.modelData,
-                                                   "endTime", ""))
-                                    color: "#475467"
-                                    font.pixelSize: 9
-                                }
-                                Label {
-                                    Layout.preferredWidth: 110
-                                    text: root.rowValue(groupLessonDelegate.modelData,
-                                                        "teacherName", qsTr("未設定"))
-                                    color: "#344054"
-                                    font.pixelSize: 9
-                                    elide: Text.ElideRight
-                                }
-                                Label {
-                                    Layout.preferredWidth: 50
-                                    text: qsTr("%1名").arg(root.rowValue(
-                                                               groupLessonDelegate.modelData,
-                                                               "studentCount", 0))
-                                    color: "#344054"
-                                    font.pixelSize: 9
-                                }
-                                Label {
-                                    Layout.preferredWidth: 78
-                                    text: root.rowValue(groupLessonDelegate.modelData,
-                                                        "room", "")
-                                    color: "#475467"
-                                    font.pixelSize: 9
-                                    elide: Text.ElideRight
-                                }
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: root.rowValue(groupLessonDelegate.modelData,
-                                                        "note", "")
-                                    color: "#667085"
-                                    font.pixelSize: 9
-                                    elide: Text.ElideRight
-                                }
-                                ToolButton {
-                                    text: qsTr("削除")
-                                    Accessible.name: qsTr("この集団授業を削除")
-                                    onClicked: {
-                                        root.pendingDeleteId = Number(root.rowValue(
-                                                    groupLessonDelegate.modelData, "id", 0))
-                                        deleteCalendarConfirmation.open()
+
+                                    AppButton {
+                                        Layout.fillWidth: true
+                                        Layout.margins: 6
+                                        text: calendarDayColumn.isOpenDate
+                                              ? qsTr("＋ 授業を追加")
+                                              : qsTr("授業日ではありません")
+                                        enabled: calendarDayColumn.isOpenDate
+                                        onClicked: root.openCalendarCreate(
+                                                       calendarDayColumn.dayIso)
                                     }
                                 }
                             }
                         }
                     }
 
-                    Label {
+                    EmptyState {
                         Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        visible: groupLessonList.count === 0
-                        text: qsTr("登録済みの集団授業はありません。Excel取込みタブから追加できます。")
-                        color: "#7a8493"
-                        font.pixelSize: 11
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    Label {
-                        Layout.fillWidth: true
-                        text: qsTr("集団授業は個別授業より先に固定予定として扱われます。コマと一致しない時刻も区間重複で判定します。")
-                        color: "#52647d"
-                        font.pixelSize: 9
-                        wrapMode: Text.Wrap
+                        visible: (root.viewModel.groupLessons || []).length === 0
+                        title: qsTr("登録済みの集団授業はありません")
+                        description: qsTr("授業日の追加ボタン、またはExcel取込みから登録できます。")
                     }
                 }
             }
@@ -756,6 +795,70 @@ Item {
                         String(calendarTeacher.currentValue || ""),
                         calendarRoom.text.trim(),
                         calendarNote.text.trim())
+    }
+
+    Dialog {
+        id: calendarDetailDialog
+
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(480, root.width - 48)
+        modal: true
+        title: qsTr("集団授業の詳細")
+        standardButtons: Dialog.Close
+
+        ColumnLayout {
+            width: parent.width
+            spacing: theme.spacingMd
+
+            SectionHeader {
+                Layout.fillWidth: true
+                title: qsTr("%1 %2")
+                       .arg(root.rowValue(root.selectedCalendarLesson, "grade", ""))
+                       .arg(root.rowValue(root.selectedCalendarLesson,
+                                          "subjectName", ""))
+                description: root.rowValue(root.selectedCalendarLesson,
+                                           "courseName", "")
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("%1　%2～%3")
+                      .arg(root.rowValue(root.selectedCalendarLesson, "date", ""))
+                      .arg(root.rowValue(root.selectedCalendarLesson,
+                                         "startTime", ""))
+                      .arg(root.rowValue(root.selectedCalendarLesson,
+                                         "endTime", ""))
+                color: theme.textPrimary
+                font.pixelSize: theme.bodySize
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("担当講師：%1\n教室：%2\n受講者：%3名\n備考：%4")
+                      .arg(root.rowValue(root.selectedCalendarLesson,
+                                         "teacherName", qsTr("未設定")))
+                      .arg(root.rowValue(root.selectedCalendarLesson, "room", "－"))
+                      .arg(root.rowValue(root.selectedCalendarLesson,
+                                         "studentCount", 0))
+                      .arg(root.rowValue(root.selectedCalendarLesson, "note", "－"))
+                color: theme.textSecondary
+                font.pixelSize: theme.captionSize
+                wrapMode: Text.Wrap
+            }
+            InlineMessage {
+                Layout.fillWidth: true
+                kind: "info"
+                message: qsTr("変更が必要な場合は、監査履歴を保つため一度削除してから登録し直してください。")
+            }
+            AppButton {
+                Layout.alignment: Qt.AlignRight
+                text: qsTr("この予定を削除")
+                onClicked: {
+                    root.pendingDeleteId = Number(root.rowValue(
+                                root.selectedCalendarLesson, "id", 0))
+                    calendarDetailDialog.close()
+                    deleteCalendarConfirmation.open()
+                }
+            }
+        }
     }
 
     Dialogs.MessageDialog {

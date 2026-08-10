@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from PySide6.QtCore import QCoreApplication, QThread
+from PySide6.QtCore import QCoreApplication, QThread, QUrl
 
 from summer_scheduler.application.output_service import OutputService
 from summer_scheduler.application.phase6_dto import (
@@ -64,6 +64,32 @@ def test_workspace_load_runs_off_ui_thread_and_maps_all_options(
         assert view_model._get_destination_path().endswith("全体時間割.xlsx")
     finally:
         service.load_release.set()
+        view_model.shutdown()
+
+
+def test_open_last_output_folder_uses_local_parent_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    service = _FakeOutputService(_workspace())
+    view_model = _view_model(service, _FakeProjects())
+    opened: list[str] = []
+
+    def _open_url(url: QUrl) -> bool:
+        opened.append(url.toLocalFile())
+        return True
+
+    monkeypatch.setattr(
+        "summer_scheduler.ui.viewmodels.output_view_model.QDesktopServices.openUrl",
+        _open_url,
+    )
+    try:
+        output_directory = tmp_path / "日本語 出力先"
+        view_model._last_output_path = output_directory / "時間割.xlsx"
+
+        assert view_model.openLastOutputFolder()
+        assert [Path(value).resolve() for value in opened] == [output_directory.resolve()]
+    finally:
         view_model.shutdown()
 
 

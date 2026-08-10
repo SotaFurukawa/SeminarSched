@@ -9,11 +9,29 @@ Item {
     id: root
 
     required property var viewModel
+    property var phase3ViewModel: null
+    property var scheduleViewModel: null
+    property var outputViewModel: null
     signal openSettingsRequested
     signal navigateRequested(int pageIndex)
     property string pendingSwitchAction: ""
     property string pendingRecentPath: ""
     property string pendingRestorePath: ""
+
+    UiTheme { id: theme }
+
+    readonly property bool basicSetupComplete: collectionCount(viewModel.openDates) > 0
+                                                   && collectionCount(viewModel.timeSlots) > 0
+                                                   && collectionCount(viewModel.students) > 0
+                                                   && collectionCount(viewModel.teachers) > 0
+    readonly property bool questionnaireComplete: phase3ViewModel
+                                                   && Boolean(rowValue(
+                                                                  phase3ViewModel.validationSummary,
+                                                                  "canOptimize", false))
+    readonly property bool scheduleComplete: outputViewModel
+                                              && Number(outputViewModel.assignmentCount || 0) > 0
+    readonly property bool outputComplete: outputViewModel
+                                            && String(outputViewModel.lastOutputPath || "").length > 0
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -23,6 +41,34 @@ Item {
 
     function collectionCount(rows) {
         return rows && rows.length !== undefined ? rows.length : 0
+    }
+
+    function nextStepNumber() {
+        if (!root.basicSetupComplete)
+            return 1
+        if (!root.questionnaireComplete)
+            return 2
+        if (!root.scheduleComplete)
+            return 3
+        return 4
+    }
+
+    function stepStatus(step) {
+        const complete = step === 1 ? root.basicSetupComplete
+                       : step === 2 ? root.questionnaireComplete
+                       : step === 3 ? root.scheduleComplete
+                       : root.outputComplete
+        if (complete)
+            return "complete"
+        return step === root.nextStepNumber() ? "current" : "pending"
+    }
+
+    function stepStatusText(step) {
+        if (root.stepStatus(step) === "complete")
+            return qsTr("完了")
+        if (root.stepStatus(step) === "current")
+            return qsTr("次に行う")
+        return qsTr("未着手")
     }
 
     function openNewProjectDialog() {
@@ -84,14 +130,14 @@ Item {
 
                         Label {
                             text: qsTr("ホーム")
-                            color: "#18212f"
-                            font.pixelSize: 24
+                            color: theme.textPrimary
+                            font.pixelSize: theme.titleSize
                             font.weight: Font.Bold
                         }
 
                         Label {
                             text: root.viewModel.hasOpenProject
-                                  ? qsTr("プロジェクトの概要とPhase 2の登録状況")
+                                  ? qsTr("時間割完成までの進み具合と、次に行う作業")
                                   : qsTr("作業するプロジェクトを選択してください")
                             color: "#667085"
                             font.pixelSize: 12
@@ -102,15 +148,15 @@ Item {
                         Layout.preferredWidth: phaseText.implicitWidth + 20
                         Layout.preferredHeight: 28
                         radius: 14
-                        color: "#edf4ff"
-                        border.color: "#bfd3f5"
+                        color: theme.accentSoft
+                        border.color: "#B2D7F0"
 
                         Label {
                             id: phaseText
 
                             anchors.centerIn: parent
-                            text: qsTr("Phase 2・マスター管理")
-                            color: "#174f9e"
+                            text: qsTr("4ステップで完成")
+                            color: theme.accent
                             font.pixelSize: 11
                             font.weight: Font.DemiBold
                         }
@@ -153,13 +199,13 @@ Item {
                         RowLayout {
                             spacing: 10
 
-                            Button {
+                            AppButton {
                                 text: qsTr("＋ 新規プロジェクト")
-                                highlighted: true
+                                kind: "primary"
                                 onClicked: root.requestProjectSwitch("new", "")
                             }
 
-                            Button {
+                            AppButton {
                                 text: qsTr("既存プロジェクトを開く…")
                                 onClicked: root.requestProjectSwitch("open", "")
                             }
@@ -452,6 +498,19 @@ Item {
                             font.pixelSize: 10
                         }
 
+                        InlineMessage {
+                            Layout.fillWidth: true
+                            kind: root.nextStepNumber() === 4 && root.scheduleComplete
+                                  ? "success" : "info"
+                            message: root.nextStepNumber() === 1
+                                     ? qsTr("次に行うこと：授業日・コマと初期名簿を設定します。初期名簿はExcel一括登録が便利です。")
+                                     : root.nextStepNumber() === 2
+                                       ? qsTr("次に行うこと：生徒・講師アンケートを取り込み、入力を検証します。")
+                                       : root.nextStepNumber() === 3
+                                         ? qsTr("次に行うこと：入力を確認して自動配置し、時間割を調整します。")
+                                         : qsTr("次に行うこと：全体・生徒別・講師別の時間割を確認して出力します。")
+                        }
+
                         GridLayout {
                             Layout.fillWidth: true
                             columns: width >= 900 ? 4 : 2
@@ -474,57 +533,19 @@ Item {
                                      "button": qsTr("出力へ進む"), "page": 7}
                                 ]
 
-                                delegate: Rectangle {
+                                delegate: StepCard {
                                     id: workflowStep
                                     required property var modelData
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 132
-                                    radius: 9
-                                    color: "#f8fafc"
-                                    border.color: "#dce4ef"
-
-                                    ColumnLayout {
-                                        anchors.fill: parent
-                                        anchors.margins: 11
-                                        spacing: 5
-
-                                        RowLayout {
-                                            Rectangle {
-                                                Layout.preferredWidth: 27
-                                                Layout.preferredHeight: 27
-                                                radius: 14
-                                                color: "#2767c5"
-                                                Label {
-                                                    anchors.centerIn: parent
-                                                    text: workflowStep.modelData.number
-                                                    color: "#ffffff"
-                                                    font.bold: true
-                                                }
-                                            }
-                                            Label {
-                                                Layout.fillWidth: true
-                                                text: workflowStep.modelData.title
-                                                color: "#263548"
-                                                font.pixelSize: 12
-                                                font.weight: Font.DemiBold
-                                                wrapMode: Text.Wrap
-                                            }
-                                        }
-                                        Label {
-                                            Layout.fillWidth: true
-                                            text: workflowStep.modelData.detail
-                                            color: "#667085"
-                                            font.pixelSize: 9
-                                            wrapMode: Text.Wrap
-                                        }
-                                        Item { Layout.fillHeight: true }
-                                        Button {
-                                            Layout.fillWidth: true
-                                            text: workflowStep.modelData.button
-                                            onClicked: root.navigateRequested(
-                                                           Number(workflowStep.modelData.page))
-                                        }
-                                    }
+                                    stepNumber: String(modelData.number)
+                                    title: String(modelData.title)
+                                    description: String(modelData.detail)
+                                    actionText: String(modelData.button)
+                                    status: root.stepStatus(Number(modelData.number))
+                                    statusText: root.stepStatusText(Number(modelData.number))
+                                    primaryAction: Number(modelData.number) === root.nextStepNumber()
+                                    onActionRequested: root.navigateRequested(
+                                                           Number(modelData.page))
                                 }
                             }
                         }

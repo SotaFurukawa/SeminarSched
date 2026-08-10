@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Basic as Basic
 import QtQuick.Layouts
 
 Rectangle {
@@ -12,160 +11,154 @@ Rectangle {
     property int currentIndex: 0
     signal pageSelected(int index)
 
-    implicitWidth: 232
-    color: "#ffffff"
+    UiTheme { id: theme }
+
+    implicitWidth: 248
+    color: theme.surface
 
     ColumnLayout {
-        id: sidebarHeading
+        anchors.fill: parent
+        spacing: 0
 
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: 18
-        spacing: 2
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 18
+            Layout.rightMargin: 18
+            Layout.topMargin: 16
+            Layout.bottomMargin: 12
+            spacing: 2
 
-        Label {
-            text: qsTr("メニュー")
-            color: "#18212f"
-            font.pixelSize: 15
-            font.weight: Font.DemiBold
-        }
-
-        Label {
-            text: qsTr("機能を選択してください")
-            color: "#7a8493"
-            font.pixelSize: 11
-        }
-    }
-
-    ListView {
-        id: navigationList
-
-        anchors.top: sidebarHeading.bottom
-        anchors.bottom: sidebarFooter.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.topMargin: 18
-        anchors.bottomMargin: 12
-        anchors.leftMargin: 10
-        anchors.rightMargin: 10
-        spacing: 4
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
-        model: root.itemsModel
-        currentIndex: root.currentIndex
-
-        ScrollBar.vertical: ScrollBar {
-            policy: ScrollBar.AsNeeded
-        }
-
-        delegate: Basic.Button {
-            id: navigationButton
-
-            required property int index
-            required property string title
-            required property string shortLabel
-            readonly property string itemTitle: title
-            readonly property string itemShortLabel: shortLabel
-
-            width: ListView.view.width
-            height: 46
-            leftPadding: 12
-            rightPadding: 9
-            topPadding: 5
-            bottomPadding: 5
-            checkable: true
-            checked: index === root.currentIndex
-            focusPolicy: Qt.StrongFocus
-            Accessible.name: itemTitle + (checked ? qsTr("、選択中") : "")
-            Accessible.description: checked
-                                    ? qsTr("現在表示している画面です")
-                                    : qsTr("この画面を表示します")
-            Accessible.role: Accessible.Button
-
-            onClicked: root.pageSelected(index)
-
-            background: Rectangle {
-                radius: 7
-                color: navigationButton.checked
-                       ? "#e8f0ff"
-                       : navigationButton.hovered
-                         ? "#f2f5f9"
-                         : "transparent"
-                border.color: navigationButton.activeFocus
-                              ? "#2767c5"
-                              : navigationButton.checked
-                                ? "#bfd3f5"
-                                : "transparent"
-                border.width: navigationButton.activeFocus ? 2 : 1
-
-                Rectangle {
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.topMargin: 7
-                    anchors.bottomMargin: 7
-                    width: 4
-                    radius: 2
-                    visible: navigationButton.checked
-                    color: "#2767c5"
-                }
+            Label {
+                text: qsTr("業務メニュー")
+                color: theme.textPrimary
+                font.pixelSize: 16
+                font.weight: Font.DemiBold
             }
 
-            contentItem: RowLayout {
-                spacing: 9
+            Label {
+                text: qsTr("上から順に進められます")
+                color: theme.textSecondary
+                font.pixelSize: theme.captionSize
+            }
+        }
 
-                Rectangle {
-                    Layout.preferredWidth: 28
-                    Layout.preferredHeight: 28
-                    radius: 7
-                    color: navigationButton.checked ? "#2767c5" : "#edf1f6"
+        ScrollView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-                    Label {
-                        anchors.centerIn: parent
-                        text: navigationButton.itemShortLabel
-                        color: navigationButton.checked ? "#ffffff" : "#475467"
-                        font.pixelSize: 12
-                        font.weight: Font.Bold
+            ColumnLayout {
+                width: parent.width
+                spacing: 3
+
+                SidebarNavButton {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 10
+                    Layout.rightMargin: 10
+                    itemTitle: root.itemsModel.get(0).title
+                    iconText: root.itemsModel.get(0).shortLabel
+                    selected: root.currentIndex === 0
+                    onClicked: root.pageSelected(0)
+                }
+
+                Label {
+                    Layout.leftMargin: 18
+                    Layout.topMargin: 12
+                    Layout.bottomMargin: 3
+                    text: qsTr("業務フロー")
+                    color: theme.textSecondary
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                }
+
+                Repeater {
+                    model: [
+                        {"index": 8, "prefix": "①"},
+                        {"index": 4, "prefix": "②"},
+                        {"index": 5, "prefix": "③"},
+                        {"index": 7, "prefix": "④"}
+                    ]
+
+                    delegate: SidebarNavButton {
+                        id: workflowButton
+                        required property var modelData
+                        readonly property int targetIndex: Number(modelData.index)
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 10
+                        itemTitle: root.itemsModel.get(targetIndex).title
+                        iconText: root.itemsModel.get(targetIndex).shortLabel
+                        stepPrefix: String(modelData.prefix)
+                        selected: root.currentIndex === targetIndex
+                        onClicked: root.pageSelected(targetIndex)
                     }
                 }
 
                 Label {
-                    Layout.fillWidth: true
-                    text: navigationButton.itemTitle
-                    color: navigationButton.checked ? "#174f9e" : "#344054"
-                    font.pixelSize: 13
-                    font.weight: navigationButton.checked ? Font.DemiBold : Font.Normal
-                    elide: Text.ElideRight
+                    Layout.leftMargin: 18
+                    Layout.topMargin: 12
+                    Layout.bottomMargin: 3
+                    text: qsTr("データ")
+                    color: theme.textSecondary
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                }
+
+                Repeater {
+                    model: [1, 2, 3]
+
+                    delegate: SidebarNavButton {
+                        id: dataButton
+                        required property int modelData
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 10
+                        itemTitle: root.itemsModel.get(modelData).title
+                        iconText: root.itemsModel.get(modelData).shortLabel
+                        selected: root.currentIndex === modelData
+                        onClicked: root.pageSelected(modelData)
+                    }
                 }
 
                 Label {
-                    visible: navigationButton.checked
-                    text: qsTr("選択中")
-                    color: "#174f9e"
-                    font.pixelSize: 9
+                    Layout.leftMargin: 18
+                    Layout.topMargin: 12
+                    Layout.bottomMargin: 3
+                    text: qsTr("確認")
+                    color: theme.textSecondary
+                    font.pixelSize: 11
                     font.weight: Font.DemiBold
                 }
+
+                SidebarNavButton {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 10
+                    Layout.rightMargin: 10
+                    itemTitle: root.itemsModel.get(6).title
+                    iconText: root.itemsModel.get(6).shortLabel
+                    selected: root.currentIndex === 6
+                    onClicked: root.pageSelected(6)
+                }
+
+                Item { Layout.preferredHeight: 12 }
             }
         }
-    }
 
-    Rectangle {
-        id: sidebarFooter
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 48
+            color: theme.surfaceSubtle
+            border.color: theme.border
+            border.width: 1
 
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: 44
-        color: "#f8fafc"
-        border.color: "#e5e9ef"
-        border.width: 1
-
-        Label {
-            anchors.centerIn: parent
-            text: qsTr("端末内に保存・オフライン動作")
-            color: "#667085"
-            font.pixelSize: 10
+            Label {
+                anchors.centerIn: parent
+                text: qsTr("🔒 端末内に保存・オフライン動作")
+                color: theme.textSecondary
+                font.pixelSize: 11
+            }
         }
     }
 }

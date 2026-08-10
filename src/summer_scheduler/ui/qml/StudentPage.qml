@@ -19,8 +19,12 @@ Item {
     property bool loadingStudentDraft: false
     property bool loadingRequestDraft: false
     property int sortIndex: 0
+    property bool studentAdvancedVisible: false
+    property int studentWizardStep: 0
     readonly property var displayedStudents: sortedStudents()
     readonly property var displayedRequests: requestsForSelectedStudent()
+
+    UiTheme { id: theme }
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -41,6 +45,10 @@ Item {
             rows.push(source[i])
         const key = root.sortIndex === 1 ? "name" : root.sortIndex === 2 ? "grade" : "externalId"
         rows.sort(function (left, right) {
+            const leftActive = root.asBoolean(root.rowValue(left, "active", true), true)
+            const rightActive = root.asBoolean(root.rowValue(right, "active", true), true)
+            if (leftActive !== rightActive)
+                return leftActive ? -1 : 1
             return String(root.rowValue(left, key, "")).localeCompare(
                         String(root.rowValue(right, key, "")), "ja", {
                             numeric: true,
@@ -119,13 +127,35 @@ Item {
         return 0
     }
 
+    function gradeIndex(value) {
+        const options = studentGrade.model || []
+        for (let i = 0; i < options.length; ++i) {
+            if (String(options[i]) === String(value))
+                return i
+        }
+        return 0
+    }
+
+    function openStudentWizard() {
+        root.studentWizardStep = 0
+        wizardExternalId.text = "S-" + String(Date.now()).slice(-8)
+        wizardFamilyName.text = ""
+        wizardGivenName.text = ""
+        wizardGrade.currentIndex = 0
+        wizardMaxConsecutive.value = 2
+        wizardAllowGap.checked = false
+        wizardActive.checked = true
+        wizardNote.text = ""
+        studentWizard.open()
+    }
+
     function loadStudent(row) {
         root.loadingStudentDraft = true
         root.selectedStudent = row
         root.editingStudentId = Number(root.rowValue(row, "id", 0))
         studentExternalId.text = root.rowValue(row, "externalId", "")
         studentName.text = root.rowValue(row, "name", "")
-        studentGrade.editText = root.rowValue(row, "grade", "")
+        studentGrade.currentIndex = root.gradeIndex(root.rowValue(row, "grade", ""))
         maxConsecutive.value = Number(root.rowValue(row, "maxConsecutive", 2))
         allowGap.checked = root.asBoolean(root.rowValue(row, "allowGap", false), false)
         studentNote.text = root.rowValue(row, "note", "")
@@ -141,7 +171,7 @@ Item {
         root.editingStudentId = 0
         studentExternalId.text = ""
         studentName.text = ""
-        studentGrade.editText = ""
+        studentGrade.currentIndex = 0
         maxConsecutive.value = 2
         allowGap.checked = false
         studentNote.text = ""
@@ -253,21 +283,34 @@ Item {
                 }
             }
 
-            Button {
+            AppButton {
                 text: qsTr("再読込み")
                 enabled: root.viewModel.hasOpenProject
                 onClicked: root.viewModel.refreshAll()
             }
 
-            Button {
-                text: qsTr("＋ 生徒を追加")
-                highlighted: true
+            AppButton {
+                text: qsTr("Excel一括追加・更新…")
                 enabled: root.viewModel.hasOpenProject
-                onClicked: {
-                    root.clearStudent()
-                    detailTabs.currentIndex = 0
-                }
+                onClicked: rosterImportDialog.open()
             }
+
+            AppButton {
+                text: qsTr("＋ 生徒を追加")
+                kind: "primary"
+                enabled: root.viewModel.hasOpenProject
+                onClicked: root.openStudentWizard()
+            }
+        }
+
+        InlineMessage {
+            Layout.fillWidth: true
+            visible: root.viewModel.hasOpenProject
+                     && (root.viewModel.students || []).length === 0
+            kind: "info"
+            message: qsTr("初期名簿はExcelで一括登録できます。生徒・講師をまとめて登録した後は、右上の追加ボタンで1名ずつ追加できます。")
+            actionText: qsTr("Excelを選択")
+            onActionRequested: rosterImportDialog.open()
         }
 
         Rectangle {
@@ -525,7 +568,7 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: 3
                                         Label {
-                                            text: qsTr("生徒ID *")
+                                            text: qsTr("生徒ID（必須）")
                                             color: "#344054"
                                             font.pixelSize: 11
                                         }
@@ -548,7 +591,7 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: 3
                                         Label {
-                                            text: qsTr("氏名 *")
+                                            text: qsTr("氏名（必須）")
                                             color: "#344054"
                                             font.pixelSize: 11
                                         }
@@ -576,36 +619,26 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: 3
                                         Label {
-                                            text: qsTr("学年 *")
+                                            text: qsTr("学年（必須）")
                                             color: "#344054"
                                             font.pixelSize: 11
                                         }
                                         ComboBox {
                                             id: studentGrade
                                             Layout.fillWidth: true
-                                            editable: true
+                                            editable: false
                                             model: [
                                                 "小1", "小2", "小3", "小4", "小5", "小6",
                                                 "中1", "中2", "中3", "高1", "高2", "高3"
                                             ]
                                             Accessible.name: qsTr("学年")
                                             onActivated: root.viewModel.markDirty()
-                                            onEditTextChanged: {
-                                                if (activeFocus && !root.loadingStudentDraft)
-                                                    root.viewModel.markDirty()
-                                            }
-                                        }
-                                        Label {
-                                            visible: root.studentSaveAttempted
-                                                     && studentGrade.editText.trim() === ""
-                                            text: qsTr("学年を入力してください。")
-                                            color: "#a23b3b"
-                                            font.pixelSize: 10
                                         }
                                     }
 
                                     ColumnLayout {
                                         Layout.fillWidth: true
+                                        visible: root.studentAdvancedVisible
                                         spacing: 3
                                         Label {
                                             text: qsTr("標準最大連続コマ数")
@@ -630,8 +663,16 @@ Item {
                                     }
                                 }
 
+                                AppButton {
+                                    text: root.studentAdvancedVisible
+                                          ? qsTr("詳細設定を閉じる")
+                                          : qsTr("詳細設定を表示")
+                                    onClicked: root.studentAdvancedVisible = !root.studentAdvancedVisible
+                                }
+
                                 CheckBox {
                                     id: allowGap
+                                    visible: root.studentAdvancedVisible
                                     text: qsTr("同じ日の授業間に空きコマを許可する")
                                     Accessible.name: text
                                     onClicked: root.viewModel.markDirty()
@@ -646,12 +687,14 @@ Item {
                                 }
 
                                 Label {
+                                    visible: root.studentAdvancedVisible
                                     text: qsTr("備考")
                                     color: "#344054"
                                     font.pixelSize: 11
                                 }
                                 TextArea {
                                     id: studentNote
+                                    visible: root.studentAdvancedVisible
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 100
                                     placeholderText: qsTr("校内で共有する注意事項（任意）")
@@ -710,13 +753,13 @@ Item {
                                             root.studentSaveAttempted = true
                                             if (studentExternalId.text.trim() === ""
                                                     || studentName.text.trim() === ""
-                                                    || studentGrade.editText.trim() === "")
+                                                    || studentGrade.currentIndex < 0)
                                                 return
                                             root.viewModel.saveStudent(
                                                         root.editingStudentId,
                                                         studentExternalId.text.trim(),
                                                         studentName.text.trim(),
-                                                        studentGrade.editText.trim(),
+                                                        studentGrade.currentText,
                                                         maxConsecutive.value,
                                                         allowGap.checked,
                                                         studentNote.text,
@@ -1124,6 +1167,271 @@ Item {
         onTriggered: root.viewModel.setStudentFilter(
                          studentSearch.text,
                          gradeFilter.currentIndex === 0 ? "" : gradeFilter.currentText)
+    }
+
+    Dialogs.FileDialog {
+        id: rosterImportDialog
+        title: qsTr("初期名簿・マスターデータExcelを選択")
+        fileMode: Dialogs.FileDialog.OpenFile
+        nameFilters: [qsTr("Excelブック (*.xlsx)")]
+        onAccepted: {
+            if (root.viewModel.previewMasterImport(selectedFile.toString()))
+                rosterPreviewDialog.open()
+        }
+    }
+
+    Dialogs.FileDialog {
+        id: rosterTemplateDialog
+        title: qsTr("初期名簿テンプレートを保存")
+        fileMode: Dialogs.FileDialog.SaveFile
+        nameFilters: [qsTr("Excelブック (*.xlsx)")]
+        onAccepted: root.viewModel.exportMasterData(selectedFile.toString())
+    }
+
+    Dialog {
+        id: rosterPreviewDialog
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(620, root.width - 48)
+        modal: true
+        title: qsTr("Excel一括登録の確認")
+        standardButtons: Dialog.NoButton
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 12
+
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("既存のDBはまだ変更されていません。件数とエラーを確認してから反映してください。")
+                color: theme.textSecondary
+                wrapMode: Text.Wrap
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("追加 %1件／更新 %2件／エラー %3件／警告 %4件")
+                      .arg(root.rowValue(root.viewModel.excelPreviewSummary, "newCount", 0))
+                      .arg(root.rowValue(root.viewModel.excelPreviewSummary, "updateCount", 0))
+                      .arg(root.rowValue(root.viewModel.excelPreviewSummary, "errorCount", 0))
+                      .arg(root.rowValue(root.viewModel.excelPreviewSummary, "warningCount", 0))
+                color: theme.textPrimary
+                font.pixelSize: 16
+                font.weight: Font.DemiBold
+            }
+            InlineMessage {
+                Layout.fillWidth: true
+                kind: (root.viewModel.excelIssues || []).length > 0 ? "warning" : "success"
+                message: (root.viewModel.excelIssues || []).length > 0
+                         ? qsTr("確認事項が%1件あります。エラーがある場合は反映できません。")
+                           .arg((root.viewModel.excelIssues || []).length)
+                         : qsTr("検証エラーはありません。")
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                AppButton {
+                    text: qsTr("テンプレートを保存")
+                    onClicked: rosterTemplateDialog.open()
+                }
+                AppButton {
+                    text: qsTr("キャンセル")
+                    onClicked: rosterPreviewDialog.close()
+                }
+                AppButton {
+                    text: qsTr("検証済み内容を反映")
+                    kind: "primary"
+                    enabled: Number(root.rowValue(
+                                        root.viewModel.excelPreviewSummary,
+                                        "errorCount", 0)) === 0
+                    onClicked: {
+                        if (root.viewModel.applyMasterImport())
+                            rosterPreviewDialog.close()
+                    }
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: studentWizard
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(650, root.width - 48)
+        height: Math.min(560, root.height - 48)
+        modal: true
+        title: qsTr("生徒を追加　%1/3").arg(root.studentWizardStep + 1)
+        closePolicy: Popup.CloseOnEscape
+
+        contentItem: ColumnLayout {
+            spacing: 14
+
+            RowLayout {
+                Layout.fillWidth: true
+                Repeater {
+                    model: [qsTr("基本情報"), qsTr("授業上の設定"), qsTr("確認")]
+                    delegate: StatusBadge {
+                        id: wizardStepBadge
+                        required property int index
+                        required property string modelData
+                        Layout.fillWidth: true
+                        status: index < root.studentWizardStep ? "complete"
+                                : index === root.studentWizardStep ? "current" : "neutral"
+                        symbol: index < root.studentWizardStep ? "✓" : String(index + 1)
+                        label: modelData
+                    }
+                }
+            }
+
+            StackLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                currentIndex: root.studentWizardStep
+
+                GridLayout {
+                    columns: 2
+                    columnSpacing: 12
+                    rowSpacing: 8
+                    Label { text: qsTr("生徒ID（必須）") }
+                    TextField {
+                        id: wizardExternalId
+                        Layout.fillWidth: true
+                        Accessible.name: qsTr("追加する生徒のID")
+                    }
+                    Label { text: qsTr("苗字（必須）") }
+                    TextField {
+                        id: wizardFamilyName
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("例：夏目")
+                        Accessible.name: qsTr("追加する生徒の苗字")
+                    }
+                    Label { text: qsTr("名前（必須）") }
+                    TextField {
+                        id: wizardGivenName
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("例：花子")
+                        Accessible.name: qsTr("追加する生徒の名前")
+                    }
+                    Label { text: qsTr("学年（必須）") }
+                    ComboBox {
+                        id: wizardGrade
+                        Layout.fillWidth: true
+                        model: [
+                            "小1", "小2", "小3", "小4", "小5", "小6",
+                            "中1", "中2", "中3", "高1", "高2", "高3"
+                        ]
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: 10
+                    Label {
+                        text: qsTr("通常は初期値のままで登録できます。")
+                        color: theme.textSecondary
+                    }
+                    RowLayout {
+                        Label { text: qsTr("標準最大連続コマ数") }
+                        SpinBox {
+                            id: wizardMaxConsecutive
+                            from: 1
+                            to: 10
+                            value: 2
+                        }
+                    }
+                    CheckBox {
+                        id: wizardAllowGap
+                        text: qsTr("同じ日の授業間に空きコマを許可する")
+                        checked: false
+                    }
+                    CheckBox {
+                        id: wizardActive
+                        text: qsTr("有効（在籍中）")
+                        checked: true
+                    }
+                    Label { text: qsTr("備考") }
+                    TextArea {
+                        id: wizardNote
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        wrapMode: TextEdit.Wrap
+                        placeholderText: qsTr("体験生などのラベルや注意事項（任意）")
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: 12
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("%1 %2　%3")
+                              .arg(wizardFamilyName.text.trim())
+                              .arg(wizardGivenName.text.trim())
+                              .arg(wizardGrade.currentText)
+                        color: theme.textPrimary
+                        font.pixelSize: 20
+                        font.weight: Font.DemiBold
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("ID: %1\n最大連続: %2コマ\n空きコマ: %3\n状態: %4")
+                              .arg(wizardExternalId.text.trim())
+                              .arg(wizardMaxConsecutive.value)
+                              .arg(wizardAllowGap.checked ? qsTr("許可") : qsTr("不許可"))
+                              .arg(wizardActive.checked ? qsTr("有効") : qsTr("停止"))
+                        color: theme.textSecondary
+                        wrapMode: Text.Wrap
+                    }
+                    InlineMessage {
+                        Layout.fillWidth: true
+                        kind: "info"
+                        message: qsTr("保存後、受講希望タブで科目・回数・通常担当講師を追加できます。")
+                    }
+                    Item { Layout.fillHeight: true }
+                }
+            }
+
+            InlineMessage {
+                Layout.fillWidth: true
+                kind: "error"
+                message: root.viewModel.errorMessage
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                AppButton {
+                    text: qsTr("キャンセル")
+                    onClicked: studentWizard.close()
+                }
+                Item { Layout.fillWidth: true }
+                AppButton {
+                    visible: root.studentWizardStep > 0
+                    text: qsTr("戻る")
+                    onClicked: root.studentWizardStep -= 1
+                }
+                AppButton {
+                    text: root.studentWizardStep < 2 ? qsTr("次へ") : qsTr("登録")
+                    kind: "primary"
+                    enabled: root.studentWizardStep > 0
+                             || (wizardExternalId.text.trim().length > 0
+                                 && wizardFamilyName.text.trim().length > 0
+                                 && wizardGivenName.text.trim().length > 0)
+                    onClicked: {
+                        if (root.studentWizardStep < 2) {
+                            root.studentWizardStep += 1
+                            return
+                        }
+                        const fullName = wizardFamilyName.text.trim()
+                                         + " " + wizardGivenName.text.trim()
+                        if (root.viewModel.saveStudent(
+                                    0,
+                                    wizardExternalId.text.trim(),
+                                    fullName,
+                                    wizardGrade.currentText,
+                                    wizardMaxConsecutive.value,
+                                    wizardAllowGap.checked,
+                                    wizardNote.text,
+                                    wizardActive.checked))
+                            studentWizard.close()
+                    }
+                }
+            }
+        }
     }
 
     Dialogs.MessageDialog {

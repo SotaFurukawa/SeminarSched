@@ -10,6 +10,20 @@ Item {
 
     required property var viewModel
     signal openHomeRequested
+    property bool mappingExpanded: false
+
+    UiTheme { id: theme }
+
+    readonly property bool hasValidatedPreview: summaryValue("addCount") > 0
+                                                 || summaryValue("changeCount") > 0
+                                                 || summaryValue("unchangedCount") > 0
+                                                 || summaryValue("deleteCandidateCount") > 0
+                                                 || summaryValue("errorCount") > 0
+                                                 || summaryValue("warningCount") > 0
+    readonly property bool justApplied: String(viewModel.statusMessage || "")
+                                        .indexOf("アンケートを反映しました") >= 0
+    readonly property int currentImportStep: justApplied ? 2
+                                             : Boolean(viewModel.sourcePath) ? 1 : 0
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -123,8 +137,8 @@ Item {
 
                 Label {
                     text: qsTr("アンケート取込み")
-                    color: "#18212f"
-                    font.pixelSize: 24
+                    color: theme.textPrimary
+                    font.pixelSize: theme.titleSize
                     font.weight: Font.Bold
                 }
                 Label {
@@ -134,14 +148,14 @@ Item {
                 }
             }
 
-            Button {
+            AppButton {
                 text: root.viewModel.importKind === "teacher"
                       ? qsTr("講師テンプレートを保存…")
                       : qsTr("生徒テンプレートを保存…")
                 onClicked: templateDialog.open()
             }
 
-            Button {
+            AppButton {
                 text: qsTr("取込みをクリア")
                 enabled: Boolean(root.viewModel.sourcePath)
                 onClicked: {
@@ -149,6 +163,37 @@ Item {
                     root.viewModel.clearImport()
                 }
             }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Repeater {
+                model: [
+                    {"label": qsTr("1　回答ファイルを選ぶ")},
+                    {"label": qsTr("2　内容を確認する")},
+                    {"label": qsTr("3　反映完了")}
+                ]
+
+                delegate: StatusBadge {
+                    id: importStepBadge
+                    required property int index
+                    required property var modelData
+                    Layout.fillWidth: true
+                    status: index < root.currentImportStep ? "complete"
+                            : index === root.currentImportStep ? "current" : "neutral"
+                    symbol: index < root.currentImportStep ? "✓" : String(index + 1)
+                    label: String(modelData.label)
+                }
+            }
+        }
+
+        InlineMessage {
+            Layout.fillWidth: true
+            visible: root.justApplied
+            kind: "success"
+            message: qsTr("回答をプロジェクトへ反映し、原本を.jukuschedule内に保管しました。再取込み時は新しい原本へ差し替えます。")
         }
 
         Rectangle {
@@ -205,7 +250,7 @@ Item {
                         font.weight: Font.DemiBold
                     }
 
-                    Button {
+                    AppButton {
                         text: qsTr("生徒回答")
                         checkable: true
                         checked: root.viewModel.importKind === "student"
@@ -247,9 +292,9 @@ Item {
                         onActivated: root.viewModel.setSourceEncoding(currentValue)
                     }
 
-                    Button {
+                    AppButton {
                         text: qsTr("回答ファイルを選択…")
-                        highlighted: true
+                        kind: "primary"
                         onClicked: sourceDialog.open()
                     }
 
@@ -294,9 +339,9 @@ Item {
                         elide: Text.ElideRight
                     }
 
-                    Button {
+                    AppButton {
                         text: qsTr("検証して差分を作成")
-                        highlighted: true
+                        kind: "primary"
                         enabled: Boolean(root.viewModel.sourcePath)
                         onClicked: {
                             includeDeletes.checked = false
@@ -315,6 +360,14 @@ Item {
                     font.pixelSize: 9
                     wrapMode: Text.Wrap
                 }
+
+                AppButton {
+                    text: root.mappingExpanded
+                          ? qsTr("列マッピングを閉じる")
+                          : qsTr("列名が合わない場合の設定")
+                    enabled: Boolean(root.viewModel.sourcePath)
+                    onClicked: root.mappingExpanded = !root.mappingExpanded
+                }
             }
         }
 
@@ -324,8 +377,9 @@ Item {
             orientation: Qt.Horizontal
 
             Rectangle {
-                SplitView.preferredWidth: 390
-                SplitView.minimumWidth: 320
+                visible: root.mappingExpanded
+                SplitView.preferredWidth: visible ? 390 : 0
+                SplitView.minimumWidth: visible ? 320 : 0
                 color: "#ffffff"
                 border.color: "#dce2ea"
                 radius: 7
@@ -364,7 +418,7 @@ Item {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.margins: 7
-                            text: qsTr("入力列名が異なる場合は、保存先の項目ごとに元の列を選択してください。")
+                            text: qsTr("通常は自動判定されます。入力列名が異なる場合だけ、保存先の項目ごとに元の列を選択してください。")
                             color: "#52647d"
                             font.pixelSize: 9
                             wrapMode: Text.Wrap
@@ -580,9 +634,9 @@ Item {
                 Accessible.description: qsTr("チェックした場合のみ既存データの削除候補を反映します")
             }
 
-            Button {
+            AppButton {
                 text: qsTr("検証済み差分を反映…")
-                highlighted: true
+                kind: "primary"
                 enabled: root.viewModel.canApplyImport
                 ToolTip.visible: hovered && !enabled
                 ToolTip.text: qsTr("エラーがある場合は反映できません。")

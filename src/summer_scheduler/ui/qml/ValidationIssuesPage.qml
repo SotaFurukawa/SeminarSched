@@ -10,6 +10,7 @@ Item {
 
     required property var viewModel
     signal openHomeRequested
+    signal navigateRequested(int pageIndex)
 
     readonly property var filteredIssues: buildFilteredIssues()
 
@@ -50,6 +51,26 @@ Item {
         for (let i = 0; i < keys.length; ++i)
             parts.push(qsTr("%1=%2").arg(keys[i]).arg(String(details[keys[i]])))
         return parts.join(" / ")
+    }
+
+    function targetPageForIssue(row) {
+        const entity = String(root.rowValue(row, "entityType", ""))
+                          .toLocaleLowerCase()
+        if (entity === "student")
+            return 1
+        if (entity === "teacher")
+            return 2
+        if (entity === "group_lesson")
+            return 3
+        if (entity.indexOf("availability") >= 0 || entity === "import_batch")
+            return 4
+        if (entity === "lesson_request" || entity === "assignment"
+                || entity === "assignmentsession")
+            return 5
+        if (entity === "project" || entity === "open_date"
+                || entity === "time_slot" || entity === "subject")
+            return 8
+        return 6
     }
 
     function buildFilteredIssues() {
@@ -397,6 +418,14 @@ Item {
                             font.pixelSize: 9
                             font.weight: Font.DemiBold
                         }
+                        Label {
+                            Layout.preferredWidth: 116
+                            text: qsTr("修正先")
+                            color: "#475467"
+                            font.pixelSize: 9
+                            font.weight: Font.DemiBold
+                            horizontalAlignment: Text.AlignHCenter
+                        }
                     }
                 }
 
@@ -496,6 +525,14 @@ Item {
                                     font.pixelSize: 8
                                     elide: Text.ElideRight
                                 }
+                            }
+                            AppButton {
+                                Layout.preferredWidth: 116
+                                text: qsTr("該当画面を開く")
+                                Accessible.name: qsTr("この問題の修正画面を開く")
+                                onClicked: root.navigateRequested(
+                                               root.targetPageForIssue(
+                                                   validationIssueDelegate.modelData))
                             }
                         }
                     }

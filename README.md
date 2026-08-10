@@ -10,8 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在は **v1.0.4の公開準備版** です。GitHub Releaseを公開するまでは配布版を
-意味しません。Phase 1の
+現在のアプリ版は **v1.1.0** です。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
 ドラッグ＆ドロップの即時検証、ロック、Undo / Redo、差分・監査、自動保存、
@@ -21,8 +20,8 @@
 運用・受入文書を追加しました。
 
 Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力」では全体、生徒別、
-講師別、未配置・警告のExcel / PDFと割当て生データCSVを生成できます。本番GitHub
-Releaseはまだ公開していません。選択日・選択生徒・選択講師だけの部分再最適化も、安全な
+講師別、未配置・警告のExcel / PDFと割当て生データCSVを生成できます。選択日・選択生徒・
+選択講師だけの部分再最適化は、安全な
 境界が確定するまで提供していません。
 
 ## スクリーンショット
@@ -32,21 +31,38 @@ Releaseはまだ公開していません。選択日・選択生徒・選択講�
 この画像は2026-07-29に、利用者データ・最近使用したproject・既存logを読み込まない
 一時保存先でsource版を起動して取得したものです。
 
+刷新後のホーム画面は
+[`docs/ui_redesign/screenshots/ui_after_home_1366x768.png`](docs/ui_redesign/screenshots/ui_after_home_1366x768.png)
+です。こちらも個人データを読み込まない一時保存領域で取得しています。
+
+## 画面の基本フロー
+
+刷新UIでは、ホームとサイドバーに次の4段階を常時表示します。
+
+1. 授業日・コマと初期名簿を設定する
+2. 生徒・講師アンケートを取り込む
+3. 集団授業を確認し、時間割を自動作成・編集する
+4. 全体・講師別・生徒別のExcel / PDFを出力する
+
+新規導入時の生徒・講師名簿はExcel一括登録を主導線とし、日常的な少人数追加には
+3段階の個別登録を使います。集団授業は週カレンダー、時間割編集は未配置・時間割・
+選択詳細の3ペインです。出力は対象、形式、保存先の順に進み、詳細な帳票設定は必要な
+場合だけ開きます。詳細は[`docs/user_manual.md`](docs/user_manual.md)を参照してください。
+
 ## 利用者向けダウンロード
 
-今回の作業では本番tagとGitHub Releaseを公開していません。配布責任者がlicense、
-clean Windows受入、公開内容を承認したReleaseでは、次の3ファイルを同じReleaseから
+配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.0.4.exe`
-- `SummerCourseScheduler-Portable-1.0.4.zip`
+- `SummerCourseScheduler-Setup-1.1.0.exe`
+- `SummerCourseScheduler-Portable-1.1.0.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.0.4.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.0.4.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.1.0.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.1.0.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -269,11 +285,11 @@ python -m summer_scheduler --config .\config.example.yaml
 
 ## プロジェクトの基本操作
 
-1. 「ホーム」の「新規プロジェクト」から、プロジェクト名、校舎名、開始日、終了日、
-   保存先を入力します。拡張子を省略した場合は `.jukuschedule` が付きます。
+1. 「ホーム」の「新規プロジェクト」から、プロジェクト名、開始日、終了日を入力します。
+   保存先はアプリの標準プロジェクトフォルダーへ自動的に決まります。
 2. 作成直後に既定の5コマ、23科目、期間内の開校日が登録されます。
-3. 「生徒」「講師」「設定」からマスターを登録します。設定ではプロジェクト情報、
-   コマ、開校日・休校日、科目、Excel入出力を扱います。
+3. 初期名簿は「生徒」「講師」のExcel一括追加・更新から登録します。設定では
+   プロジェクト情報、コマ、開校日・休校日、科目、Excel入出力を扱います。
 4. 別ファイルへ切り替える場合は「既存プロジェクトを開く」または「最近使用した
    プロジェクト」を使います。
 
@@ -398,6 +414,9 @@ fingerprintが異なる外部変更の検出時には安全のため破棄され
 ## 時間割の出力
 
 プロジェクトを開いて「出力」を選び、最初に「最新データを再読込み」を実行します。
+「出力対象」→「形式」→「保存先」の順に選び、必要な場合だけ詳細設定を開きます。
+未配置が残る場合は警告と確認画面への導線を表示します。生成後は保存先フォルダーを
+自動またはボタンで開けます。
 全体時間割、生徒別、講師別、未配置・警告はExcelまたはPDF、割当て生データは
 18列のCSVとして保存できます。日付、講師、生徒は必要な対象だけを選択できます。
 
@@ -509,11 +528,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.4
+  -Version 1.1.0
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.0.4.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.1.0.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -525,13 +544,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.4 `
+  -Version 1.1.0 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.0.4.zip `
-  dist\SummerCourseScheduler-Setup-1.0.4.exe
+  dist\SummerCourseScheduler-Portable-1.1.0.zip `
+  dist\SummerCourseScheduler-Setup-1.1.0.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

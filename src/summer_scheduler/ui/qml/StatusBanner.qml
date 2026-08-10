@@ -5,6 +5,8 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
+    UiTheme { id: theme }
+
     required property var viewModel
     readonly property bool hasError: Boolean(viewModel.errorMessage)
     readonly property string messageText: hasError
@@ -13,8 +15,8 @@ Rectangle {
 
     visible: messageText.length > 0
     implicitHeight: visible ? bannerContent.implicitHeight + 14 : 0
-    color: hasError ? "#fff1f0" : "#edf7ee"
-    border.color: hasError ? "#e5aaa6" : "#a7d3ad"
+    color: hasError ? theme.dangerSoft : theme.successSoft
+    border.color: hasError ? "#F1B5B0" : "#ABEFC6"
     clip: true
 
     RowLayout {
@@ -29,16 +31,16 @@ Rectangle {
 
         Label {
             text: root.hasError ? qsTr("エラー") : qsTr("完了")
-            color: root.hasError ? "#9f2f2a" : "#256b35"
-            font.pixelSize: 11
+            color: root.hasError ? theme.danger : theme.success
+            font.pixelSize: theme.captionSize
             font.weight: Font.Bold
         }
 
         Label {
             Layout.fillWidth: true
             text: root.messageText
-            color: root.hasError ? "#7d2925" : "#245d30"
-            font.pixelSize: 11
+            color: theme.textPrimary
+            font.pixelSize: theme.captionSize
             wrapMode: Text.Wrap
         }
 

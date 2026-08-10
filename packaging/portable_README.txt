@@ -22,6 +22,5 @@
 この候補版はコード署名されていないため、Windows SmartScreen の警告が
 表示されることがあります。配布元と SHA256SUMS.txt の値を確認してください。
 
-PRIVACY.md にプライバシーポリシー、CODE_SIGNING_POLICY.md に署名方針を
-収録しています。「署名済み」と表示された将来の版では、実行ファイルの
-Authenticode 状態、署名者 SignPath Foundation、timestamp も確認してください。
+PRIVACY.md にプライバシーポリシー、CODE_SIGNING_POLICY.md に未署名配布方針を
+収録しています。Windowsの保護機能を無効化せず、組織の承認手順に従ってください。

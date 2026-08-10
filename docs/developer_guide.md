@@ -13,7 +13,7 @@ Availability取込みの同一transactionでBLOB、SHA-256、元ファイル名�
 
 ## 1. この文書の位置づけ
 
-このガイドは`1.0.4`時点の実装を説明する。公開版の機能仕様と
+このガイドは`1.1.0`時点の実装を説明する。公開版の機能仕様と
 ハード制約は[`specification.md`](specification.md)、初期設計は
 [`phase0_design.md`](phase0_design.md)、主要な判断理由は[`adr/`](adr/)を参照する。
 このガイドは、仕様に定めたハード制約やデータ安全性要件を緩和しない。
@@ -1098,7 +1098,7 @@ py -3.12 -m venv .venv-release
 ```powershell
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.4
+  -Version 1.1.0
 ```
 
 scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し、
@@ -1106,7 +1106,7 @@ scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し�
 既定YAML、全Alembic revision、Qt Quick／PDF、OR-Tools native runtime、
 `THIRD_PARTY_NOTICES.md`、収集したlicenseが必要で、DB、`.jukuschedule`、log、
 入出力、backup、user config、build crash reportを拒否する。検査後に
-`dist/SummerCourseScheduler-Portable-1.0.4.zip`を決定的順序で作る。
+`dist/SummerCourseScheduler-Portable-1.1.0.zip`を決定的順序で作る。
 
 2026-07-29に同一build machineで生成した未公開候補は143,564,844 bytes、
 SHA-256 `5611f8e62b6e7e8e9ac456ca91186f5a52e207573fb866b377ccbaf0796eba2f`だった。
@@ -1128,13 +1128,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.0.4 `
+  -Version 1.1.0 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.0.4.zip `
-  dist\SummerCourseScheduler-Setup-1.0.4.exe
+  dist\SummerCourseScheduler-Portable-1.1.0.zip `
+  dist\SummerCourseScheduler-Setup-1.1.0.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `
@@ -1229,3 +1229,26 @@ Excel / CSV / PDFはInfrastructure adapterとして実装し、Application Servi
 Phase 7のsource実装完了と、法的・運用的に配布可能な本番Releaseは別状態である。
 残項目は[`acceptance_test_phase7.md`](acceptance_test_phase7.md)と
 [`release_checklist.md`](release_checklist.md)を参照する。
+
+## 21. UI刷新（2026-08-11）
+
+UI刷新はPresentation層だけを主対象とし、QMLからDB、OR-Tools、rendererを直接呼ばない。
+既存のViewModel slot、`.jukuschedule`、Alembic revision、最適化制約、編集transaction、
+AuditLog、出力snapshotを保護契約とする。保護対象の一覧は
+[`ui_redesign/protected_contracts.md`](ui_redesign/protected_contracts.md)を参照する。
+
+共通部品は`src/summer_scheduler/ui/qml`直下の`UiTheme.qml`、`AppButton.qml`、
+`StatusBadge.qml`、`InlineMessage.qml`、`SectionHeader.qml`、`EmptyState.qml`、
+`StepCard.qml`、`SidebarNavButton.qml`に集約する。新しい画面では色、余白、文字サイズを
+直接増やす前にこれらのtokenと部品を使う。状態は色だけで示さず、文字または記号を併記する。
+
+ホームとサイドバーの業務順序は、基本設定、アンケート、時間割作成、出力の4段階である。
+内部の既存ページindexは互換性のため変更していない。初期名簿はExcel一括登録、日常の
+少人数追加は段階式フォームを主導線とする。集団授業は既存の作成・削除・Excel取込みslotを
+週カレンダーから呼ぶ。時間割の未配置カードは既存の`dropMove`による二重検証を迂回しない。
+出力後のフォルダー表示は`OutputViewModel.openLastOutputFolder`だけがOS機能を呼び、
+出力サービス自体には副作用を追加しない。
+
+静的な導線契約は`tests/unit/test_ui_redesign_contract.py`、QML構文は`pyside6-qmllint`、
+実際の業務回帰は既存のintegration/scenario testで確認する。1366×768とDPI 100/125/150%、
+Windows実機のフォーカス表示などは、最終的に手動受入も行う。

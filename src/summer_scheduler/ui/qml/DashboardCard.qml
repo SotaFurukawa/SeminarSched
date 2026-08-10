@@ -5,6 +5,8 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
+    UiTheme { id: theme }
+
     property string cardTitle: ""
     property string value: "—"
     property string description: ""
@@ -13,9 +15,9 @@ Rectangle {
     property color markerBackground: "#e8f0ff"
 
     implicitHeight: 124
-    radius: 10
-    color: "#ffffff"
-    border.color: "#dce2ea"
+    radius: theme.radiusMd
+    color: theme.surface
+    border.color: theme.border
     border.width: 1
     Accessible.name: [cardTitle, value, description].join(" ")
     Accessible.role: Accessible.StaticText
@@ -32,7 +34,7 @@ Rectangle {
             Label {
                 Layout.fillWidth: true
                 text: root.cardTitle
-                color: "#475467"
+                color: theme.textSecondary
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
@@ -58,7 +60,7 @@ Rectangle {
 
         Label {
             text: root.value
-            color: "#18212f"
+            color: theme.textPrimary
             font.pixelSize: 28
             font.weight: Font.Bold
         }
@@ -66,7 +68,7 @@ Rectangle {
         Label {
             Layout.fillWidth: true
             text: root.description
-            color: "#7a8493"
+            color: theme.textSecondary
             font.pixelSize: 10
             wrapMode: Text.Wrap
             maximumLineCount: 2

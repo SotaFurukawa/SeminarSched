@@ -7,6 +7,8 @@ import QtQuick.Layouts
 ApplicationWindow {
     id: root
 
+    UiTheme { id: theme }
+
     // Python registers these objects as context properties. Static QML tooling
     // cannot discover context properties, so access is isolated here.
     // qmllint disable unqualified
@@ -28,7 +30,7 @@ ApplicationWindow {
     title: workspace.hasOpenProject && workspace.currentProjectTitle
            ? qsTr("%1 - 夏期講習時間割作成").arg(workspace.currentProjectTitle)
            : qsTr("夏期講習時間割作成")
-    color: "#f4f6f8"
+    color: theme.appBackground
 
     function selectPage(index) {
         if (index >= 0 && index < navigationModel.count)
@@ -41,8 +43,8 @@ ApplicationWindow {
         ListElement {
             title: "ホーム"
             shortLabel: "H"
-            phaseLabel: "Phase 2"
-            description: "プロジェクトの作成・読込みと、講習準備の状況を確認します。"
+            phaseLabel: "全体"
+            description: "プロジェクトの作成・読込みと、次に行う作業を確認します。"
         }
         ListElement {
             title: "生徒"
@@ -78,7 +80,7 @@ ApplicationWindow {
             title: "未配置・警告"
             shortLabel: "警"
             phaseLabel: "Phase 3"
-            description: "最適化前の入力エラー、警告、情報をプロジェクト全体で確認します。"
+            description: "入力エラー、未配置、警告を作業リストとして確認します。"
         }
         ListElement {
             title: "出力"
@@ -95,82 +97,60 @@ ApplicationWindow {
     }
 
     header: Rectangle {
-        implicitHeight: 70
-        color: "#ffffff"
-        border.color: "#dce2ea"
+        implicitHeight: 64
+        color: theme.surface
+        border.color: theme.border
         border.width: 1
 
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 22
-            anchors.rightMargin: 22
-            spacing: 16
+            anchors.leftMargin: theme.spacingXl
+            anchors.rightMargin: theme.spacingXl
+            spacing: theme.spacingLg
 
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 1
 
                 Label {
-                    text: qsTr("夏期講習時間割作成")
-                    color: "#18212f"
-                    font.pixelSize: 20
+                    text: root.workspace.hasOpenProject
+                          ? root.workspace.currentProjectTitle
+                          : qsTr("夏期講習時間割作成")
+                    color: theme.textPrimary
+                    font.pixelSize: 19
                     font.weight: Font.DemiBold
                 }
 
                 Label {
                     text: root.workspace.hasOpenProject
-                          ? qsTr("%1 ～ %2")
+                          ? qsTr("%1　›　%2 ～ %3")
+                            .arg(root.activePage.title)
                             .arg(root.workspace.currentStartDate || "----/--/--")
                             .arg(root.workspace.currentEndDate || "----/--/--")
-                          : qsTr("プロジェクトを作成するか、既存ファイルを開いてください")
-                    color: "#667085"
-                    font.pixelSize: 11
+                          : qsTr("ホーム　›　プロジェクトを選択")
+                    color: theme.textSecondary
+                    font.pixelSize: theme.captionSize
                     elide: Text.ElideRight
                 }
             }
 
-            Rectangle {
+            StatusBadge {
                 visible: root.workspace.hasOpenProject
-                Layout.preferredWidth: dirtyLabel.implicitWidth + 24
-                Layout.preferredHeight: 30
-                radius: 15
-                color: root.workspace.isDirty ? "#fff4db" : "#ecfdf3"
-                border.color: root.workspace.isDirty ? "#e2b95f" : "#a9dec0"
-
-                Label {
-                    id: dirtyLabel
-
-                    anchors.centerIn: parent
-                    text: root.workspace.isDirty ? qsTr("● 未保存の変更") : qsTr("✓ 保存済み")
-                    color: root.workspace.isDirty ? "#7a5710" : "#176b40"
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                }
+                status: root.workspace.isDirty ? "warning" : "complete"
+                symbol: root.workspace.isDirty ? "●" : "✓"
+                label: root.workspace.isDirty ? qsTr("未保存の変更") : qsTr("保存済み")
             }
 
-            Rectangle {
-                Layout.preferredWidth: databaseStatusLabel.implicitWidth + 24
-                Layout.preferredHeight: 30
-                radius: 15
-                color: root.viewModel.databaseReady ? "#ecfdf3" : "#fff8e8"
-                border.color: root.viewModel.databaseReady ? "#a9dec0" : "#e9cc86"
-
-                Label {
-                    id: databaseStatusLabel
-
-                    anchors.centerIn: parent
-                    text: (root.viewModel.databaseReady ? "✓ " : "… ")
-                          + root.viewModel.databaseStatusText
-                    color: root.viewModel.databaseReady ? "#176b40" : "#7a5710"
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                }
+            StatusBadge {
+                status: root.viewModel.databaseReady ? "complete" : "warning"
+                symbol: root.viewModel.databaseReady ? "✓" : "…"
+                label: root.viewModel.databaseStatusText
             }
 
             Label {
                 text: qsTr("v%1").arg(root.viewModel.appVersion)
-                color: "#667085"
-                font.pixelSize: 11
+                color: theme.textSecondary
+                font.pixelSize: theme.captionSize
             }
 
             ToolButton {
@@ -235,7 +215,7 @@ ApplicationWindow {
         spacing: 0
 
         Sidebar {
-            Layout.preferredWidth: 232
+            Layout.preferredWidth: 248
             Layout.fillHeight: true
             itemsModel: navigationModel
             currentIndex: root.currentPageIndex
@@ -245,7 +225,7 @@ ApplicationWindow {
         Rectangle {
             Layout.preferredWidth: 1
             Layout.fillHeight: true
-            color: "#dce2ea"
+            color: theme.border
         }
 
         ColumnLayout {
@@ -261,7 +241,7 @@ ApplicationWindow {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: "#f4f6f8"
+                color: theme.appBackground
 
                 Loader {
                     anchors.fill: parent
@@ -296,6 +276,9 @@ ApplicationWindow {
 
         ProjectHomePage {
             viewModel: root.workspace
+            phase3ViewModel: root.phase3
+            scheduleViewModel: root.scheduleEditor
+            outputViewModel: root.output
             onOpenSettingsRequested: root.selectPage(8)
             onNavigateRequested: pageIndex => root.selectPage(pageIndex)
         }
@@ -396,6 +379,9 @@ ApplicationWindow {
         ValidationIssuesPage {
             viewModel: root.phase3
             onOpenHomeRequested: root.selectPage(0)
+            onNavigateRequested: function (pageIndex) {
+                root.selectPage(pageIndex)
+            }
         }
     }
 
@@ -405,6 +391,7 @@ ApplicationWindow {
         OutputPage {
             viewModel: root.output
             onOpenHomeRequested: root.selectPage(0)
+            onOpenIssuesRequested: root.selectPage(6)
         }
     }
 

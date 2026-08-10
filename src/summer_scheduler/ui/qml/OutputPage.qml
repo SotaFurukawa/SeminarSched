@@ -11,6 +11,11 @@ Item {
 
     required property var viewModel
     signal openHomeRequested
+    signal openIssuesRequested
+    property bool advancedSettingsVisible: false
+    property bool openFolderAfterOutput: true
+
+    UiTheme { id: theme }
 
     function optionIndex(model, value) {
         for (let index = 0; index < model.length; ++index) {
@@ -39,6 +44,11 @@ Item {
         function onOverwriteConfirmationRequested(fileName) {
             overwriteDialog.text = qsTr("「%1」は既に存在します。置き換えますか？").arg(fileName)
             overwriteDialog.open()
+        }
+
+        function onOutputGenerated(_path) {
+            if (root.openFolderAfterOutput)
+                root.viewModel.openLastOutputFolder()
         }
     }
 
@@ -146,10 +156,38 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: theme.spacingSm
+
+                    StatusBadge {
+                        label: qsTr("1　対象を選ぶ")
+                        status: root.viewModel.reportKind ? "complete" : "current"
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
+                        color: theme.border
+                    }
+                    StatusBadge {
+                        label: qsTr("2　形式を選ぶ")
+                        status: root.viewModel.outputFormat ? "complete" : "current"
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
+                        color: theme.border
+                    }
+                    StatusBadge {
+                        label: qsTr("3　保存先を決める")
+                        status: root.viewModel.destinationPath ? "complete" : "current"
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
                     spacing: 8
 
                     Label {
-                        text: qsTr("帳票")
+                        text: qsTr("1. 出力対象")
                         color: "#344054"
                         font.pixelSize: 10
                         font.weight: Font.DemiBold
@@ -168,7 +206,7 @@ Item {
                     }
 
                     Label {
-                        text: qsTr("形式")
+                        text: qsTr("2. 形式")
                         color: "#344054"
                         font.pixelSize: 10
                         font.weight: Font.DemiBold
@@ -220,7 +258,7 @@ Item {
                     spacing: 8
 
                     Label {
-                        text: qsTr("保存先")
+                        text: qsTr("3. 保存先")
                         color: "#344054"
                         font.pixelSize: 10
                         font.weight: Font.DemiBold
@@ -259,6 +297,30 @@ Item {
                     }
                 }
 
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: theme.spacingSm
+
+                    CheckBox {
+                        text: qsTr("出力後に保存先フォルダーを開く")
+                        checked: root.openFolderAfterOutput
+                        onToggled: root.openFolderAfterOutput = checked
+                        Accessible.name: text
+                    }
+                    AppButton {
+                        text: root.advancedSettingsVisible
+                              ? qsTr("詳細設定を閉じる") : qsTr("詳細設定を開く")
+                        onClicked: root.advancedSettingsVisible =
+                                   !root.advancedSettingsVisible
+                    }
+                    Item { Layout.fillWidth: true }
+                    AppButton {
+                        text: qsTr("保存先フォルダーを開く")
+                        enabled: root.viewModel.lastOutputPath.length > 0
+                        onClicked: root.viewModel.openLastOutputFolder()
+                    }
+                }
+
                 Label {
                     Layout.fillWidth: true
                     visible: root.viewModel.lastResultSummary.length > 0
@@ -272,6 +334,16 @@ Item {
             }
         }
 
+        InlineMessage {
+            Layout.fillWidth: true
+            visible: root.viewModel.unassignedCount > 0
+            kind: "warning"
+            message: qsTr("未配置が%1件あります。出力はできますが、配布前に内容を確認してください。")
+                     .arg(root.viewModel.unassignedCount)
+            actionText: qsTr("未配置・警告を確認")
+            onActionRequested: root.openIssuesRequested()
+        }
+
         SplitView {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -280,8 +352,9 @@ Item {
             ScrollView {
                 id: settingsPane
 
-                SplitView.minimumWidth: 390
-                SplitView.preferredWidth: 455
+                visible: root.advancedSettingsVisible
+                SplitView.minimumWidth: visible ? 390 : 0
+                SplitView.preferredWidth: visible ? 455 : 0
                 clip: true
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 

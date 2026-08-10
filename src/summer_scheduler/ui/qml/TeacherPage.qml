@@ -19,8 +19,12 @@ Item {
     property var qualificationDraft: ({})
     property int qualificationRevision: 0
     property bool qualificationsDirty: false
+    property bool teacherAdvancedVisible: false
+    property int teacherWizardStep: 0
     readonly property var displayedTeachers: sortedTeachers()
     readonly property var qualificationRows: buildQualificationRows()
+
+    UiTheme { id: theme }
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -41,6 +45,10 @@ Item {
             rows.push(source[i])
         const key = root.sortIndex === 1 ? "name" : "externalId"
         rows.sort(function (left, right) {
+            const leftActive = root.asBoolean(root.rowValue(left, "active", true), true)
+            const rightActive = root.asBoolean(root.rowValue(right, "active", true), true)
+            if (leftActive !== rightActive)
+                return leftActive ? -1 : 1
             return String(root.rowValue(left, key, "")).localeCompare(
                         String(root.rowValue(right, key, "")), "ja", {
                             numeric: true,
@@ -198,6 +206,17 @@ Item {
             root.qualificationsDirty = false
     }
 
+    function openTeacherWizard() {
+        root.teacherWizardStep = 0
+        wizardTeacherExternalId.text = "T-" + String(Date.now()).slice(-8)
+        wizardTeacherFamilyName.text = ""
+        wizardTeacherGivenName.text = ""
+        wizardTeacherAllowGap.checked = false
+        wizardTeacherActive.checked = true
+        wizardTeacherNote.text = ""
+        teacherWizard.open()
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 20
@@ -225,18 +244,34 @@ Item {
                 }
             }
 
-            Button {
+            AppButton {
                 text: qsTr("再読込み")
                 enabled: root.viewModel.hasOpenProject
                 onClicked: root.viewModel.refreshAll()
             }
 
-            Button {
-                text: qsTr("＋ 講師を追加")
-                highlighted: true
+            AppButton {
+                text: qsTr("Excel一括追加・更新…")
                 enabled: root.viewModel.hasOpenProject
-                onClicked: root.clearTeacher()
+                onClicked: rosterImportDialog.open()
             }
+
+            AppButton {
+                text: qsTr("＋ 講師を追加")
+                kind: "primary"
+                enabled: root.viewModel.hasOpenProject
+                onClicked: root.openTeacherWizard()
+            }
+        }
+
+        InlineMessage {
+            Layout.fillWidth: true
+            visible: root.viewModel.hasOpenProject
+                     && (root.viewModel.teachers || []).length === 0
+            kind: "info"
+            message: qsTr("初期名簿はExcelで一括登録できます。講師対応科目の「指導可能」が空欄なら「はい」として取り込みます。")
+            actionText: qsTr("Excelを選択")
+            onActionRequested: rosterImportDialog.open()
         }
 
         Rectangle {
@@ -472,7 +507,7 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: 3
                                         Label {
-                                            text: qsTr("講師ID *")
+                                            text: qsTr("講師ID（必須）")
                                             color: "#344054"
                                             font.pixelSize: 11
                                         }
@@ -496,7 +531,7 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: 3
                                         Label {
-                                            text: qsTr("氏名 *")
+                                            text: qsTr("氏名（必須）")
                                             color: "#344054"
                                             font.pixelSize: 11
                                         }
@@ -516,8 +551,16 @@ Item {
                                     }
                                 }
 
+                                AppButton {
+                                    text: root.teacherAdvancedVisible
+                                          ? qsTr("詳細設定を閉じる")
+                                          : qsTr("詳細設定を表示")
+                                    onClicked: root.teacherAdvancedVisible = !root.teacherAdvancedVisible
+                                }
+
                                 CheckBox {
                                     id: teacherAllowGap
+                                    visible: root.teacherAdvancedVisible
                                     text: qsTr("同じ日の担当間に空きコマを許可する")
                                     Accessible.name: text
                                     onClicked: root.viewModel.markDirty()
@@ -532,12 +575,14 @@ Item {
                                 }
 
                                 Label {
+                                    visible: root.teacherAdvancedVisible
                                     text: qsTr("備考")
                                     color: "#344054"
                                     font.pixelSize: 11
                                 }
                                 TextArea {
                                     id: teacherNote
+                                    visible: root.teacherAdvancedVisible
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 120
                                     placeholderText: qsTr("校内で共有する注意事項（任意）")
@@ -899,6 +944,245 @@ Item {
         ignoreUnknownSignals: true
         function onCurrentTeacherQualificationsChanged() {
             root.reloadQualifications()
+        }
+    }
+
+    Dialogs.FileDialog {
+        id: rosterImportDialog
+        title: qsTr("初期名簿・マスターデータExcelを選択")
+        fileMode: Dialogs.FileDialog.OpenFile
+        nameFilters: [qsTr("Excelブック (*.xlsx)")]
+        onAccepted: {
+            if (root.viewModel.previewMasterImport(selectedFile.toString()))
+                rosterPreviewDialog.open()
+        }
+    }
+
+    Dialogs.FileDialog {
+        id: rosterTemplateDialog
+        title: qsTr("初期名簿テンプレートを保存")
+        fileMode: Dialogs.FileDialog.SaveFile
+        nameFilters: [qsTr("Excelブック (*.xlsx)")]
+        onAccepted: root.viewModel.exportMasterData(selectedFile.toString())
+    }
+
+    Dialog {
+        id: rosterPreviewDialog
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(620, root.width - 48)
+        modal: true
+        title: qsTr("Excel一括登録の確認")
+        standardButtons: Dialog.NoButton
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 12
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("追加 %1件／更新 %2件／エラー %3件／警告 %4件")
+                      .arg(root.rowValue(root.viewModel.excelPreviewSummary, "newCount", 0))
+                      .arg(root.rowValue(root.viewModel.excelPreviewSummary, "updateCount", 0))
+                      .arg(root.rowValue(root.viewModel.excelPreviewSummary, "errorCount", 0))
+                      .arg(root.rowValue(root.viewModel.excelPreviewSummary, "warningCount", 0))
+                color: theme.textPrimary
+                font.pixelSize: 16
+                font.weight: Font.DemiBold
+            }
+            InlineMessage {
+                Layout.fillWidth: true
+                kind: (root.viewModel.excelIssues || []).length > 0 ? "warning" : "success"
+                message: (root.viewModel.excelIssues || []).length > 0
+                         ? qsTr("確認事項が%1件あります。エラーがある場合は反映できません。")
+                           .arg((root.viewModel.excelIssues || []).length)
+                         : qsTr("検証エラーはありません。")
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                AppButton {
+                    text: qsTr("テンプレートを保存")
+                    onClicked: rosterTemplateDialog.open()
+                }
+                AppButton {
+                    text: qsTr("キャンセル")
+                    onClicked: rosterPreviewDialog.close()
+                }
+                AppButton {
+                    text: qsTr("検証済み内容を反映")
+                    kind: "primary"
+                    enabled: Number(root.rowValue(
+                                        root.viewModel.excelPreviewSummary,
+                                        "errorCount", 0)) === 0
+                    onClicked: {
+                        if (root.viewModel.applyMasterImport())
+                            rosterPreviewDialog.close()
+                    }
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: teacherWizard
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(650, root.width - 48)
+        height: Math.min(520, root.height - 48)
+        modal: true
+        title: qsTr("講師を追加　%1/3").arg(root.teacherWizardStep + 1)
+        closePolicy: Popup.CloseOnEscape
+
+        contentItem: ColumnLayout {
+            spacing: 14
+            RowLayout {
+                Layout.fillWidth: true
+                Repeater {
+                    model: [qsTr("基本情報"), qsTr("勤務上の設定"), qsTr("確認")]
+                    delegate: StatusBadge {
+                        id: teacherWizardBadge
+                        required property int index
+                        required property string modelData
+                        Layout.fillWidth: true
+                        status: index < root.teacherWizardStep ? "complete"
+                                : index === root.teacherWizardStep ? "current" : "neutral"
+                        symbol: index < root.teacherWizardStep ? "✓" : String(index + 1)
+                        label: modelData
+                    }
+                }
+            }
+
+            StackLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                currentIndex: root.teacherWizardStep
+
+                GridLayout {
+                    columns: 2
+                    columnSpacing: 12
+                    rowSpacing: 8
+                    Label { text: qsTr("講師ID（必須）") }
+                    TextField {
+                        id: wizardTeacherExternalId
+                        Layout.fillWidth: true
+                        Accessible.name: qsTr("追加する講師のID")
+                    }
+                    Label { text: qsTr("苗字（必須）") }
+                    TextField {
+                        id: wizardTeacherFamilyName
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("例：講師")
+                    }
+                    Label { text: qsTr("名前（必須）") }
+                    TextField {
+                        id: wizardTeacherGivenName
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("例：太郎")
+                    }
+                    Label {
+                        Layout.columnSpan: 2
+                        Layout.fillWidth: true
+                        text: qsTr("講師アンケートではメールアドレスを収集しないため、この画面にもメール欄はありません。")
+                        color: theme.textSecondary
+                        wrapMode: Text.Wrap
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: 10
+                    Label {
+                        text: qsTr("通常は初期値のままで登録できます。")
+                        color: theme.textSecondary
+                    }
+                    CheckBox {
+                        id: wizardTeacherAllowGap
+                        text: qsTr("同じ日の担当間に空きコマを許可する")
+                        checked: false
+                    }
+                    CheckBox {
+                        id: wizardTeacherActive
+                        text: qsTr("有効（在籍中）")
+                        checked: true
+                    }
+                    Label { text: qsTr("備考") }
+                    TextArea {
+                        id: wizardTeacherNote
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        wrapMode: TextEdit.Wrap
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: 12
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("%1 %2")
+                              .arg(wizardTeacherFamilyName.text.trim())
+                              .arg(wizardTeacherGivenName.text.trim())
+                        color: theme.textPrimary
+                        font.pixelSize: 20
+                        font.weight: Font.DemiBold
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("ID: %1\n空きコマ: %2\n状態: %3")
+                              .arg(wizardTeacherExternalId.text.trim())
+                              .arg(wizardTeacherAllowGap.checked ? qsTr("許可") : qsTr("不許可"))
+                              .arg(wizardTeacherActive.checked ? qsTr("有効") : qsTr("停止"))
+                        color: theme.textSecondary
+                        wrapMode: Text.Wrap
+                    }
+                    InlineMessage {
+                        Layout.fillWidth: true
+                        kind: "info"
+                        message: qsTr("登録後、講師を選択して指導可能科目を設定します。Excel一括登録では空欄を「指導可能」として扱います。")
+                    }
+                    Item { Layout.fillHeight: true }
+                }
+            }
+
+            InlineMessage {
+                Layout.fillWidth: true
+                kind: "error"
+                message: root.viewModel.errorMessage
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                AppButton {
+                    text: qsTr("キャンセル")
+                    onClicked: teacherWizard.close()
+                }
+                Item { Layout.fillWidth: true }
+                AppButton {
+                    visible: root.teacherWizardStep > 0
+                    text: qsTr("戻る")
+                    onClicked: root.teacherWizardStep -= 1
+                }
+                AppButton {
+                    text: root.teacherWizardStep < 2 ? qsTr("次へ") : qsTr("登録")
+                    kind: "primary"
+                    enabled: root.teacherWizardStep > 0
+                             || (wizardTeacherExternalId.text.trim().length > 0
+                                 && wizardTeacherFamilyName.text.trim().length > 0
+                                 && wizardTeacherGivenName.text.trim().length > 0)
+                    onClicked: {
+                        if (root.teacherWizardStep < 2) {
+                            root.teacherWizardStep += 1
+                            return
+                        }
+                        const fullName = wizardTeacherFamilyName.text.trim()
+                                         + " " + wizardTeacherGivenName.text.trim()
+                        if (root.viewModel.saveTeacher(
+                                    0,
+                                    wizardTeacherExternalId.text.trim(),
+                                    fullName,
+                                    wizardTeacherAllowGap.checked,
+                                    wizardTeacherNote.text,
+                                    wizardTeacherActive.checked))
+                            teacherWizard.close()
+                    }
+                }
+            }
         }
     }
 

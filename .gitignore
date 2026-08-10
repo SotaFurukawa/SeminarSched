@@ -101,6 +101,18 @@ deployment/
 
 # Reference documents may contain operational or personal information
 /docs/reference/
+# Local UI-redesign briefs supplied to the development agent are not public
+# product documentation. Keep only the resulting inventory/reports/screenshots.
+/docs/ui_redesign/00_START_HERE.txt
+/docs/ui_redesign/01_PRESERVE_AND_CHANGE_POLICY.txt
+/docs/ui_redesign/02_UI_REDESIGN_SPEC.md
+/docs/ui_redesign/03_REFERENCE_UI_NOTES.txt
+/docs/ui_redesign/04_ACCEPTANCE_CHECKLIST.txt
+/docs/ui_redesign/05_UPDATE_INITIAL_ROSTER_POLICY.txt
+/docs/ui_redesign/RUN_ALL_OVERNIGHT.md
+/docs/ui_redesign/prompts/
+/docs/ui_redesign/wireframes/
+/docs/ui_redesign/references/
 
 # Local implementation briefs and work logs used during assisted development.
 # They are intentionally kept on the developer machine and are not part of the

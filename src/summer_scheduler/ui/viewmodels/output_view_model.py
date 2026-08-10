@@ -22,6 +22,7 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
+from PySide6.QtGui import QDesktopServices
 
 from summer_scheduler.application.output_service import OutputService, OutputServiceError
 from summer_scheduler.application.phase6_dto import OutputResultDto, OutputWorkspaceDto
@@ -699,6 +700,18 @@ class OutputViewModel(QObject):
             return False
         self._overwrite_required = False
         self.outputStateChanged.emit()
+        return True
+
+    @Slot(result=bool)
+    def openLastOutputFolder(self) -> bool:
+        """直近の出力先フォルダーをOS標準のファイル管理画面で開く。"""
+        if self._last_output_path is None:
+            self._set_error("先に出力ファイルを生成してください")
+            return False
+        directory = self._last_output_path.parent.resolve(strict=False)
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory))):
+            self._set_error("出力先フォルダーを開けませんでした")
+            return False
         return True
 
     @Slot(bool, result=bool)

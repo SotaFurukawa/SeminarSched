@@ -437,8 +437,154 @@ Item {
             orientation: Qt.Horizontal
 
             Rectangle {
+                SplitView.preferredWidth: 238
+                SplitView.minimumWidth: 210
+                color: "#ffffff"
+                border.color: "#dce2ea"
+                radius: 7
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 6
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("未配置の授業")
+                            color: "#344054"
+                            font.pixelSize: 12
+                            font.weight: Font.DemiBold
+                        }
+                        StatusBadge {
+                            label: String(root.viewModel.unassignedCount)
+                            status: root.viewModel.unassignedCount > 0
+                                    ? "warning" : "complete"
+                        }
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("カードを時間割へドラッグしてください")
+                        color: "#667085"
+                        font.pixelSize: 8
+                        wrapMode: Text.Wrap
+                    }
+
+                    ListView {
+                        id: unassignedRail
+
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 5
+                        model: root.viewModel.unassignedLessons
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                        }
+
+                        delegate: Rectangle {
+                            id: unassignedRailCard
+
+                            required property var modelData
+                            property var lessonData: modelData
+                            property real homeX: 0
+                            property real homeY: 0
+                            width: ListView.view.width
+                            height: 82
+                            radius: 6
+                            color: root.rowValue(modelData, "matchesFilter", true)
+                                   ? "#fff8f6" : "#f3f4f6"
+                            opacity: root.rowValue(modelData, "matchesFilter", true)
+                                     ? 1 : 0.35
+                            border.color: "#e1aaa5"
+                            Drag.active: unassignedRailDrag.drag.active
+                            Drag.source: unassignedRailCard
+                            Drag.keys: ["scheduleLesson"]
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 7
+                                spacing: 2
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: root.rowValue(unassignedRailCard.modelData,
+                                                        "studentName", "")
+                                          + " / "
+                                          + root.rowValue(unassignedRailCard.modelData,
+                                                          "subjectShortName", "")
+                                    color: "#592c29"
+                                    font.pixelSize: 9
+                                    font.weight: Font.DemiBold
+                                    elide: Text.ElideRight
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: qsTr("残り%1回・候補%2件")
+                                          .arg(root.rowValue(
+                                                   unassignedRailCard.modelData,
+                                                   "remainingCount", 1))
+                                          .arg(root.rowValue(
+                                                   unassignedRailCard.modelData,
+                                                   "candidateCount", 0))
+                                    color: "#667085"
+                                    font.pixelSize: 8
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: root.rowValue(unassignedRailCard.modelData,
+                                                        "reasonText",
+                                                        qsTr("未配置理由を取得できません"))
+                                    color: "#7d2925"
+                                    font.pixelSize: 8
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            MouseArea {
+                                id: unassignedRailDrag
+
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.OpenHandCursor
+                                drag.target: unassignedRailCard
+                                onPressed: {
+                                    unassignedRailCard.homeX = unassignedRailCard.x
+                                    unassignedRailCard.homeY = unassignedRailCard.y
+                                }
+                                onClicked: root.viewModel.selectLesson(
+                                               Number(root.rowValue(
+                                                          unassignedRailCard.modelData,
+                                                          "lessonRequestId", 0)),
+                                               Number(root.rowValue(
+                                                          unassignedRailCard.modelData,
+                                                          "sessionIndex", 0)))
+                                onReleased: {
+                                    unassignedRailCard.Drag.drop()
+                                    unassignedRailCard.x = unassignedRailCard.homeX
+                                    unassignedRailCard.y = unassignedRailCard.homeY
+                                }
+                            }
+                        }
+
+                        Label {
+                            anchors.centerIn: parent
+                            visible: unassignedRail.count === 0
+                            text: qsTr("未配置授業はありません")
+                            color: "#667085"
+                            font.pixelSize: 10
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
                 SplitView.fillWidth: true
-                SplitView.minimumWidth: 620
+                SplitView.minimumWidth: 540
                 color: "#ffffff"
                 border.color: "#dce2ea"
                 radius: 7
@@ -962,8 +1108,10 @@ Item {
                         id: sideTabs
 
                         Layout.fillWidth: true
+                        Component.onCompleted: currentIndex = 1
                         TabButton {
                             text: qsTr("未配置 %1").arg(root.viewModel.unassignedCount)
+                            visible: false
                         }
                         TabButton {
                             text: qsTr("詳細")
