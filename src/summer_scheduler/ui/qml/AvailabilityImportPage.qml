@@ -9,8 +9,10 @@ Item {
     id: root
 
     required property var viewModel
+    required property var workspace
     signal openHomeRequested
     property bool mappingExpanded: false
+    property bool scriptGeneratorExpanded: true
 
     UiTheme { id: theme }
 
@@ -24,6 +26,8 @@ Item {
                                         .indexOf("アンケートを反映しました") >= 0
     readonly property int currentImportStep: justApplied ? 2
                                              : Boolean(viewModel.sourcePath) ? 1 : 0
+    readonly property int configuredOpenDateCount: countOpenDates()
+    readonly property int configuredTimeSlotCount: countEnabledTimeSlots()
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -82,6 +86,26 @@ Item {
             parts.push(qsTr("%1=%2").arg(keys[i]).arg(String(row[keys[i]])))
         }
         return parts.join("  /  ")
+    }
+
+    function countOpenDates() {
+        const rows = root.workspace.openDates || []
+        let count = 0
+        for (let i = 0; i < rows.length; ++i) {
+            if (Boolean(root.rowValue(rows[i], "isOpen", false)))
+                count += 1
+        }
+        return count
+    }
+
+    function countEnabledTimeSlots() {
+        const rows = root.workspace.timeSlots || []
+        let count = 0
+        for (let i = 0; i < rows.length; ++i) {
+            if (Boolean(root.rowValue(rows[i], "enabled", false)))
+                count += 1
+        }
+        return count
     }
 
     Rectangle {
@@ -149,6 +173,13 @@ Item {
             }
 
             AppButton {
+                text: root.scriptGeneratorExpanded
+                      ? qsTr("フォーム作成を閉じる")
+                      : qsTr("Googleフォームを作る")
+                onClicked: root.scriptGeneratorExpanded = !root.scriptGeneratorExpanded
+            }
+
+            AppButton {
                 text: root.viewModel.importKind === "teacher"
                       ? qsTr("講師テンプレートを保存…")
                       : qsTr("生徒テンプレートを保存…")
@@ -161,6 +192,150 @@ Item {
                 onClicked: {
                     includeDeletes.checked = false
                     root.viewModel.clearImport()
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            visible: root.scriptGeneratorExpanded
+            implicitHeight: formGeneratorContent.implicitHeight + 20
+            radius: 8
+            color: "#f7f9fc"
+            border.color: "#cfd9e8"
+
+            ColumnLayout {
+                id: formGeneratorContent
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 7
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 1
+
+                        Label {
+                            text: qsTr("Googleフォーム作成キット")
+                            color: "#344054"
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Label {
+                            text: qsTr("①の開校日・コマ・科目を反映した生徒用／講師用Apps Scriptをまとめて作ります。")
+                            color: "#667085"
+                            font.pixelSize: 9
+                        }
+                    }
+
+                    StatusBadge {
+                        status: root.configuredOpenDateCount > 0
+                                && root.configuredTimeSlotCount > 0
+                                ? "complete" : "warning"
+                        symbol: root.configuredOpenDateCount > 0
+                                && root.configuredTimeSlotCount > 0 ? "✓" : "!"
+                        label: qsTr("開校日 %1日／有効コマ %2件")
+                               .arg(root.configuredOpenDateCount)
+                               .arg(root.configuredTimeSlotCount)
+                    }
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 4
+                    columnSpacing: 8
+                    rowSpacing: 5
+
+                    Label {
+                        text: qsTr("生徒用フォーム名（必須）")
+                        color: "#344054"
+                        font.pixelSize: 9
+                    }
+                    TextField {
+                        id: studentFormTitle
+                        Layout.fillWidth: true
+                        text: qsTr("%1 個別指導受講申込")
+                              .arg(root.workspace.currentProjectTitle || qsTr("講習"))
+                        Accessible.name: qsTr("生徒用Googleフォーム名")
+                    }
+                    Label {
+                        text: qsTr("講師用フォーム名（必須）")
+                        color: "#344054"
+                        font.pixelSize: 9
+                    }
+                    TextField {
+                        id: teacherFormTitle
+                        Layout.fillWidth: true
+                        text: qsTr("%1 非常勤勤務アンケート")
+                              .arg(root.workspace.currentProjectTitle || qsTr("講習"))
+                        Accessible.name: qsTr("講師用Googleフォーム名")
+                    }
+
+                    Label {
+                        text: qsTr("回答締切（必須）")
+                        color: "#344054"
+                        font.pixelSize: 9
+                    }
+                    TextField {
+                        id: questionnaireDeadline
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("例：2026年6月25日（木）")
+                        Accessible.name: qsTr("Googleフォーム回答締切")
+                    }
+                    Label {
+                        text: qsTr("問い合わせ先（必須）")
+                        color: "#344054"
+                        font.pixelSize: 9
+                    }
+                    TextField {
+                        id: questionnaireContact
+                        Layout.fillWidth: true
+                        text: qsTr("校舎へお問い合わせください")
+                        Accessible.name: qsTr("Googleフォーム問い合わせ先")
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: root.viewModel.lastQuestionnaireScriptDirectory
+                              ? qsTr("保存済み：%1")
+                                .arg(root.viewModel.lastQuestionnaireScriptDirectory)
+                              : qsTr("2つの.gsと、貼り付け・実行手順書を同じフォルダーへ保存します。")
+                        color: root.viewModel.lastQuestionnaireScriptDirectory
+                               ? "#176b40" : "#667085"
+                        font.pixelSize: 9
+                        elide: Text.ElideMiddle
+                    }
+
+                    AppButton {
+                        text: qsTr("保存先を開く")
+                        visible: Boolean(root.viewModel.lastQuestionnaireScriptDirectory)
+                        onClicked: root.viewModel.openQuestionnaireScriptDirectory()
+                    }
+
+                    AppButton {
+                        text: qsTr("生徒用・講師用をまとめて作成…")
+                        kind: "primary"
+                        enabled: root.configuredOpenDateCount > 0
+                                 && root.configuredTimeSlotCount > 0
+                                 && studentFormTitle.text.trim().length > 0
+                                 && teacherFormTitle.text.trim().length > 0
+                                 && questionnaireDeadline.text.trim().length > 0
+                                 && questionnaireContact.text.trim().length > 0
+                        ToolTip.visible: hovered && !enabled
+                        ToolTip.text: qsTr("①の開校日・有効コマと、すべての必須欄を設定してください。")
+                        onClicked: questionnaireFolderDialog.open()
+                    }
                 }
             }
         }
@@ -251,18 +426,22 @@ Item {
                     }
 
                     AppButton {
+                        Layout.preferredWidth: 110
                         text: qsTr("生徒回答")
                         checkable: true
                         checked: root.viewModel.importKind === "student"
+                        kind: checked ? "primary" : "secondary"
                         onClicked: {
                             includeDeletes.checked = false
                             root.viewModel.setImportKind("student")
                         }
                     }
-                    Button {
+                    AppButton {
+                        Layout.preferredWidth: 110
                         text: qsTr("講師回答")
                         checkable: true
                         checked: root.viewModel.importKind === "teacher"
+                        kind: checked ? "primary" : "secondary"
                         onClicked: {
                             includeDeletes.checked = false
                             root.viewModel.setImportKind("teacher")
@@ -659,6 +838,18 @@ Item {
             root.viewModel.inspectAvailabilitySource(
                         selectedFile.toString(), encodingBox.currentValue)
         }
+    }
+
+    Dialogs.FolderDialog {
+        id: questionnaireFolderDialog
+        title: qsTr("Googleフォーム作成キットの保存先")
+        currentFolder: root.viewModel.defaultQuestionnaireDirectoryUrl
+        onAccepted: root.viewModel.exportGoogleFormsScripts(
+                        selectedFolder.toString(),
+                        studentFormTitle.text,
+                        teacherFormTitle.text,
+                        questionnaireDeadline.text,
+                        questionnaireContact.text)
     }
 
     Dialogs.FileDialog {

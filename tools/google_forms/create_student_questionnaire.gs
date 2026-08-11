@@ -211,6 +211,7 @@ function createStudentQuestionnaire() {
     );
 
   // 各校種の科目回答後は、他校種の科目を飛ばして共通の日程欄へ進む。
+  elementaryPage.setGoToPage(availabilityPage);
   juniorHighPage.setGoToPage(availabilityPage);
   highSchoolPage.setGoToPage(availabilityPage);
 

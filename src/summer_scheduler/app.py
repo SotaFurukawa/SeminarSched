@@ -23,6 +23,9 @@ from summer_scheduler.application.output_service import OutputService
 from summer_scheduler.application.project_validation_service import (
     ProjectValidationService,
 )
+from summer_scheduler.application.questionnaire_script_service import (
+    QuestionnaireScriptService,
+)
 from summer_scheduler.application.sample_project_service import SampleProjectService
 from summer_scheduler.application.schedule_edit_service import ScheduleEditService
 from summer_scheduler.bootstrap import BootstrapError, bootstrap
@@ -114,6 +117,7 @@ def run(argv: Sequence[str] | None = None) -> int:
             GroupLessonService(runtime.projects),
             ProjectValidationService(runtime.projects),
             SampleProjectService(runtime.projects),
+            QuestionnaireScriptService(runtime.projects),
             before_project_change=workspace_view_model.ensure_project_switch_allowed,
         )
         workspace_view_model.projectStateChanged.connect(phase3_view_model.refreshPhase3)

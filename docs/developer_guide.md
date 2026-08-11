@@ -121,6 +121,7 @@ QML の表示だけを確認する場合も、QML ファイルを単独起動せ
 | `src/summer_scheduler/ui/viewmodels/app_view_model.py` | QML へ公開するアプリ状態 |
 | `src/summer_scheduler/ui/viewmodels/workspace_view_model.py` | プロジェクトとPhase 2画面の状態・操作 |
 | `src/summer_scheduler/ui/viewmodels/phase3_view_model.py` | Phase 3画面の状態・操作 |
+| `src/summer_scheduler/application/questionnaire_script_service.py` | プロジェクト設定を反映したGoogleフォーム作成キットのローカル生成 |
 | `src/summer_scheduler/ui/viewmodels/optimization_view_model.py` | QThread workerとPhase 4表示状態 |
 | `src/summer_scheduler/ui/viewmodels/schedule_editor_view_model.py` | Phase 5編集状態、`QAbstractTableModel`、操作slot |
 | `src/summer_scheduler/ui/viewmodels/output_view_model.py` | Phase 6のdraft設定、対象選択、出力worker、一時PDF管理 |

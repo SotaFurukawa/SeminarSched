@@ -33,13 +33,26 @@ Googleフォームへ入力した内容はGoogle側に保存されます。利�
 
 ## 2. 自動作成できるフォーム
 
+通常は、アプリの①で開校日とコマを設定し、②「アンケート取込み」の
+「Googleフォームを作る」を使用してください。フォーム名、締切、問い合わせ先を入力すると、
+現在の開校日・有効な時間帯・有効な科目を反映した次の3ファイルを一括出力します。
+
+- `create_student_questionnaire.gs`
+- `create_teacher_questionnaire.gs`
+- `Googleフォーム作成手順.txt`
+
+2つの`.gs`ファイルをそれぞれ別のGoogle Apps Scriptプロジェクトへ貼り付け、手順書に
+従って実行します。アプリがGoogleアカウントへ接続したり、認証情報を保存したりすることは
+ありません。出力スクリプトには設定値だけが入り、氏名や回答等の個人情報は入りません。
+
 リポジトリの
 [`tools/google_forms/create_student_questionnaire.gs`](../tools/google_forms/create_student_questionnaire.gs)
 をGoogle Apps Scriptで1回実行すると、生徒・保護者用フォームと回答原本の
 Google Sheetsを作成できます。講師用は
 [`tools/google_forms/create_teacher_questionnaire.gs`](../tools/google_forms/create_teacher_questionnaire.gs)
 を使用します。詳しい手順は
-[`tools/google_forms/README.md`](../tools/google_forms/README.md)を参照してください。
+[`tools/google_forms/README.md`](../tools/google_forms/README.md)を参照してください。これらは
+日付等が固定された開発・確認用の例であり、通常運用ではアプリからの出力を推奨します。
 
 スクリプト冒頭の設定で、次を実際の講習へ合わせてから実行します。
 

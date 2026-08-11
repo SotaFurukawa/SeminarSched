@@ -50,6 +50,7 @@ def test_google_form_generator_routes_grades_to_school_subject_sections() -> Non
     assert "gradeItem.createChoice(grade, elementaryPage)" in source
     assert "gradeItem.createChoice(grade, juniorHighPage)" in source
     assert "gradeItem.createChoice(grade, highSchoolPage)" in source
+    assert "elementaryPage.setGoToPage(availabilityPage)" in source
     assert "juniorHighPage.setGoToPage(availabilityPage)" in source
     assert "highSchoolPage.setGoToPage(availabilityPage)" in source
     assert 'setTitle("小学生の受講教科・回数")' in source

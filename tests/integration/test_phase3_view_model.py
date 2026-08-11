@@ -114,6 +114,38 @@ def test_anonymous_sample_respects_unsaved_draft_guard(
     assert not destination.exists()
 
 
+def test_google_forms_script_export_is_exposed_to_qml(
+    project_service: ProjectService,
+    tmp_path: Path,
+) -> None:
+    project_service.create_project(
+        tmp_path / "フォーム作成.jukuschedule",
+        title="2026年 夏期講習",
+        campus_name="架空校",
+        start_date=date(2026, 8, 1),
+        end_date=date(2026, 8, 2),
+    )
+    view_model = _view_model(project_service)
+    output = tmp_path / "フォーム出力"
+    output.mkdir()
+    signal_spy = QSignalSpy(view_model.questionnaireScriptsChanged)
+
+    assert view_model.exportGoogleFormsScripts(
+        QUrl.fromLocalFile(str(output)).toString(),
+        "2026夏期講習 個別指導受講申込",
+        "2026夏期講習 非常勤勤務アンケート",
+        "2026年6月25日",
+        "担当者へお問い合わせください",
+    )
+
+    destination = Path(view_model._get_last_questionnaire_script_directory())
+    assert destination.parent == output.resolve()
+    assert (destination / "create_student_questionnaire.gs").is_file()
+    assert (destination / "create_teacher_questionnaire.gs").is_file()
+    assert (destination / "Googleフォーム作成手順.txt").is_file()
+    assert signal_spy.count() == 1
+
+
 def test_xlsx_sheet_selection_manual_mapping_and_apply_emit_state_changes(
     project_service: ProjectService,
     tmp_path: Path,

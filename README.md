@@ -49,6 +49,10 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 選択詳細の3ペインです。出力は対象、形式、保存先の順に進み、詳細な帳票設定は必要な
 場合だけ開きます。詳細は[`docs/user_manual.md`](docs/user_manual.md)を参照してください。
 
+①で開校日とコマを設定した後、②の「Googleフォームを作る」から、生徒用・講師用の
+Google Apps Scriptと作成手順を一括出力できます。アプリはGoogleへ直接接続せず、回答や
+個人情報もスクリプトへ書き出しません。
+
 ## 利用者向けダウンロード
 
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
@@ -99,10 +103,9 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 [`docs/user_manual.md`](docs/user_manual.md)を参照してください。Googleフォームの
 質問例と回答の整形方法は
 [`docs/google_forms_questionnaire_guide.md`](docs/google_forms_questionnaire_guide.md)
-にまとめています。生徒・保護者用および講師用フォームと回答原本Google Sheetsは、
-[`tools/google_forms/create_student_questionnaire.gs`](tools/google_forms/create_student_questionnaire.gs)
-と[`tools/google_forms/create_teacher_questionnaire.gs`](tools/google_forms/create_teacher_questionnaire.gs)
-から自動作成できます。
+にまとめています。通常は②の「Googleフォームを作る」で現在の講習設定を反映した
+生徒用・講師用スクリプトを一括出力します。`tools/google_forms`内のスクリプトは、
+開発・確認用の固定例としても利用できます。
 
 このリリース候補はコード署名していないため、Windows SmartScreenで発行元不明の
 警告が表示される可能性があります。Windowsの保護機能や組織policyを恒久的に無効化

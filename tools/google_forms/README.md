@@ -3,6 +3,11 @@
 このディレクトリには、SummerCourseScheduler向けのGoogleフォームと回答先
 Google Sheetsを作成するGoogle Apps Scriptがあります。
 
+ここにあるファイルは、開発・確認用の固定例です。通常の講習では、アプリの①で開校日と
+コマを設定した後、②「アンケート取込み」→「Googleフォームを作る」から作成キットを
+出力してください。現在の開校日、有効なコマ、有効な科目が生徒用・講師用スクリプトへ
+自動的に反映され、同じフォルダーに操作手順も作成されます。
+
 - `create_student_questionnaire.gs`: 生徒・保護者用
 - `create_teacher_questionnaire.gs`: 講師用
 

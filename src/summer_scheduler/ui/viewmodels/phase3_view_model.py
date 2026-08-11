@@ -9,6 +9,7 @@ from datetime import date, datetime, time
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
+from PySide6.QtGui import QDesktopServices
 
 from summer_scheduler.application.availability_import_service import (
     AvailabilityImportError,
@@ -32,6 +33,9 @@ from summer_scheduler.application.project_service import ProjectFileError, Proje
 from summer_scheduler.application.project_validation_service import (
     ProjectValidationService,
 )
+from summer_scheduler.application.questionnaire_script_service import (
+    QuestionnaireScriptService,
+)
 from summer_scheduler.application.sample_project_service import SampleProjectService
 
 logger = logging.getLogger(__name__)
@@ -46,6 +50,7 @@ class Phase3ViewModel(QObject):
     validationStateChanged = Signal()
     messageChanged = Signal()
     projectChanged = Signal()
+    questionnaireScriptsChanged = Signal()
 
     def __init__(
         self,
@@ -54,6 +59,7 @@ class Phase3ViewModel(QObject):
         groups: GroupLessonService,
         validation: ProjectValidationService,
         samples: SampleProjectService,
+        questionnaires: QuestionnaireScriptService | None = None,
         before_project_change: Callable[[], None] | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -63,9 +69,11 @@ class Phase3ViewModel(QObject):
         self._groups = groups
         self._validation = validation
         self._samples = samples
+        self._questionnaires = questionnaires or QuestionnaireScriptService(projects)
         self._before_project_change = before_project_change
         self._status_message = ""
         self._error_message = ""
+        self._last_questionnaire_script_directory = ""
 
         self._import_kind: AvailabilityKind = "student"
         self._source_path = ""
@@ -120,6 +128,27 @@ class Phase3ViewModel(QObject):
         return self._error_message
 
     errorMessage = Property(str, _get_error_message, notify=messageChanged)
+
+    def _get_default_questionnaire_directory_url(self) -> QUrl:
+        current = self._projects.current
+        if current is None:
+            return QUrl()
+        return QUrl.fromLocalFile(str(current.path.parent))
+
+    defaultQuestionnaireDirectoryUrl = Property(
+        QUrl,
+        _get_default_questionnaire_directory_url,
+        notify=projectStateChanged,
+    )
+
+    def _get_last_questionnaire_script_directory(self) -> str:
+        return self._last_questionnaire_script_directory
+
+    lastQuestionnaireScriptDirectory = Property(
+        str,
+        _get_last_questionnaire_script_directory,
+        notify=questionnaireScriptsChanged,
+    )
 
     # Availability wizard properties
 
@@ -423,6 +452,48 @@ class Phase3ViewModel(QObject):
             "講師アンケートテンプレートを保存しました",
         )
 
+    @Slot(str, str, str, str, str, result=bool)
+    def exportGoogleFormsScripts(
+        self,
+        directory_value: str,
+        student_title: str,
+        teacher_title: str,
+        deadline: str,
+        contact: str,
+    ) -> bool:
+        """現在の日程・コマを反映した生徒用／講師用Apps Scriptを生成する。"""
+
+        def action() -> None:
+            result = self._questionnaires.export_scripts(
+                _path_from_qml(directory_value),
+                student_title=student_title,
+                teacher_title=teacher_title,
+                deadline=deadline,
+                contact=contact,
+            )
+            self._last_questionnaire_script_directory = str(result.directory)
+            self.questionnaireScriptsChanged.emit()
+
+        return self._perform(
+            action,
+            "生徒用・講師用Googleフォーム作成キットを保存しました",
+        )
+
+    @Slot(result=bool)
+    def openQuestionnaireScriptDirectory(self) -> bool:
+        """最後に生成したGoogleフォーム作成キットのフォルダーを開く。"""
+
+        def action() -> None:
+            if not self._last_questionnaire_script_directory:
+                raise ValueError("先にGoogleフォーム作成キットを保存してください")
+            directory = Path(self._last_questionnaire_script_directory)
+            if not directory.is_dir():
+                raise ValueError("Googleフォーム作成キットの保存先が見つかりません")
+            if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory))):
+                raise OSError("保存先フォルダーを開けませんでした")
+
+        return self._perform(action, "Googleフォーム作成キットの保存先を開きました")
+
     # Group lesson actions
 
     @Slot(str, result=bool)
@@ -541,6 +612,7 @@ class Phase3ViewModel(QObject):
         )
         if current_path != self._observed_project_path:
             self._observed_project_path = current_path
+            self._last_questionnaire_script_directory = ""
             self._reset_availability_source(keep_kind=True)
             self._group_source_path = ""
             self._clear_group_preview()
@@ -561,6 +633,7 @@ class Phase3ViewModel(QObject):
             self._refresh_group_lessons()
             self._set_validation_issues(self._validation.list_issues())
         self.projectStateChanged.emit()
+        self.questionnaireScriptsChanged.emit()
         self.availabilityStateChanged.emit()
         self.groupStateChanged.emit()
         self.validationStateChanged.emit()

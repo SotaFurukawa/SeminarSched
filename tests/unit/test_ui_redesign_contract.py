@@ -56,6 +56,21 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     for label in ("1　回答ファイルを選ぶ", "2　内容を確認する", "3　反映完了"):
         assert label in questionnaire
     assert "列名が合わない場合の設定" in questionnaire
+    for label in (
+        "Googleフォーム作成キット",
+        "生徒用・講師用をまとめて作成…",
+        "開校日 %1日／有効コマ %2件",
+    ):
+        assert label in questionnaire
+    assert (
+        'Layout.preferredWidth: 110\n                        text: qsTr("生徒回答")'
+        in questionnaire
+    )
+    assert (
+        'Layout.preferredWidth: 110\n                        text: qsTr("講師回答")'
+        in questionnaire
+    )
+    assert "workspace: root.workspace" in _qml("Main.qml")
 
 
 def test_calendar_timetable_issues_and_output_keep_operational_routes() -> None:

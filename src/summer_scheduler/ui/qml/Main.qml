@@ -316,6 +316,7 @@ ApplicationWindow {
 
         AvailabilityImportPage {
             viewModel: root.phase3
+            workspace: root.workspace
             onOpenHomeRequested: root.selectPage(0)
         }
     }
