@@ -44,6 +44,7 @@ Googleフォームへ入力した内容はGoogle側に保存されます。利�
 2つの`.gs`ファイルをそれぞれ別のGoogle Apps Scriptプロジェクトへ貼り付け、手順書に
 従って実行します。アプリがGoogleアカウントへ接続したり、認証情報を保存したりすることは
 ありません。出力スクリプトには設定値だけが入り、氏名や回答等の個人情報は入りません。
+②の「画像つき手順を見る」では、この操作を5段階の画面イメージで確認できます。
 
 リポジトリの
 [`tools/google_forms/create_student_questionnaire.gs`](../tools/google_forms/create_student_questionnaire.gs)

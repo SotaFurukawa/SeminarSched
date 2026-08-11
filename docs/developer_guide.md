@@ -133,6 +133,7 @@ QML の表示だけを確認する場合も、QML ファイルを単独起動せ
 | `src/summer_scheduler/ui/qml/SettingsPage.qml` | プロジェクト、コマ、開校日、科目、Excelの入口 |
 | `src/summer_scheduler/ui/qml/*SettingsTab.qml` | Phase 2設定の各タブ |
 | `src/summer_scheduler/ui/qml/AvailabilityImportPage.qml` | アンケート取込みウィザード |
+| `src/summer_scheduler/ui/qml/GoogleFormsGuideDialog.qml` | Googleフォーム作成操作のオフライン図解ポップアップ |
 | `src/summer_scheduler/ui/qml/GroupLessonPage.qml` | 集団授業一覧・取込み |
 | `src/summer_scheduler/ui/qml/ValidationIssuesPage.qml` | エラー・警告・情報の表示 |
 | `src/summer_scheduler/ui/qml/OptimizationPage.qml` | Phase 4の実行、経過、結果、診断の簡易画面 |

@@ -16,6 +16,7 @@ def test_shared_visual_components_and_workflow_navigation_exist() -> None:
         "UiTheme.qml",
         "AppButton.qml",
         "StatusBadge.qml",
+        "GoogleFormsGuideDialog.qml",
         "InlineMessage.qml",
         "SectionHeader.qml",
         "EmptyState.qml",
@@ -60,6 +61,7 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
         "Googleフォーム作成キット",
         "生徒用・講師用をまとめて作成…",
         "開校日 %1日／有効コマ %2件",
+        "画像つき手順を見る",
     ):
         assert label in questionnaire
     assert (
@@ -71,6 +73,16 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
         in questionnaire
     )
     assert "workspace: root.workspace" in _qml("Main.qml")
+    guide = _qml("GoogleFormsGuideDialog.qml")
+    for label in (
+        "アプリで作成キットを保存",
+        "Apps Scriptを2つ用意",
+        "Code.gsへ全内容を貼り付け",
+        "作成関数を選んで実行",
+        "実行ログのURLを確認",
+    ):
+        assert label in guide
+    assert "Google Apps Scriptの「デプロイ」は不要" in guide
 
 
 def test_calendar_timetable_issues_and_output_keep_operational_routes() -> None:

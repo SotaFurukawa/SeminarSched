@@ -324,6 +324,11 @@ Item {
                     }
 
                     AppButton {
+                        text: qsTr("画像つき手順を見る")
+                        onClicked: googleFormsGuideDialog.open()
+                    }
+
+                    AppButton {
                         text: qsTr("生徒用・講師用をまとめて作成…")
                         kind: "primary"
                         enabled: root.configuredOpenDateCount > 0
@@ -838,6 +843,10 @@ Item {
             root.viewModel.inspectAvailabilitySource(
                         selectedFile.toString(), encodingBox.currentValue)
         }
+    }
+
+    GoogleFormsGuideDialog {
+        id: googleFormsGuideDialog
     }
 
     Dialogs.FolderDialog {
