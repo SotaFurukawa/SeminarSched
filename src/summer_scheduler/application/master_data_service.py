@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import date, time, timedelta
 from typing import Final, NoReturn
 
@@ -259,6 +259,44 @@ class MasterDataService:
 
     def set_all_dates_open(self) -> None:
         self._set_dates(lambda _day: True)
+
+    def set_open_dates_state(self, days: Iterable[date], *, is_open: bool) -> None:
+        """選択された複数日を、1トランザクションで開校または休校にする。"""
+        project = self._projects.require_project()
+        selected_days = tuple(sorted(set(days)))
+        issues: list[ValidationIssue] = []
+        if not selected_days:
+            issues.append(ValidationIssue("dates", "日付を1日以上選択してください"))
+        for day in selected_days:
+            if not project.start_date <= day <= project.end_date:
+                issues.append(
+                    ValidationIssue(
+                        "dates",
+                        f"講習期間外の日付は設定できません: {day.isoformat()}",
+                    )
+                )
+        if issues:
+            raise DomainValidationError(issues)
+
+        database = self._projects.require_database()
+        with database.session_factory.begin() as session:
+            repository = MasterRepository(session)
+            for day in selected_days:
+                row = repository.get_open_date_by_date(
+                    project_id=project.project_id,
+                    date_value=day,
+                )
+                if row is None:
+                    repository.create_open_date(
+                        OpenDate(
+                            project_id=project.project_id,
+                            date=day,
+                            is_open=is_open,
+                            note="",
+                        )
+                    )
+                else:
+                    repository.update_open_date(row, is_open=is_open)
 
     def set_weekday_closed(self, weekday: int) -> None:
         if weekday not in range(7):

@@ -47,6 +47,18 @@ def test_unicode_file_url_project_lifecycle_and_qml_weekday_mapping(
         )
         assert sunday["isOpen"] is False
 
+        # カレンダーのチェックボックスから渡される複数日を一括更新できる。
+        assert view_model.setOpenDates(["2026-08-01", "2026-08-03"], False)
+        open_by_date = {
+            str(row["date"]): bool(row["isOpen"])
+            for row in cast(list[dict[str, object]], view_model.openDates)
+        }
+        assert open_by_date == {
+            "2026-08-01": False,
+            "2026-08-02": False,
+            "2026-08-03": False,
+        }
+
         view_model.markDirty()
         assert cast(bool, view_model.isDirty)
         assert not view_model.closeProject(False)

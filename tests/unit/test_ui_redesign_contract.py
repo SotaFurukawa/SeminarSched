@@ -59,6 +59,11 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
 
 
 def test_calendar_timetable_issues_and_output_keep_operational_routes() -> None:
+    open_dates = _qml("OpenDateSettingsTab.qml")
+    for label in ("すべて選択", "選択解除", "選択日を休校", "選択日を開校"):
+        assert label in open_dates
+    assert "root.viewModel.setOpenDates(root.checkedDateValues, isOpen)" in open_dates
+
     group = _qml("GroupLessonPage.qml")
     assert "calendarWeekOffset" in group
     assert "weeklyCalendar" in group

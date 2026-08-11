@@ -817,6 +817,19 @@ class WorkspaceViewModel(QObject):
 
         return self._perform(action, "期間内をすべて開校日にしました")
 
+    @Slot("QVariantList", bool, result=bool)
+    def setOpenDates(self, date_values: list[object], is_open: bool) -> bool:
+        """QMLでチェックした複数日を一括更新する。"""
+
+        def action() -> None:
+            days = tuple(parse_iso_date(str(value), "dates") for value in date_values)
+            self._master_data.set_open_dates_state(days, is_open=is_open)
+            self._refresh_open_dates()
+            self._set_dirty(False)
+
+        state_label = "開校日" if is_open else "休校日"
+        return self._perform(action, f"選択した日付を一括で{state_label}にしました")
+
     @Slot(int, result=bool)
     def setWeekdayClosed(self, sunday_first_index: int) -> bool:
         def action() -> None:

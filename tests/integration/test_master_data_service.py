@@ -206,3 +206,36 @@ def test_open_date_bulk_and_project_period_update(
 
     assert len(master_service.list_open_dates()) == 5
     assert master_service.project_details().title == "夏期講習 改訂"
+
+
+def test_selected_open_dates_are_updated_atomically_and_keep_notes(
+    master_service: MasterDataService,
+) -> None:
+    first = date(2026, 8, 1)
+    second = date(2026, 8, 2)
+    third = date(2026, 8, 3)
+    master_service.set_open_date(first, is_open=True, note="午前のみ")
+
+    master_service.set_open_dates_state((first, third, first), is_open=False)
+
+    rows = {row.date: row for row in master_service.list_open_dates()}
+    assert rows[first].is_open is False
+    assert rows[first].note == "午前のみ"
+    assert rows[second].is_open is True
+    assert rows[third].is_open is False
+
+    before = {day: row.is_open for day, row in rows.items()}
+    with pytest.raises(DomainValidationError, match="講習期間外"):
+        master_service.set_open_dates_state(
+            (second, date(2026, 8, 4)),
+            is_open=False,
+        )
+    after = {row.date: row.is_open for row in master_service.list_open_dates()}
+    assert after == before
+
+
+def test_selected_open_dates_require_at_least_one_date(
+    master_service: MasterDataService,
+) -> None:
+    with pytest.raises(DomainValidationError, match="1日以上"):
+        master_service.set_open_dates_state((), is_open=False)
