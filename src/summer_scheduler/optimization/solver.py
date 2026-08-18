@@ -40,6 +40,7 @@ from summer_scheduler.optimization.objectives import (
     ObjectiveStage,
     build_objective_stages,
     realized_teacher_loads,
+    teacher_participation_imbalance,
     teacher_preference_penalty,
 )
 from summer_scheduler.optimization.result_validation import validate_optimization_result
@@ -592,19 +593,25 @@ def _add_safe_initial_hint(
             int(any(hinted_values[selection.index] for selection in selections)),
         )
 
-    load_values: list[int] = []
+    load_values: dict[int, int] = {}
     for teacher_id, variable in sorted(variables.teacher_loads.items()):
         value = sum(
             active
             for (owner_id, _day, _slot_id), active in teacher_active_values.items()
             if owner_id == teacher_id
         )
-        load_values.append(value)
+        load_values[teacher_id] = value
+        add_hint(variable, value)
+    for (first, second), variable in sorted(variables.teacher_load_pairwise_deviations.items()):
+        value = abs(
+            load_values[first] * variables.teacher_load_capacities[second]
+            - load_values[second] * variables.teacher_load_capacities[first]
+        )
         add_hint(variable, value)
     if variables.teacher_load_maximum is not None:
-        add_hint(variables.teacher_load_maximum, max(load_values, default=0))
+        add_hint(variables.teacher_load_maximum, max(load_values.values(), default=0))
     if variables.teacher_load_minimum is not None:
-        add_hint(variables.teacher_load_minimum, min(load_values, default=0))
+        add_hint(variables.teacher_load_minimum, min(load_values.values(), default=0))
 
 
 def _integer_value(solver: cp_model.CpSolver, stage: ObjectiveStage) -> int:
@@ -815,7 +822,7 @@ def _objective_breakdown(
         if not item.is_locked
     )
     loads = realized_teacher_loads(data, generation, selected)
-    balance_score = max(loads.values(), default=0) - min(loads.values(), default=0)
+    balance_score = teacher_participation_imbalance(data, loads)
     return ObjectiveBreakdown(
         unassigned_count=len(unassigned),
         teacher_preference_penalty=preference_penalty,

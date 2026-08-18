@@ -22,7 +22,8 @@ from summer_scheduler.infrastructure.db import (
 
 _PHASE5_REVISION = "20260729_0005"
 _PHASE6_REVISION = "20260729_0006"
-_HEAD_REVISION = "20260807_0007"
+_IMPORT_SNAPSHOT_REVISION = "20260807_0007"
+_HEAD_REVISION = "20260818_0008"
 
 
 def test_first_migration_creates_unicode_path_database(tmp_path: Path) -> None:
@@ -50,6 +51,7 @@ def test_first_migration_creates_unicode_path_database(tmp_path: Path) -> None:
             "open_dates",
             "optimization_runs",
             "output_settings",
+            "regular_lesson_profiles",
             "student_availabilities",
             "students",
             "subjects",
@@ -131,6 +133,41 @@ def test_phase6_migration_round_trip_preserves_assignment_and_audit_log(
         _migrate_to(database, _PHASE6_REVISION)
         assert get_current_revision(database.engine) == _PHASE6_REVISION
         assert "output_settings" in inspect(database.engine).get_table_names()
+        assert _phase5_business_rows(database) == expected
+    finally:
+        database.dispose()
+
+
+def test_regular_lesson_profile_migration_round_trip_preserves_existing_data(
+    tmp_path: Path,
+) -> None:
+    database = create_database(tmp_path / "通常授業_migration.jukuschedule")
+    try:
+        _migrate_to(database, _IMPORT_SNAPSHOT_REVISION)
+        _seed_phase5_business_rows(database)
+        expected = _phase5_business_rows(database)
+
+        _migrate_to(database, _HEAD_REVISION)
+        with database.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO regular_lesson_profiles
+                        (project_id, student_id, subject_id,
+                         regular_teacher_id_optional, regular_teacher_priority,
+                         one_to_one_required)
+                    VALUES (1, 40, 30, 20, 4, 0)
+                    """
+                )
+            )
+        assert _phase5_business_rows(database) == expected
+
+        _migrate_to(database, _IMPORT_SNAPSHOT_REVISION, downgrade=True)
+        assert "regular_lesson_profiles" not in inspect(database.engine).get_table_names()
+        assert _phase5_business_rows(database) == expected
+
+        _migrate_to(database, _HEAD_REVISION)
+        assert "regular_lesson_profiles" in inspect(database.engine).get_table_names()
         assert _phase5_business_rows(database) == expected
     finally:
         database.dispose()

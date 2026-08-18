@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.2.0** です。Phase 1の
+現在のアプリ版は **v1.3.0** です。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
 ドラッグ＆ドロップの即時検証、ロック、Undo / Redo、差分・監査、自動保存、
@@ -39,13 +39,15 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 
 刷新UIでは、ホームとサイドバーに次の4段階を常時表示します。
 
-1. 授業日・コマと初期名簿を設定する
-2. 生徒・講師アンケートを取り込む
+1. 共通名簿を確認し、授業日・コマを設定する
+2. 生徒・講師アンケートをまとめて取り込む
 3. 集団授業を確認し、時間割を自動作成・編集する
 4. 全体・講師別・生徒別のExcel / PDFを出力する
 
-新規導入時の生徒・講師名簿はExcel一括登録を主導線とし、日常的な少人数追加には
-3段階の個別登録を使います。集団授業は週カレンダー、時間割編集は未配置・時間割・
+ホームの`生徒・講師_基本情報.xlsx`は講習間で共通です。在籍情報、指導可能科目、
+通常授業の担当をここで編集し、新規講習には自動反映します。退籍者は削除せず
+`☐ 退籍`として灰色・末尾に保持します。日常的な少人数追加にはアプリ内の個別登録も
+使えます。集団授業は週カレンダー、時間割編集は未配置・時間割・
 選択詳細の3ペインです。出力は対象、形式、保存先の順に進み、詳細な帳票設定は必要な
 場合だけ開きます。詳細は[`docs/user_manual.md`](docs/user_manual.md)を参照してください。
 
@@ -53,20 +55,24 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 Google Apps Scriptと作成手順を一括出力できます。アプリはGoogleへ直接接続せず、回答や
 個人情報もスクリプトへ書き出しません。
 
+回答後は生徒回答と講師回答のCSV／xlsxを「おすすめ：まとめて取り込む」へそれぞれ
+1回ずつ指定します。基本情報にない在籍生・講師は赤、フォームで体験生と回答した生徒は
+黄で表示します。反映時は2原本と要確認一覧を含む統合xlsxを`.jukuschedule`内へ保存します。
+
 ## 利用者向けダウンロード
 
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.2.0.exe`
-- `SummerCourseScheduler-Portable-1.2.0.zip`
+- `SummerCourseScheduler-Setup-1.3.0.exe`
+- `SummerCourseScheduler-Portable-1.3.0.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.2.0.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.2.0.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.3.0.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.3.0.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -139,6 +145,9 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 - プロジェクトの新規作成、再読込み、最近使用したファイル、別名保存、複製、
   バックアップ、クローズ
 - 1ファイル1プロジェクトの `.jukuschedule`（内部形式はSQLite）
+- ホームから編集できる、講習に依存しない`生徒・講師_基本情報.xlsx`
+- 在籍／退籍、姓・名、学年、指導可能科目、通常授業担当の講習間共通管理
+- 生徒・講師Googleフォーム回答2ファイルの一括照合・取込み・統合xlsx内包
 - プロジェクト名、校舎名、講習期間の編集
 - Y / Z / A / B / Cの初期コマと、コマ名・時刻・順序・使用可否の編集
 - 講習期間内の開校日・休校日・備考と一括設定
@@ -174,6 +183,7 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 - 必要回数ごとの配置または未配置、生徒重複禁止、講師最大2名、1対1必須、
   生徒・講師の空きコマ禁止、生徒の連続上限等をCP-SATのハード制約として適用
 - 未配置数を最優先にした段階的な辞書式最適化
+- 最終ソフト目的による、勤務可能枠に対する講師参加割合の偏り抑制
 - 高速30秒、標準120秒、高品質600秒のプリセットと、実行中の安全な中断
 - solver status、配置・未配置件数、目的関数内訳、未配置理由、警告の簡易表示
 - 最適化入力のfingerprint再照合、保存前の独立結果検証、Assignmentと
@@ -359,6 +369,13 @@ Excelを外部で編集する際は、シート名とヘッダー名を変更し
 科目コードと第1～第3希望講師を含みますが、通常担当、優先度5、1対1契約は塾側
 マスターとして保護され、アンケートから変更できません。
 
+アプリが生成したGoogleフォームを使う場合は、画面上部の一括取込みを推奨します。
+生徒回答と講師回答をそれぞれ選び「まとめて検証」を押すと、氏名・学年を共通名簿と照合し、
+最大4科目の必要回数と日付別の不可コマを正規化します。基本情報にない在籍生・講師は
+赤いエラー、体験生は黄色い警告です。エラーがなければ1回の操作で反映し、原本2つと
+`講習アンケート統合.xlsx`をプロジェクト内に保存します。従来の列マッピング方式は、
+独自様式や過去形式を取り込む場合に使用します。
+
 差分には追加、変更、変更なし、削除候補、エラー、警告を表示します。入力ファイルに
 存在しない既存行は自動削除せず、「削除候補も反映」を明示選択して確認した場合だけ
 削除します。反映直前にファイルを再読込み・再検証し、業務データ、ImportBatch、
@@ -531,11 +548,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.2.0
+  -Version 1.3.0
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.2.0.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.3.0.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -547,13 +564,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.2.0 `
+  -Version 1.3.0 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.2.0.zip `
-  dist\SummerCourseScheduler-Setup-1.2.0.exe
+  dist\SummerCourseScheduler-Portable-1.3.0.zip `
+  dist\SummerCourseScheduler-Setup-1.3.0.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

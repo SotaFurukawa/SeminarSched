@@ -126,6 +126,10 @@ class CourseProject(TimestampMixin, Base):
         back_populates="project",
         passive_deletes=True,
     )
+    regular_lesson_profiles: Mapped[list[RegularLessonProfile]] = relationship(
+        back_populates="project",
+        passive_deletes=True,
+    )
     assignments: Mapped[list[Assignment]] = relationship(
         back_populates="project",
         passive_deletes=True,
@@ -461,6 +465,60 @@ class TeacherQualification(TimestampMixin, Base):
 
     teacher: Mapped[Teacher] = relationship(back_populates="qualifications")
     subject: Mapped[Subject] = relationship(back_populates="qualifications")
+
+
+class RegularLessonProfile(TimestampMixin, Base):
+    """講習に依存しない通常授業の科目・担当講師設定のsnapshot。"""
+
+    __tablename__ = "regular_lesson_profiles"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "student_id",
+            "subject_id",
+            name="uq_regular_lesson_profiles_project_student_subject",
+        ),
+        CheckConstraint(
+            "regular_teacher_priority BETWEEN 1 AND 5",
+            name="regular_teacher_priority_range",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("course_projects.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    student_id: Mapped[int] = mapped_column(
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey("subjects.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    regular_teacher_id_optional: Mapped[int | None] = mapped_column(
+        ForeignKey("teachers.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    regular_teacher_priority: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=3,
+        server_default="3",
+    )
+    one_to_one_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="0",
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    project: Mapped[CourseProject] = relationship(back_populates="regular_lesson_profiles")
+    student: Mapped[Student] = relationship()
+    subject: Mapped[Subject] = relationship()
+    regular_teacher: Mapped[Teacher | None] = relationship()
 
 
 class LessonRequest(TimestampMixin, Base):

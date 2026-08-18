@@ -4,8 +4,10 @@
 
 `ProjectService`がworkspaceの`生徒`、`講師`、`プロジェクト`を作成し、QMLへは
 `WorkspaceViewModel.projectsDirectoryUrl`を公開する。インストールディレクトリへ実行時
-データを書かない。新規プロジェクトの人物継承は、生徒、講師、講師対応科目だけをsnapshot
-して新DBへ書き込み、LessonRequestやAvailabilityは講習固有データとして継承しない。
+データを書かない。画面から作る新規プロジェクトは共通の`生徒・講師_基本情報.xlsx`から、
+生徒、講師、講師対応科目、通常授業をsnapshotして新DBへ書き込む。ProjectService単体の
+従来の人物継承は後方互換fallbackとして残し、LessonRequestやAvailabilityは講習固有
+データとして継承しない。
 
 Alembic `20260807_0007`は`import_source_snapshots`を追加する。種別ごとに1件を保持し、
 Availability取込みの同一transactionでBLOB、SHA-256、元ファイル名を更新する。
@@ -13,7 +15,7 @@ Availability取込みの同一transactionでBLOB、SHA-256、元ファイル名�
 
 ## 1. この文書の位置づけ
 
-このガイドは`1.2.0`時点の実装を説明する。公開版の機能仕様と
+このガイドは`1.3.0`時点の実装を説明する。公開版の機能仕様と
 ハード制約は[`specification.md`](specification.md)、初期設計は
 [`phase0_design.md`](phase0_design.md)、主要な判断理由は[`adr/`](adr/)を参照する。
 このガイドは、仕様に定めたハード制約やデータ安全性要件を緩和しない。
@@ -615,7 +617,7 @@ LessonRequestの`max_consecutive_slots_override`があればStudent標準値よ�
 3. 稼働する講師×日付×コマ数を最小化
 4. 生徒・講師のavailability level 2を最大化
 5. 未ロック既存Assignmentからの変更を最小化
-6. 設定値が正の場合だけ任意の講師負荷差を最小化
+6. 設定値が正の場合だけ、勤務可能枠に対する参加割合の講師間差を最小化
 
 候補生成開始前から全処理で1つのdeadlineを共有する。候補生成とハード制約構築には
 利用者中止または期限到達を判定するcallbackを渡し、各Solveには残り時間だけを渡す。
@@ -1100,7 +1102,7 @@ py -3.12 -m venv .venv-release
 ```powershell
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.2.0
+  -Version 1.3.0
 ```
 
 scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し、
@@ -1108,7 +1110,7 @@ scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し�
 既定YAML、全Alembic revision、Qt Quick／PDF、OR-Tools native runtime、
 `THIRD_PARTY_NOTICES.md`、収集したlicenseが必要で、DB、`.jukuschedule`、log、
 入出力、backup、user config、build crash reportを拒否する。検査後に
-`dist/SummerCourseScheduler-Portable-1.2.0.zip`を決定的順序で作る。
+`dist/SummerCourseScheduler-Portable-1.3.0.zip`を決定的順序で作る。
 
 2026-07-29に同一build machineで生成した未公開候補は143,564,844 bytes、
 SHA-256 `5611f8e62b6e7e8e9ac456ca91186f5a52e207573fb866b377ccbaf0796eba2f`だった。
@@ -1130,13 +1132,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.2.0 `
+  -Version 1.3.0 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.2.0.zip `
-  dist\SummerCourseScheduler-Setup-1.2.0.exe
+  dist\SummerCourseScheduler-Portable-1.3.0.zip `
+  dist\SummerCourseScheduler-Setup-1.3.0.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `
@@ -1254,3 +1256,6 @@ AuditLog、出力snapshotを保護契約とする。保護対象の一覧は
 静的な導線契約は`tests/unit/test_ui_redesign_contract.py`、QML構文は`pyside6-qmllint`、
 実際の業務回帰は既存のintegration/scenario testで確認する。1366×768とDPI 100/125/150%、
 Windows実機のフォーカス表示などは、最終的に手動受入も行う。
+
+Alembic `20260818_0008`は講習回数から独立した`regular_lesson_profiles`を追加する。
+共通名簿の詳細は[ADR 0012](adr/0012-shared-roster-and-combined-course-survey.md)を参照する。

@@ -18,7 +18,7 @@
 
 ## 2. 実装済みのスコープ
 
-Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.2.0`の
+Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.3.0`の
 公開準備版である。Windows成果物は社内利用向けに未署名で配布する方針である。
 
 ### Phase 0：設計
@@ -85,6 +85,12 @@ Phase 6で「出力」を実画面へ置き換えた。
 
 ### Phase 3：アンケート・集団授業・入力検証
 
+- 講習に依存しない`生徒・講師_基本情報.xlsx`と、各`.jukuschedule`内の講習別
+  アンケート・受講希望を分離する。共通名簿は在籍、姓・名、学年、指導可能科目、
+  通常授業担当を保持し、新規講習へsnapshotする
+- アプリ生成Googleフォームの生徒・講師回答を2ファイル同時に検証・反映し、原本と
+  要確認一覧を含む統合xlsxを`.jukuschedule`へ内包する
+
 - StudentAvailability、TeacherAvailability、GroupLesson、GroupLessonStudent、
   ImportBatch、ValidationIssue、AuditLogとAlembic revision `20260728_0003`
 - 生徒・講師availabilityのxlsxテンプレート、xlsx / UTF-8 / CP932 CSV読取り
@@ -112,7 +118,8 @@ Assignmentの仮モデルや偽の検証結果を追加しなかった方針は�
   ロック済みAssignmentを用いた疎な候補生成
 - 各sessionの配置または未配置、生徒重複禁止、講師最大2名、1対1必須、固定、
   集団授業、生徒連続上限、生徒・講師の空きコマ禁止をCP-SATのハード制約として実装
-- 未配置、講師希望、稼働講師枠、希望日時、既存割当変更、任意の負荷調整の順による
+- 未配置、講師希望、稼働講師枠、希望日時、既存割当変更、勤務可能枠に対する
+  講師参加割合の任意調整の順による
   複数Solveの辞書式最適化
 - 独立検証済みgreedy初期解、全非固定変数complete hint、occupancy単位の制約集約
 - 全段階で共有する単一deadlineと、`OPTIMAL`の目的値だけを固定する安全規則
@@ -247,7 +254,7 @@ PDFとExcelの共通レイアウト、Qt選定、原子的保存、安全検証�
 
 ### Phase 7：品質保証・バックアップ・Windows配布
 
-- app version `1.2.0`をpackage metadata、Qt application、About、log、帳票へ
+- app version `1.3.0`をpackage metadata、Qt application、About、log、帳票へ
   表示し、Alembic schema revisionとは別の版として扱う
 - project open直後と設定間隔ごとの自動backup。既定5分間隔・project別5世代で、
   `%LOCALAPPDATA%\SummerScheduler\backups`へ保存する

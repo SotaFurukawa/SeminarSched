@@ -27,6 +27,11 @@ class ModelVariables:
         default_factory=list
     )
     teacher_loads: dict[int, cp_model.IntVar] = field(default_factory=dict)
+    teacher_load_pairwise_deviations: dict[tuple[int, int], cp_model.IntVar] = field(
+        default_factory=dict
+    )
+    teacher_load_capacities: dict[int, int] = field(default_factory=dict)
+    # 旧モデルとのシリアライズ互換用。割合ベースの公平性では使用しない。
     teacher_load_maximum: cp_model.IntVar | None = None
     teacher_load_minimum: cp_model.IntVar | None = None
 

@@ -16,6 +16,11 @@ from summer_scheduler.application.availability_import_service import (
     AvailabilityImportService,
     AvailabilitySourceInspection,
 )
+from summer_scheduler.application.course_survey_service import (
+    CourseSurveyError,
+    CourseSurveyPreview,
+    CourseSurveyService,
+)
 from summer_scheduler.application.group_lesson_service import (
     GroupLessonImportError,
     GroupLessonService,
@@ -60,6 +65,7 @@ class Phase3ViewModel(QObject):
         validation: ProjectValidationService,
         samples: SampleProjectService,
         questionnaires: QuestionnaireScriptService | None = None,
+        course_surveys: CourseSurveyService | None = None,
         before_project_change: Callable[[], None] | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -70,10 +76,22 @@ class Phase3ViewModel(QObject):
         self._validation = validation
         self._samples = samples
         self._questionnaires = questionnaires or QuestionnaireScriptService(projects)
+        self._course_surveys = course_surveys or CourseSurveyService(projects)
         self._before_project_change = before_project_change
         self._status_message = ""
         self._error_message = ""
         self._last_questionnaire_script_directory = ""
+        self._combined_student_path = ""
+        self._combined_teacher_path = ""
+        self._combined_trial_student_rows: set[int] = set()
+        self._combined_preview: CourseSurveyPreview | None = None
+        self._combined_issues: list[dict[str, object]] = []
+        self._combined_summary: dict[str, int] = {
+            "studentCount": 0,
+            "teacherCount": 0,
+            "errorCount": 0,
+            "warningCount": 0,
+        }
 
         self._import_kind: AvailabilityKind = "student"
         self._source_path = ""
@@ -148,6 +166,37 @@ class Phase3ViewModel(QObject):
         str,
         _get_last_questionnaire_script_directory,
         notify=questionnaireScriptsChanged,
+    )
+
+    combinedStudentPath = Property(
+        str,
+        lambda self: self._combined_student_path,
+        notify=availabilityStateChanged,
+    )
+    combinedTeacherPath = Property(
+        str,
+        lambda self: self._combined_teacher_path,
+        notify=availabilityStateChanged,
+    )
+    combinedIssues = Property(
+        list,
+        lambda self: self._combined_issues,
+        notify=availabilityStateChanged,
+    )
+    combinedSummary = Property(
+        object,
+        lambda self: self._combined_summary,
+        notify=availabilityStateChanged,
+    )
+    canValidateCombinedSurvey = Property(
+        bool,
+        lambda self: bool(self._combined_student_path and self._combined_teacher_path),
+        notify=availabilityStateChanged,
+    )
+    canApplyCombinedSurvey = Property(
+        bool,
+        lambda self: self._combined_preview is not None and not self._combined_preview.has_errors,
+        notify=availabilityStateChanged,
     )
 
     # Availability wizard properties
@@ -319,6 +368,102 @@ class Phase3ViewModel(QObject):
     )
 
     # Availability wizard actions
+
+    @Slot(str)
+    def setCombinedStudentSource(self, path_value: str) -> None:
+        self._combined_student_path = str(_path_from_qml(path_value))
+        self._combined_trial_student_rows.clear()
+        self._clear_combined_preview()
+        self._clear_messages()
+        self.availabilityStateChanged.emit()
+
+    @Slot(str)
+    def setCombinedTeacherSource(self, path_value: str) -> None:
+        self._combined_teacher_path = str(_path_from_qml(path_value))
+        self._combined_trial_student_rows.clear()
+        self._clear_combined_preview()
+        self._clear_messages()
+        self.availabilityStateChanged.emit()
+
+    @Slot(result=bool)
+    def validateCombinedSurvey(self) -> bool:
+        """生徒・講師のGoogleフォーム回答を一度に検証する。"""
+
+        def action() -> None:
+            if not self._combined_student_path or not self._combined_teacher_path:
+                raise CourseSurveyError("生徒回答と講師回答を両方選択してください。")
+            preview = self._course_surveys.prepare(
+                Path(self._combined_student_path),
+                Path(self._combined_teacher_path),
+                trial_student_rows=frozenset(self._combined_trial_student_rows),
+            )
+            self._set_combined_preview(preview)
+
+        result = self._perform(action, "2つのアンケートをまとめて検証しました")
+        if result and self._combined_preview is not None and self._combined_preview.has_errors:
+            self._set_error(
+                f"統合前の検証で{self._combined_summary['errorCount']}件のエラーが見つかりました"
+            )
+        return result
+
+    @Slot(int, bool, result=bool)
+    def setCombinedStudentTrialResolution(self, row: int, mark_as_trial: bool) -> bool:
+        """未登録の生徒回答を、この講習だけの体験生として解決する。"""
+
+        def action() -> None:
+            if not self._combined_student_path or not self._combined_teacher_path:
+                raise CourseSurveyError("生徒回答と講師回答を両方選択してください。")
+            if mark_as_trial:
+                self._combined_trial_student_rows.add(row)
+            else:
+                self._combined_trial_student_rows.discard(row)
+            preview = self._course_surveys.prepare(
+                Path(self._combined_student_path),
+                Path(self._combined_teacher_path),
+                trial_student_rows=frozenset(self._combined_trial_student_rows),
+            )
+            self._set_combined_preview(preview)
+
+        return self._perform(
+            action,
+            "体験生の扱いを更新しました",
+        )
+
+    @Slot(result=bool)
+    def applyCombinedSurvey(self) -> bool:
+        """検証済み回答を一括反映し、原本と統合xlsxをプロジェクトへ保存する。"""
+
+        message = "アンケートを統合しました"
+
+        def action() -> None:
+            nonlocal message
+            if self._combined_preview is None:
+                raise CourseSurveyError("先に2つのアンケートを検証してください。")
+            result = self._course_surveys.apply(self._combined_preview)
+            message = (
+                f"アンケートを統合しました（生徒{result.students}、講師{result.teachers}、"
+                f"受講希望{result.lesson_requests}、体験生{result.trial_students}）"
+            )
+            self._combined_trial_student_rows.clear()
+            self._clear_combined_preview()
+            self._refresh_stored_source_name()
+            self.availabilityStateChanged.emit()
+            self._refresh_validation_after_data_change()
+
+        result = self._perform(action, "アンケートを統合しました")
+        if result:
+            self._set_status(message)
+        return result
+
+    @Slot(str, result=bool)
+    def exportCombinedSurvey(self, path_value: str) -> bool:
+        def action() -> None:
+            self._course_surveys.export_latest_combined(_xlsx_path_from_qml(path_value))
+
+        return self._perform(
+            action,
+            "プロジェクト内の統合アンケートを保存しました",
+        )
 
     @Slot(str)
     def setImportKind(self, value: str) -> None:
@@ -614,6 +759,10 @@ class Phase3ViewModel(QObject):
             self._observed_project_path = current_path
             self._last_questionnaire_script_directory = ""
             self._reset_availability_source(keep_kind=True)
+            self._combined_student_path = ""
+            self._combined_teacher_path = ""
+            self._combined_trial_student_rows.clear()
+            self._clear_combined_preview()
             self._group_source_path = ""
             self._clear_group_preview()
             self._validation_has_run = False
@@ -703,6 +852,29 @@ class Phase3ViewModel(QObject):
         ]
         self._import_issues = [_issue_dict(issue) for issue in preview.issues]
         self._import_summary = _summary(preview.diffs, preview.issues)
+        self.availabilityStateChanged.emit()
+
+    def _set_combined_preview(self, preview: CourseSurveyPreview) -> None:
+        self._combined_preview = preview
+        self._combined_issues = [
+            {
+                "severity": issue.severity,
+                "source": issue.source,
+                "row": issue.row,
+                "personName": issue.person_name,
+                "message": issue.message,
+                "resolution": issue.resolution,
+                "canMarkTrial": issue.source == "生徒回答" and "基本情報にない" in issue.message,
+                "markedTrial": issue.row in self._combined_trial_student_rows,
+            }
+            for issue in preview.issues
+        ]
+        self._combined_summary = {
+            "studentCount": len(preview.students),
+            "teacherCount": len(preview.teachers),
+            "errorCount": sum(issue.severity == "error" for issue in preview.issues),
+            "warningCount": sum(issue.severity == "warning" for issue in preview.issues),
+        }
         self.availabilityStateChanged.emit()
 
     def _set_group_preview(self, preview: GroupImportPreview) -> None:
@@ -808,6 +980,16 @@ class Phase3ViewModel(QObject):
         self._import_diffs = []
         self._import_issues = []
         self._import_summary = _empty_summary()
+
+    def _clear_combined_preview(self) -> None:
+        self._combined_preview = None
+        self._combined_issues = []
+        self._combined_summary = {
+            "studentCount": 0,
+            "teacherCount": 0,
+            "errorCount": 0,
+            "warningCount": 0,
+        }
 
     def _clear_group_preview(self) -> None:
         self._group_preview = None

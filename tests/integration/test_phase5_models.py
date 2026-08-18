@@ -163,7 +163,7 @@ def test_upgrade_from_0004_preserves_rows_and_sets_compatible_defaults(
 
         upgrade_database(database.engine)
 
-        assert get_head_revision() == "20260807_0007"
+        assert get_head_revision() == "20260818_0008"
         audit_check_names = {
             constraint["name"]
             for constraint in inspect(database.engine).get_check_constraints("audit_logs")

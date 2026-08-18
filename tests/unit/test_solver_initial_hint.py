@@ -107,10 +107,10 @@ def test_optional_balance_variables_are_also_hinted() -> None:
 
     hinted = set(model.proto.solution_hint.vars)
     assert all(variable.index in hinted for variable in variables.teacher_loads.values())
-    assert variables.teacher_load_maximum is not None
-    assert variables.teacher_load_minimum is not None
-    assert variables.teacher_load_maximum.index in hinted
-    assert variables.teacher_load_minimum.index in hinted
+    assert variables.teacher_load_pairwise_deviations
+    assert all(
+        variable.index in hinted for variable in variables.teacher_load_pairwise_deviations.values()
+    )
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = 5

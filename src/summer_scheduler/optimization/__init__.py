@@ -51,6 +51,8 @@ from summer_scheduler.optimization.objectives import (
     ObjectiveStage,
     build_objective_stages,
     realized_teacher_loads,
+    teacher_availability_capacities,
+    teacher_participation_imbalance,
     teacher_preference_penalty,
 )
 from summer_scheduler.optimization.result_validation import (
@@ -141,6 +143,8 @@ __all__ = [
     "preview_move",
     "preview_unassign",
     "realized_teacher_loads",
+    "teacher_availability_capacities",
+    "teacher_participation_imbalance",
     "require_valid_optimization_result",
     "solve_optimization",
     "teacher_preference_penalty",

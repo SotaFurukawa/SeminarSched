@@ -165,6 +165,78 @@ Item {
 
                 Rectangle {
                     Layout.fillWidth: true
+                    implicitHeight: sharedRosterContent.implicitHeight + 30
+                    radius: 12
+                    color: "#f5f9ff"
+                    border.color: "#b9d4ee"
+
+                    ColumnLayout {
+                        id: sharedRosterContent
+
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: 18
+                        anchors.rightMargin: 18
+                        spacing: 8
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Label {
+                                    text: qsTr("生徒・講師の基本情報（共通）")
+                                    color: "#183b59"
+                                    font.pixelSize: 16
+                                    font.weight: Font.DemiBold
+                                }
+
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: qsTr("講習ごとに作り直さない在籍情報・指導可能科目・通常授業の担当を、1つのExcelで管理します。")
+                                    color: "#52647d"
+                                    font.pixelSize: 11
+                                    wrapMode: Text.Wrap
+                                }
+                            }
+
+                            AppButton {
+                                text: qsTr("Excelを開いて編集")
+                                kind: "primary"
+                                onClicked: root.viewModel.openSharedRoster()
+                            }
+
+                            AppButton {
+                                visible: root.viewModel.hasOpenProject
+                                text: qsTr("この講習へ反映")
+                                onClicked: root.viewModel.applySharedRoster()
+                            }
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("保存先: %1").arg(root.viewModel.sharedRosterPath)
+                            color: "#667085"
+                            font.pixelSize: 9
+                            elide: Text.ElideMiddle
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("在籍のチェックを外した人は削除せず退籍扱いとなり、Excelでは灰色で表示されます。Excelを保存してから「この講習へ反映」を押してください。")
+                            color: "#52647d"
+                            font.pixelSize: 10
+                            wrapMode: Text.Wrap
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
                     visible: !root.viewModel.hasOpenProject
                     implicitHeight: startContent.implicitHeight + 34
                     radius: 12
@@ -503,7 +575,7 @@ Item {
                             kind: root.nextStepNumber() === 4 && root.scheduleComplete
                                   ? "success" : "info"
                             message: root.nextStepNumber() === 1
-                                     ? qsTr("次に行うこと：授業日・コマと初期名簿を設定します。初期名簿はExcel一括登録が便利です。")
+                                     ? qsTr("次に行うこと：共通名簿を確認し、授業日・コマをまとめて設定します。")
                                      : root.nextStepNumber() === 2
                                        ? qsTr("次に行うこと：生徒・講師アンケートを取り込み、入力を検証します。")
                                        : root.nextStepNumber() === 3
@@ -787,7 +859,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.leftMargin: 10
                     anchors.rightMargin: 10
-                    text: qsTr("保存先はアプリが自動管理します。現在のプロジェクトを開いたまま作成すると、生徒・講師・指導可能科目を新しい講習へ引き継ぎます。")
+                    text: qsTr("保存先はアプリが自動管理します。生徒・講師・指導可能科目・通常授業は、ホームの共通名簿から新しい講習へ自動反映します。")
                     color: "#52647d"
                     font.pixelSize: 10
                     wrapMode: Text.Wrap

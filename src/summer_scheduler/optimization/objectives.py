@@ -137,6 +137,49 @@ def realized_teacher_loads(
     return loads
 
 
+def teacher_availability_capacities(
+    data: OptimizationInput,
+    teacher_ids: Iterable[int],
+) -> dict[int, int]:
+    """講師ごとの勤務可能コマ数を、公平性の分母として返す。
+
+    回答漏れや固定集団授業だけの講師でも0除算にならないよう最小値を1とする。
+    """
+    relevant = set(teacher_ids)
+    open_dates = set(data.open_dates)
+    enabled_slot_ids = {slot.id for slot in data.time_slots if slot.enabled}
+    available = {
+        (row.owner_id, row.day, row.time_slot_id)
+        for row in data.availabilities
+        if row.owner_type == "teacher"
+        and row.owner_id in relevant
+        and row.level > 0
+        and row.day in open_dates
+        and row.time_slot_id in enabled_slot_ids
+    }
+    return {
+        teacher_id: max(
+            1,
+            sum(owner_id == teacher_id for owner_id, _day, _slot_id in available),
+        )
+        for teacher_id in sorted(relevant)
+    }
+
+
+def teacher_participation_imbalance(
+    data: OptimizationInput,
+    loads: TeacherLoad,
+) -> int:
+    """勤務可能枠に対する参加割合の講師間差を整数の交差積で測る。"""
+    capacities = teacher_availability_capacities(data, loads)
+    teacher_ids = sorted(loads)
+    return sum(
+        abs(loads[first] * capacities[second] - loads[second] * capacities[first])
+        for position, first in enumerate(teacher_ids)
+        for second in teacher_ids[position + 1 :]
+    )
+
+
 def _teacher_preference_expression(
     data: OptimizationInput,
     generation: CandidateGenerationResult,
@@ -245,21 +288,36 @@ def _teacher_load_imbalance_expression(
     if not active_by_teacher:
         return cp_model.LinearExpr.constant(0)
 
-    load_vars: list[cp_model.IntVar] = []
-    maximum_load = max(len(active_vars) for active_vars in active_by_teacher.values())
+    load_bounds: dict[int, int] = {}
     for teacher_id, active_vars in sorted(active_by_teacher.items()):
         load = model.new_int_var(0, len(active_vars), f"teacher_load_{teacher_id}")
         model.add(load == cp_model.LinearExpr.sum(active_vars))
-        load_vars.append(load)
         variables.teacher_loads[teacher_id] = load
+        load_bounds[teacher_id] = len(active_vars)
 
-    maximum = model.new_int_var(0, maximum_load, "teacher_load_maximum")
-    minimum = model.new_int_var(0, maximum_load, "teacher_load_minimum")
-    model.add_max_equality(maximum, load_vars)
-    model.add_min_equality(minimum, load_vars)
-    variables.teacher_load_maximum = maximum
-    variables.teacher_load_minimum = minimum
-    return data.settings.optional_balance_weight * (maximum - minimum)
+    capacities = teacher_availability_capacities(data, active_by_teacher)
+    variables.teacher_load_capacities.update(capacities)
+    deviations: list[cp_model.IntVar] = []
+    teacher_ids = sorted(active_by_teacher)
+    for position, first in enumerate(teacher_ids):
+        for second in teacher_ids[position + 1 :]:
+            bound = max(
+                load_bounds[first] * capacities[second],
+                load_bounds[second] * capacities[first],
+            )
+            deviation = model.new_int_var(
+                0,
+                bound,
+                f"teacher_participation_deviation_{first}_{second}",
+            )
+            model.add_abs_equality(
+                deviation,
+                variables.teacher_loads[first] * capacities[second]
+                - variables.teacher_loads[second] * capacities[first],
+            )
+            deviations.append(deviation)
+            variables.teacher_load_pairwise_deviations[(first, second)] = deviation
+    return data.settings.optional_balance_weight * cp_model.LinearExpr.sum(deviations)
 
 
 __all__ = [
@@ -268,5 +326,7 @@ __all__ = [
     "TeacherLoad",
     "build_objective_stages",
     "realized_teacher_loads",
+    "teacher_availability_capacities",
+    "teacher_participation_imbalance",
     "teacher_preference_penalty",
 ]

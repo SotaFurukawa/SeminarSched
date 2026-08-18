@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
+from PySide6.QtGui import QDesktopServices
 
 from summer_scheduler.application.master_data_service import MasterDataService
 from summer_scheduler.application.project_service import (
@@ -16,6 +17,7 @@ from summer_scheduler.application.project_service import (
     ProjectSummary,
     RecoveryCandidate,
 )
+from summer_scheduler.application.shared_roster_service import SharedRosterService
 from summer_scheduler.domain.defaults import SCHOOL_LEVEL_LABELS
 from summer_scheduler.domain.validation import (
     DomainValidationError,
@@ -58,11 +60,13 @@ class WorkspaceViewModel(QObject):
         self,
         projects: ProjectService,
         master_data: MasterDataService,
+        shared_roster: SharedRosterService | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._projects = projects
         self._master_data = master_data
+        self._shared_roster = shared_roster or SharedRosterService(projects)
         self._project_change_guard: Callable[[], None] | None = None
         self._status_message = ""
         self._error_message = ""
@@ -194,6 +198,11 @@ class WorkspaceViewModel(QObject):
 
     workspaceDirectory = Property(str, _get_workspace_directory, constant=True)
 
+    def _get_shared_roster_path(self) -> str:
+        return str(self._shared_roster.path)
+
+    sharedRosterPath = Property(str, _get_shared_roster_path, constant=True)
+
     def _get_students(self) -> list[dict[str, object]]:
         return self._students
 
@@ -290,6 +299,7 @@ class WorkspaceViewModel(QObject):
 
         def action() -> None:
             self._ensure_no_unsaved_draft()
+            self._shared_roster.ensure_workbook()
             self._projects.create_project(
                 _path_from_qml(path_value),
                 title=title,
@@ -297,6 +307,7 @@ class WorkspaceViewModel(QObject):
                 start_date=parse_iso_date(start_date_value, "start_date"),
                 end_date=parse_iso_date(end_date_value, "end_date"),
             )
+            self._shared_roster.sync_to_current_project()
             self._after_project_opened()
 
         result = self._perform(action, "プロジェクトを作成しました")
@@ -315,11 +326,13 @@ class WorkspaceViewModel(QObject):
 
         def action() -> None:
             self._ensure_no_unsaved_draft()
+            self._shared_roster.ensure_workbook()
             self._projects.create_project_in_workspace(
                 title=title,
                 start_date=parse_iso_date(start_date_value, "start_date"),
                 end_date=parse_iso_date(end_date_value, "end_date"),
             )
+            self._shared_roster.sync_to_current_project()
             self._after_project_opened()
 
         result = self._perform(action, "プロジェクトを作成しました")
@@ -907,6 +920,28 @@ class WorkspaceViewModel(QObject):
         return self._perform(action, "受講希望を削除しました")
 
     # Excel import and export
+
+    @Slot(result=bool)
+    def openSharedRoster(self) -> bool:
+        """講習に依存しない共通名簿を作成し、既定のExcelで開く。"""
+
+        def action() -> None:
+            path = self._shared_roster.ensure_workbook()
+            if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+                raise OSError("Excelファイルを開けませんでした")
+
+        return self._perform(action, "生徒・講師の基本情報を開きました")
+
+    @Slot(result=bool)
+    def applySharedRoster(self) -> bool:
+        """保存済みの共通名簿を現在の講習へ反映する。"""
+
+        def action() -> None:
+            self._shared_roster.sync_to_current_project()
+            self._refresh_all_collections()
+            self.projectStateChanged.emit()
+
+        return self._perform(action, "共通名簿を現在の講習へ反映しました")
 
     @Slot(str, result=bool)
     def exportMasterData(self, path_value: str) -> bool:

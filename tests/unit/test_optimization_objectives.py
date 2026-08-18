@@ -28,6 +28,7 @@ from summer_scheduler.optimization.objectives import (
     ObjectiveStage,
     build_objective_stages,
     realized_teacher_loads,
+    teacher_participation_imbalance,
     teacher_preference_penalty,
 )
 from summer_scheduler.optimization.variables import ModelVariables
@@ -264,6 +265,21 @@ def test_fixed_group_slots_are_constants_in_active_count_and_load_balance() -> N
     assert _solve_value(model, _stage(stages, "active_teacher_slot_count")) == 3
     assert _solve_value(model, _stage(stages, "teacher_load_imbalance")) == 3
     assert realized_teacher_loads(data, generation, (selected,)) == {10: 1, 20: 2}
+
+
+def test_teacher_balance_compares_participation_ratio_to_available_capacity() -> None:
+    data = _input(
+        availabilities=(
+            AvailabilityData("teacher", 10, DAY, 100, 1),
+            AvailabilityData("teacher", 20, DAY, 100, 1),
+            AvailabilityData("teacher", 20, DAY, 101, 1),
+        ),
+    )
+
+    # 1/1 と 2/2 は担当コマ数が違っても参加割合が同じ。
+    assert teacher_participation_imbalance(data, {10: 1, 20: 2}) == 0
+    # 1/1 と 1/2 は参加割合に差がある。
+    assert teacher_participation_imbalance(data, {10: 1, 20: 1}) == 1
 
 
 def _fixed_candidate_model(

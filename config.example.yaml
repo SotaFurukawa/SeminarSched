@@ -38,7 +38,8 @@ optimization:
   teacher_preferred_time_weight: 1
   preserve_existing_assignment_weight: 1
   # 任意の第6段階は0で無効。後から非負整数へ変更できます。
-  optional_balance_weight: 0
+  # 最終段階で、勤務可能枠に対する参加割合の講師間差を小さくする。
+  optional_balance_weight: 1
 
 output:
   # A3 / A4、landscape（横）/ portrait（縦）

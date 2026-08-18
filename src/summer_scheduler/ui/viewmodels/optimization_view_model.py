@@ -45,7 +45,7 @@ _STAGE_LABELS = {
     "active_teacher_slot_count": "講師稼働枠の最小化",
     "availability_preference_score": "希望日時の調整",
     "changed_assignment_count": "既存時間割の維持",
-    "teacher_load_imbalance": "講師負荷の調整",
+    "teacher_load_imbalance": "勤務可能枠に対する参加割合の調整",
 }
 
 

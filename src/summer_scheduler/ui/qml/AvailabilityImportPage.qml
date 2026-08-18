@@ -404,6 +404,197 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
+            implicitHeight: combinedContent.implicitHeight + 20
+            radius: 9
+            color: "#f5f9ff"
+            border.color: "#9fc5e8"
+
+            ColumnLayout {
+                id: combinedContent
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 7
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 1
+                        Label {
+                            text: qsTr("おすすめ：生徒・講師回答をまとめて取り込む")
+                            color: "#183b59"
+                            font.pixelSize: 14
+                            font.weight: Font.DemiBold
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("アプリから作成したGoogleフォームのCSV／xlsxを2つ選ぶだけで、氏名照合・受講希望・不可時間をまとめて検証します。")
+                            color: "#52647d"
+                            font.pixelSize: 9
+                            wrapMode: Text.Wrap
+                        }
+                    }
+
+                    AppButton {
+                        text: qsTr("まとめて検証")
+                        kind: "primary"
+                        enabled: root.viewModel.canValidateCombinedSurvey
+                        onClicked: root.viewModel.validateCombinedSurvey()
+                    }
+
+                    AppButton {
+                        text: qsTr("検証済み内容を反映…")
+                        enabled: root.viewModel.canApplyCombinedSurvey
+                        onClicked: combinedApplyConfirmation.open()
+                    }
+
+                    AppButton {
+                        text: qsTr("統合xlsxを保存…")
+                        onClicked: combinedExportDialog.open()
+                    }
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 58
+                        radius: 6
+                        color: "#ffffff"
+                        border.color: "#cfd9e8"
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 1
+                                Label { text: qsTr("生徒回答"); color: "#344054"; font.weight: Font.DemiBold; font.pixelSize: 10 }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: root.viewModel.combinedStudentPath || qsTr("未選択")
+                                    color: root.viewModel.combinedStudentPath ? "#475467" : "#a23b3b"
+                                    font.pixelSize: 9
+                                    elide: Text.ElideMiddle
+                                }
+                            }
+                            AppButton { text: qsTr("選択…"); onClicked: combinedStudentDialog.open() }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 58
+                        radius: 6
+                        color: "#ffffff"
+                        border.color: "#cfd9e8"
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 1
+                                Label { text: qsTr("講師回答"); color: "#344054"; font.weight: Font.DemiBold; font.pixelSize: 10 }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: root.viewModel.combinedTeacherPath || qsTr("未選択")
+                                    color: root.viewModel.combinedTeacherPath ? "#475467" : "#a23b3b"
+                                    font.pixelSize: 9
+                                    elide: Text.ElideMiddle
+                                }
+                            }
+                            AppButton { text: qsTr("選択…"); onClicked: combinedTeacherDialog.open() }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: Number(root.rowValue(root.viewModel.combinedSummary, "studentCount", 0)) > 0
+                             || Number(root.rowValue(root.viewModel.combinedSummary, "errorCount", 0)) > 0
+                    spacing: 12
+                    Label {
+                        text: qsTr("生徒 %1名　講師 %2名")
+                              .arg(root.rowValue(root.viewModel.combinedSummary, "studentCount", 0))
+                              .arg(root.rowValue(root.viewModel.combinedSummary, "teacherCount", 0))
+                        color: "#344054"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                    }
+                    Label {
+                        text: qsTr("エラー %1件　警告 %2件")
+                              .arg(root.rowValue(root.viewModel.combinedSummary, "errorCount", 0))
+                              .arg(root.rowValue(root.viewModel.combinedSummary, "warningCount", 0))
+                        color: Number(root.rowValue(root.viewModel.combinedSummary, "errorCount", 0)) > 0 ? "#a23b3b" : "#176b40"
+                        font.pixelSize: 10
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("基本情報にない在籍生・講師は赤、体験生は黄で表示します。")
+                        color: "#667085"
+                        font.pixelSize: 9
+                        horizontalAlignment: Text.AlignRight
+                    }
+                }
+
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(contentHeight, 92)
+                    visible: count > 0
+                    clip: true
+                    spacing: 3
+                    model: root.viewModel.combinedIssues || []
+                    delegate: Rectangle {
+                        id: combinedIssueRow
+                        required property var modelData
+                        width: ListView.view.width
+                        height: 38
+                        radius: 4
+                        color: root.rowValue(modelData, "severity", "") === "error" ? "#fff0ef" : "#fff9e8"
+                        border.color: root.rowValue(modelData, "severity", "") === "error" ? "#e5aaa6" : "#e6c777"
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 6
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("%1 %2行 %3：%4　→ %5")
+                                      .arg(root.rowValue(combinedIssueRow.modelData, "source", ""))
+                                      .arg(root.rowValue(combinedIssueRow.modelData, "row", ""))
+                                      .arg(root.rowValue(combinedIssueRow.modelData, "personName", ""))
+                                      .arg(root.rowValue(combinedIssueRow.modelData, "message", ""))
+                                      .arg(root.rowValue(combinedIssueRow.modelData, "resolution", ""))
+                                color: "#6a3430"
+                                font.pixelSize: 9
+                                elide: Text.ElideRight
+                            }
+
+                            ComboBox {
+                                visible: Boolean(root.rowValue(combinedIssueRow.modelData, "canMarkTrial", false))
+                                Layout.preferredWidth: 154
+                                model: [qsTr("名簿と照合"), qsTr("体験生として登録")]
+                                currentIndex: Boolean(root.rowValue(combinedIssueRow.modelData, "markedTrial", false)) ? 1 : 0
+                                font.pixelSize: 9
+                                onActivated: root.viewModel.setCombinedStudentTrialResolution(
+                                                 Number(root.rowValue(combinedIssueRow.modelData, "row", 0)),
+                                                 currentIndex === 1)
+                            }
+                        }
+                    }
+                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
             implicitHeight: sourceControls.implicitHeight + 18
             radius: 8
             color: "#ffffff"
@@ -826,6 +1017,42 @@ Item {
                 ToolTip.text: qsTr("エラーがある場合は反映できません。")
                 onClicked: applyConfirmation.open()
             }
+        }
+    }
+
+    Dialogs.FileDialog {
+        id: combinedStudentDialog
+        title: qsTr("生徒アンケート回答を選択")
+        fileMode: Dialogs.FileDialog.OpenFile
+        nameFilters: [qsTr("対応ファイル (*.xlsx *.csv)")]
+        onAccepted: root.viewModel.setCombinedStudentSource(selectedFile.toString())
+    }
+
+    Dialogs.FileDialog {
+        id: combinedTeacherDialog
+        title: qsTr("講師アンケート回答を選択")
+        fileMode: Dialogs.FileDialog.OpenFile
+        nameFilters: [qsTr("対応ファイル (*.xlsx *.csv)")]
+        onAccepted: root.viewModel.setCombinedTeacherSource(selectedFile.toString())
+    }
+
+    Dialogs.FileDialog {
+        id: combinedExportDialog
+        title: qsTr("統合アンケートを保存")
+        fileMode: Dialogs.FileDialog.SaveFile
+        nameFilters: [qsTr("Excelブック (*.xlsx)")]
+        onAccepted: root.viewModel.exportCombinedSurvey(selectedFile.toString())
+    }
+
+    Dialogs.MessageDialog {
+        id: combinedApplyConfirmation
+        title: qsTr("2つの回答をまとめて反映")
+        text: qsTr("検証済みの生徒回答・講師回答を現在の講習へ反映しますか？")
+        informativeText: qsTr("回答原本と赤・黄の確認結果を含む統合xlsxは、.jukuschedule内へ保存されます。体験生以外の赤いエラーがある場合は反映できません。")
+        buttons: Dialogs.MessageDialog.Yes | Dialogs.MessageDialog.No
+        onButtonClicked: function (button) {
+            if (button === Dialogs.MessageDialog.Yes)
+                root.viewModel.applyCombinedSurvey()
         }
     }
 
