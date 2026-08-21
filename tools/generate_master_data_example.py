@@ -35,38 +35,91 @@ _SUBJECTS_BY_LEVEL = {
     for level in ("elementary", "junior_high", "high_school")
 }
 
-# 講師ごとの資格を明示する。高校数学一般と数学III等を自動推定しない。
+# 講師ごとの資格を明示する。中学受験・数学IIBC・数学III等を自動推定しない。
 _QUALIFIED_SUBJECTS = {
-    "T001": {"ES_ENG", "JH_ENG", "HS_ENG"},
-    "T002": {"ES_ENG", "ES_JPN", "JH_ENG", "HS_ENG"},
-    "T003": {"ES_ENG", "JH_ENG", "HS_ENG"},
-    "T004": {"ES_ENG", "ES_JPN", "JH_ENG", "JH_JPN"},
-    "T005": {"ES_MATH", "JH_MATH", "HS_MATH_GENERAL"},
-    "T006": {"ES_MATH", "JH_MATH", "HS_MATH_GENERAL", "HS_MATH_III"},
-    "T007": {"JH_MATH", "HS_MATH_GENERAL", "HS_MATH_III", "HS_PHYSICS"},
-    "T008": {"ES_MATH", "JH_MATH", "HS_MATH_GENERAL", "HS_INFORMATICS"},
-    "T009": {"ES_JPN", "JH_JPN", "HS_MODERN_JPN", "HS_CLASSICAL_JPN"},
-    "T010": {"ES_JPN", "JH_JPN", "HS_MODERN_JPN", "HS_CLASSICAL_JPN"},
-    "T011": {"ES_JPN", "JH_JPN", "HS_MODERN_JPN", "HS_CLASSICAL_JPN"},
-    "T012": {"ES_SCI", "JH_SCI", "HS_CHEMISTRY", "HS_BIOLOGY"},
-    "T013": {"ES_SCI", "JH_SCI", "HS_CHEMISTRY", "HS_BIOLOGY"},
-    "T014": {"JH_SCI", "HS_MATH_GENERAL", "HS_PHYSICS", "HS_CHEMISTRY"},
-    "T015": {"ES_SOC", "JH_SOC", "HS_JAPANESE_HISTORY", "HS_GEOGRAPHY"},
-    "T016": {
+    "T-0001": {"ES_ENG", "JH_ENG", "HS_ENG"},
+    "T-0002": {"ES_ENG", "ES_JPN", "JH_ENG", "HS_ENG"},
+    "T-0003": {"ES_ENG", "JH_ENG", "HS_ENG"},
+    "T-0004": {"ES_ENG", "ES_JPN", "JH_ENG", "JH_JPN"},
+    "T-0005": {
+        "ES_MATH_ENTRANCE",
+        "ES_MATH",
+        "JH_MATH",
+        "HS_MATH_GENERAL",
+        "HS_MATH_IIBC",
+    },
+    "T-0006": {
+        "ES_MATH_ENTRANCE",
+        "ES_MATH",
+        "JH_MATH",
+        "HS_MATH_GENERAL",
+        "HS_MATH_IIBC",
+        "HS_MATH_III",
+    },
+    "T-0007": {
+        "JH_MATH",
+        "HS_MATH_GENERAL",
+        "HS_MATH_IIBC",
+        "HS_MATH_III",
+        "HS_PHYSICS",
+    },
+    "T-0008": {
+        "ES_MATH_ENTRANCE",
+        "ES_MATH",
+        "JH_MATH",
+        "HS_MATH_GENERAL",
+        "HS_MATH_IIBC",
+        "HS_INFORMATICS",
+    },
+    "T-0009": {
+        "ES_JPN_ENTRANCE",
+        "ES_JPN",
+        "JH_JPN",
+        "HS_MODERN_JPN",
+        "HS_CLASSICAL_JPN",
+    },
+    "T-0010": {
+        "ES_JPN_ENTRANCE",
+        "ES_JPN",
+        "JH_JPN",
+        "HS_MODERN_JPN",
+        "HS_CLASSICAL_JPN",
+    },
+    "T-0011": {"ES_JPN", "JH_JPN", "HS_MODERN_JPN", "HS_CLASSICAL_JPN"},
+    "T-0012": {"ES_SCI", "JH_SCI", "HS_CHEMISTRY", "HS_BIOLOGY"},
+    "T-0013": {"ES_SCI", "JH_SCI", "HS_CHEMISTRY", "HS_BIOLOGY"},
+    "T-0014": {
+        "JH_SCI",
+        "HS_MATH_GENERAL",
+        "HS_MATH_IIBC",
+        "HS_PHYSICS",
+        "HS_CHEMISTRY",
+    },
+    "T-0015": {"ES_SOC", "JH_SOC", "HS_JAPANESE_HISTORY", "HS_GEOGRAPHY"},
+    "T-0016": {
         "ES_SOC",
         "JH_SOC",
         "HS_WORLD_HISTORY",
         "HS_GEOGRAPHY",
         "HS_POLITICS_ECONOMICS",
     },
-    "T017": {"JH_MATH", "HS_MATH_GENERAL", "HS_INFORMATICS"},
-    "T018": {"ES_ENG", "ES_MATH", "ES_JPN", "ES_SCI", "ES_SOC"},
-    "T019": {"JH_ENG", "JH_MATH", "JH_JPN", "JH_SCI", "JH_SOC"},
-    "T020": {
+    "T-0017": {"JH_MATH", "HS_MATH_GENERAL", "HS_MATH_IIBC", "HS_INFORMATICS"},
+    "T-0018": {
+        "ES_ENG",
+        "ES_MATH_ENTRANCE",
+        "ES_MATH",
+        "ES_JPN_ENTRANCE",
+        "ES_JPN",
+        "ES_SCI",
+        "ES_SOC",
+    },
+    "T-0019": {"JH_ENG", "JH_MATH", "JH_JPN", "JH_SCI", "JH_SOC"},
+    "T-0020": {
         "HS_ENG",
         "HS_MODERN_JPN",
         "HS_CLASSICAL_JPN",
         "HS_MATH_GENERAL",
+        "HS_MATH_IIBC",
         "HS_MATH_III",
         "HS_PHYSICS",
         "HS_CHEMISTRY",
@@ -89,7 +142,7 @@ def build_example_rows() -> dict[str, list[dict[str, object]]]:
     lesson_requests: list[dict[str, object]] = []
 
     for number in range(1, 21):
-        teacher_id = f"T{number:03d}"
+        teacher_id = f"T-{number:04d}"
         teachers.append(
             {
                 "external_id": teacher_id,
@@ -127,7 +180,7 @@ def build_example_rows() -> dict[str, list[dict[str, object]]]:
     request_number = 0
     for student_number in range(1, 51):
         grade, school_level = _GRADE_LEVELS[(student_number - 1) % len(_GRADE_LEVELS)]
-        student_id = f"S{student_number:03d}"
+        student_id = f"S-{student_number:04d}"
         students.append(
             {
                 "external_id": student_id,

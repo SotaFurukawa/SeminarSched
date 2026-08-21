@@ -23,6 +23,7 @@ from summer_scheduler.application.project_service import (
     ProjectService,
 )
 from summer_scheduler.domain.defaults import SCHOOL_LEVEL_LABELS
+from summer_scheduler.domain.identifiers import next_person_external_id
 from summer_scheduler.domain.validation import (
     DomainValidationError,
     TimeSlotInput,
@@ -357,19 +358,30 @@ class MasterDataService:
         note: str,
         active: bool,
     ) -> SaveResult:
-        raise_for_errors(
-            validate_student(
-                external_id=external_id,
-                name=name,
-                grade=grade,
-                max_consecutive_slots=default_max_consecutive_slots,
-            )
-        )
         normalized_id = external_id.strip()
         normalized_name = name.strip()
         database = self._projects.require_database()
         with database.session_factory.begin() as session:
             repository = MasterRepository(session)
+            if not normalized_id:
+                if record_id is None:
+                    normalized_id = next_person_external_id(
+                        (row.external_id for row in repository.list_students()),
+                        prefix="S",
+                    )
+                else:
+                    existing_row = repository.get_student(record_id)
+                    if existing_row is None:
+                        _raise_missing("student", "生徒")
+                    normalized_id = existing_row.external_id
+            raise_for_errors(
+                validate_student(
+                    external_id=normalized_id,
+                    name=name,
+                    grade=grade,
+                    max_consecutive_slots=default_max_consecutive_slots,
+                )
+            )
             duplicate = repository.get_student_by_external_id(normalized_id)
             if duplicate is not None and duplicate.id != record_id:
                 _raise_duplicate("external_id", "生徒ID")
@@ -452,12 +464,23 @@ class MasterDataService:
         note: str,
         active: bool,
     ) -> SaveResult:
-        raise_for_errors(validate_teacher(external_id=external_id, name=name))
         normalized_id = external_id.strip()
         normalized_name = name.strip()
         database = self._projects.require_database()
         with database.session_factory.begin() as session:
             repository = MasterRepository(session)
+            if not normalized_id:
+                if record_id is None:
+                    normalized_id = next_person_external_id(
+                        (row.external_id for row in repository.list_teachers()),
+                        prefix="T",
+                    )
+                else:
+                    existing_row = repository.get_teacher(record_id)
+                    if existing_row is None:
+                        _raise_missing("teacher", "講師")
+                    normalized_id = existing_row.external_id
+            raise_for_errors(validate_teacher(external_id=normalized_id, name=name))
             duplicate = repository.get_teacher_by_external_id(normalized_id)
             if duplicate is not None and duplicate.id != record_id:
                 _raise_duplicate("external_id", "講師ID")

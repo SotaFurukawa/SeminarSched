@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -18,11 +18,12 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from summer_scheduler.domain.defaults import DEFAULT_SUBJECTS
+from summer_scheduler.domain.identifiers import next_person_external_id
 
 SHARED_ROSTER_FILENAME: Final = "生徒・講師_基本情報.xlsx"
 
 _STUDENT_HEADERS: Final = (
-    "生徒ID",
+    "生徒ID（自動・入力不要）",
     "姓（必須）",
     "名",
     "氏名（確認）",
@@ -33,7 +34,7 @@ _STUDENT_HEADERS: Final = (
     "備考",
 )
 _TEACHER_HEADERS: Final = (
-    "講師ID",
+    "講師ID（自動・入力不要）",
     "姓（必須）",
     "名",
     "氏名（確認）",
@@ -49,7 +50,7 @@ _SUBJECT_HEADERS: Final = (
     "有効",
 )
 _QUALIFICATION_HEADERS: Final = (
-    "講師ID",
+    "講師ID（自動・入力不要）",
     "講師名から選択",
     "講師名（確認）",
     "科目コード",
@@ -59,13 +60,13 @@ _QUALIFICATION_HEADERS: Final = (
     "備考",
 )
 _REGULAR_HEADERS: Final = (
-    "生徒ID",
+    "生徒ID（自動・入力不要）",
     "生徒名から選択",
     "生徒名（確認）",
     "科目コード",
     "科目名から選択",
     "科目名（確認）",
-    "通常担当講師ID",
+    "通常担当講師ID（自動・入力不要）",
     "通常担当講師名から選択",
     "通常担当講師名（確認）",
     "担当講師優先度",
@@ -186,6 +187,7 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
 
     student_sheet = workbook.create_sheet("生徒")
     _setup_sheet(student_sheet, _STUDENT_HEADERS, (18, 15, 15, 24, 12, 22, 15, 13, 32))
+    _mark_auto_id_header(student_sheet, "生徒", "S-0001")
     for index, student_row in enumerate(
         sorted(data.students, key=lambda item: (not item.active, item.external_id)), start=2
     ):
@@ -210,6 +212,7 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
 
     teacher_sheet = workbook.create_sheet("講師")
     _setup_sheet(teacher_sheet, _TEACHER_HEADERS, (18, 15, 15, 24, 15, 13, 32))
+    _mark_auto_id_header(teacher_sheet, "講師", "T-0001")
     for index, teacher_row in enumerate(
         sorted(data.teachers, key=lambda item: (not item.active, item.external_id)), start=2
     ):
@@ -324,7 +327,12 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
             temporary.unlink(missing_ok=True)
 
 
-def read_shared_roster(path: Path) -> SharedRosterData:
+def read_shared_roster(
+    path: Path,
+    *,
+    reserved_student_ids: Iterable[str] = (),
+    reserved_teacher_ids: Iterable[str] = (),
+) -> SharedRosterData:
     """共通名簿を検証し、名前選択列も解決して正規化したデータを返す。"""
     source = path.expanduser().resolve()
     try:
@@ -336,8 +344,8 @@ def read_shared_roster(path: Path) -> SharedRosterData:
         if missing:
             raise SharedRosterError(f"必要なシートがありません: {', '.join(missing)}")
         errors: list[str] = []
-        students = _read_students(workbook["生徒"], errors)
-        teachers = _read_teachers(workbook["講師"], errors)
+        students = _read_students(workbook["生徒"], errors, reserved_student_ids)
+        teachers = _read_teachers(workbook["講師"], errors, reserved_teacher_ids)
         subjects = _read_subjects(workbook["科目"], errors)
         qualifications = _read_qualifications(
             workbook["講師対応科目"], students, teachers, subjects, errors
@@ -360,19 +368,23 @@ def read_shared_roster(path: Path) -> SharedRosterData:
         workbook.close()
 
 
-def _read_students(sheet: Any, errors: list[str]) -> list[SharedStudent]:
+def _read_students(
+    sheet: Any,
+    errors: list[str],
+    reserved_external_ids: Iterable[str] = (),
+) -> list[SharedStudent]:
     result: list[SharedStudent] = []
     used: set[str] = set()
-    next_id = 1
-    for row_number, values in _rows(sheet, len(_STUDENT_HEADERS)):
+    rows = _rows(sheet, len(_STUDENT_HEADERS))
+    reserved = {value.strip() for value in reserved_external_ids if value.strip()}
+    reserved.update(_text(values[0]) for _row_number, values in rows if _text(values[0]))
+    for row_number, values in rows:
         if _empty(values):
             continue
         external_id = _text(values[0])
-        while not external_id:
-            candidate = f"S-{next_id:04d}"
-            next_id += 1
-            if candidate not in used:
-                external_id = candidate
+        if not external_id:
+            external_id = next_person_external_id(reserved, prefix="S")
+            reserved.add(external_id)
         surname, given_name, grade = _text(values[1]), _text(values[2]), _text(values[4])
         if external_id in used:
             errors.append(f"生徒 {row_number}行: 生徒ID「{external_id}」が重複しています")
@@ -402,19 +414,23 @@ def _read_students(sheet: Any, errors: list[str]) -> list[SharedStudent]:
     return result
 
 
-def _read_teachers(sheet: Any, errors: list[str]) -> list[SharedTeacher]:
+def _read_teachers(
+    sheet: Any,
+    errors: list[str],
+    reserved_external_ids: Iterable[str] = (),
+) -> list[SharedTeacher]:
     result: list[SharedTeacher] = []
     used: set[str] = set()
-    next_id = 1
-    for row_number, values in _rows(sheet, len(_TEACHER_HEADERS)):
+    rows = _rows(sheet, len(_TEACHER_HEADERS))
+    reserved = {value.strip() for value in reserved_external_ids if value.strip()}
+    reserved.update(_text(values[0]) for _row_number, values in rows if _text(values[0]))
+    for row_number, values in rows:
         if _empty(values):
             continue
         external_id = _text(values[0])
-        while not external_id:
-            candidate = f"T-{next_id:04d}"
-            next_id += 1
-            if candidate not in used:
-                external_id = candidate
+        if not external_id:
+            external_id = next_person_external_id(reserved, prefix="T")
+            reserved.add(external_id)
         surname, given_name = _text(values[1]), _text(values[2])
         if external_id in used:
             errors.append(f"講師 {row_number}行: 講師ID「{external_id}」が重複しています")
@@ -570,6 +586,14 @@ def _finish_rows(sheet: Any) -> None:
         for cell in row:
             cell.alignment = Alignment(vertical="top", wrap_text=True)
             cell.border = Border(bottom=_THIN_GREY)
+
+
+def _mark_auto_id_header(sheet: Any, person_label: str, example: str) -> None:
+    sheet["A1"].comment = Comment(
+        f"入力不要です。{person_label}の姓などを入力し、アプリで反映すると"
+        f"{example}形式のIDを自動採番してこの列へ書き戻します。",
+        "夏期講習時間割作成アプリ",
+    )
 
 
 def _grey_inactive(sheet: Any, active_column: str, column_count: int) -> None:

@@ -20,7 +20,7 @@
 |---|---|---|---|
 | GUIから新規プロジェクトを作成できる | PASS | project service / WorkspaceViewModel integration、QML offscreen smoke | `.jukuschedule`作成・再openを自動確認 |
 | 生徒・講師・科目を登録できる | PASS | master service / repository / QML contract tests | validation、使用停止、削除方針を含む |
-| 講師対応科目を登録できる | PASS | qualification service / QML integration tests | 高校数学一般と数学IIIを自動推定しない |
+| 講師対応科目を登録できる | PASS | qualification service / QML integration tests | 中学受験区分と数学IA・IIBC・IIIを自動推定しない |
 | 生徒・講師アンケートを取り込める | PASS | xlsx / UTF-8 / CP932 integration tests、Phase3 ViewModel tests | 列mapping、preview、transaction反映 |
 | 集団授業を取り込める | PASS | group lesson service integration tests | 2sheet、任意時刻、受講者、衝突検証 |
 | 必要回数を指定できる | PASS | LessonRequest CRUD、session展開tests | 正数、session過不足を検査 |

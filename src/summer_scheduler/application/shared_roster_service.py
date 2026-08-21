@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import delete, select
 
 from summer_scheduler.application.project_service import ProjectService
+from summer_scheduler.domain.defaults import DEFAULT_SUBJECTS
 from summer_scheduler.infrastructure.db.models import (
     LessonRequest,
     RegularLessonProfile,
@@ -59,9 +60,21 @@ class SharedRosterService:
     def sync_to_current_project(self) -> SharedRosterSyncResult:
         """共通名簿を検証し、現在のプロジェクトへ1 transactionで反映する。"""
         source = self.ensure_workbook()
-        data = read_shared_roster(source)
         project = self._projects.require_project()
         database = self._projects.require_database()
+        with database.session_factory() as session:
+            reserved_student_ids = tuple(
+                row.external_id for row in session.scalars(select(Student))
+            )
+            reserved_teacher_ids = tuple(
+                row.external_id for row in session.scalars(select(Teacher))
+            )
+        data = read_shared_roster(
+            source,
+            reserved_student_ids=reserved_student_ids,
+            reserved_teacher_ids=reserved_teacher_ids,
+        )
+        data = _merge_default_subjects(data)
         with database.session_factory.begin() as session:
             existing_students = {row.external_id: row for row in session.scalars(select(Student))}
             student_ids: dict[str, int] = {}
@@ -272,6 +285,30 @@ def _split_name(name: str) -> tuple[str, str]:
     if len(parts) == 1:
         return parts[0], ""
     return parts[0], parts[1]
+
+
+def _merge_default_subjects(data: SharedRosterData) -> SharedRosterData:
+    """既定科目を安全に改称・追加し、既存資格から新資格を推定しない。"""
+    existing_by_code = {row.code: row for row in data.subjects}
+    defaults = tuple(
+        SharedSubject(
+            item.code,
+            item.display_name,
+            item.school_level,
+            item.sort_order,
+            existing_by_code[item.code].active if item.code in existing_by_code else True,
+        )
+        for item in DEFAULT_SUBJECTS
+    )
+    default_codes = {row.code for row in defaults}
+    custom = tuple(row for row in data.subjects if row.code not in default_codes)
+    return SharedRosterData(
+        students=data.students,
+        teachers=data.teachers,
+        subjects=defaults + custom,
+        qualifications=data.qualifications,
+        regular_lessons=data.regular_lessons,
+    )
 
 
 __all__ = ["SharedRosterService", "SharedRosterSyncResult"]

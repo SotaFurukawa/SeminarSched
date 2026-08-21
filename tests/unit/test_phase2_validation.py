@@ -33,15 +33,23 @@ def test_default_time_slots_match_master_specification() -> None:
     ]
 
 
-def test_default_subjects_have_23_stable_unique_codes() -> None:
+def test_default_subjects_have_26_stable_unique_codes() -> None:
     codes = {subject.code for subject in DEFAULT_SUBJECTS}
     displays = {subject.display_name for subject in DEFAULT_SUBJECTS}
 
-    assert len(DEFAULT_SUBJECTS) == 23
-    assert len(codes) == 23
-    assert "高校・数学一般" in displays
+    assert len(DEFAULT_SUBJECTS) == 26
+    assert len(codes) == 26
+    assert "小学校・算数（中学受験）" in displays
+    assert "小学校・算数（中学受験以外なら可能）" in displays
+    assert "小学校・国語（中学受験）" in displays
+    assert "小学校・国語（中学受験以外なら可能）" in displays
+    assert "高校・数学IA" in displays
+    assert "高校・数学IIBC" in displays
     assert "高校・数学III" in displays
+    assert "ES_MATH_ENTRANCE" in codes
+    assert "ES_JPN_ENTRANCE" in codes
     assert "HS_MATH_GENERAL" in codes
+    assert "HS_MATH_IIBC" in codes
     assert "HS_MATH_III" in codes
 
 

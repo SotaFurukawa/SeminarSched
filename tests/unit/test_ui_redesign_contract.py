@@ -53,13 +53,19 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
         assert "previewMasterImport" in source
         assert "applyMasterImport" in source
     assert "この画面にもメール欄はありません" in teachers
+    assert "生徒ID（自動）" in students
+    assert "保存時にS-0001形式で自動採番" in students
+    assert "生徒ID（必須）" not in students
+    assert "講師ID（自動）" in teachers
+    assert "保存時にT-0001形式で自動採番" in teachers
+    assert "講師ID（必須）" not in teachers
 
     for label in ("1　回答ファイルを選ぶ", "2　内容を確認する", "3　反映完了"):
         assert label in questionnaire
     assert "列名が合わない場合の設定" in questionnaire
     for label in (
         "Googleフォーム作成キット",
-        "生徒用・講師用をまとめて作成…",
+        "3種類のフォームをまとめて作成…",
         "開校日 %1日／有効コマ %2件",
         "画像つき手順を見る",
     ):
@@ -76,7 +82,7 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     guide = _qml("GoogleFormsGuideDialog.qml")
     for label in (
         "アプリで作成キットを保存",
-        "Apps Scriptを2つ用意",
+        "Apps Scriptを3つ用意",
         "Code.gsへ全内容を貼り付け",
         "作成関数を選んで実行",
         "実行ログのURLを確認",

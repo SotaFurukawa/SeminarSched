@@ -138,7 +138,6 @@ Item {
 
     function openStudentWizard() {
         root.studentWizardStep = 0
-        wizardExternalId.text = "S-" + String(Date.now()).slice(-8)
         wizardFamilyName.text = ""
         wizardGivenName.text = ""
         wizardGrade.currentIndex = 0
@@ -568,22 +567,16 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: 3
                                         Label {
-                                            text: qsTr("生徒ID（必須）")
+                                            text: qsTr("生徒ID（自動）")
                                             color: "#344054"
                                             font.pixelSize: 11
                                         }
                                         TextField {
                                             id: studentExternalId
                                             Layout.fillWidth: true
-                                            placeholderText: qsTr("例：S001")
+                                            readOnly: true
+                                            placeholderText: qsTr("保存時にS-0001形式で自動採番")
                                             Accessible.name: qsTr("生徒ID")
-                                            onTextEdited: root.viewModel.markDirty()
-                                        }
-                                        Label {
-                                            visible: root.studentSaveAttempted && studentExternalId.text.trim() === ""
-                                            text: qsTr("生徒IDを入力してください。")
-                                            color: "#a23b3b"
-                                            font.pixelSize: 10
                                         }
                                     }
 
@@ -751,8 +744,7 @@ Item {
                                         highlighted: true
                                         onClicked: {
                                             root.studentSaveAttempted = true
-                                            if (studentExternalId.text.trim() === ""
-                                                    || studentName.text.trim() === ""
+                                            if (studentName.text.trim() === ""
                                                     || studentGrade.currentIndex < 0)
                                                 return
                                             root.viewModel.saveStudent(
@@ -1289,12 +1281,6 @@ Item {
                     columns: 2
                     columnSpacing: 12
                     rowSpacing: 8
-                    Label { text: qsTr("生徒ID（必須）") }
-                    TextField {
-                        id: wizardExternalId
-                        Layout.fillWidth: true
-                        Accessible.name: qsTr("追加する生徒のID")
-                    }
                     Label { text: qsTr("苗字（必須）") }
                     TextField {
                         id: wizardFamilyName
@@ -1369,8 +1355,7 @@ Item {
                     }
                     Label {
                         Layout.fillWidth: true
-                        text: qsTr("ID: %1\n最大連続: %2コマ\n空きコマ: %3\n状態: %4")
-                              .arg(wizardExternalId.text.trim())
+                        text: qsTr("ID: 保存時に自動採番\n最大連続: %1コマ\n空きコマ: %2\n状態: %3")
                               .arg(wizardMaxConsecutive.value)
                               .arg(wizardAllowGap.checked ? qsTr("許可") : qsTr("不許可"))
                               .arg(wizardActive.checked ? qsTr("有効") : qsTr("停止"))
@@ -1408,8 +1393,7 @@ Item {
                     text: root.studentWizardStep < 2 ? qsTr("次へ") : qsTr("登録")
                     kind: "primary"
                     enabled: root.studentWizardStep > 0
-                             || (wizardExternalId.text.trim().length > 0
-                                 && wizardFamilyName.text.trim().length > 0
+                             || (wizardFamilyName.text.trim().length > 0
                                  && wizardGivenName.text.trim().length > 0)
                     onClicked: {
                         if (root.studentWizardStep < 2) {
@@ -1420,7 +1404,7 @@ Item {
                                          + " " + wizardGivenName.text.trim()
                         if (root.viewModel.saveStudent(
                                     0,
-                                    wizardExternalId.text.trim(),
+                                    "",
                                     fullName,
                                     wizardGrade.currentText,
                                     wizardMaxConsecutive.value,

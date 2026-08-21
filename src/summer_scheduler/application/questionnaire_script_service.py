@@ -29,6 +29,7 @@ class QuestionnaireScriptExportResult:
     directory: Path
     student_script: Path
     teacher_script: Path
+    teacher_subject_script: Path
     instructions: Path
     open_date_count: int
     time_slot_count: int
@@ -140,6 +141,24 @@ class QuestionnaireScriptService:
             "openDates": open_dates,
             "timeSlots": time_slots,
         }
+        teacher_subject_config: dict[str, object] = {
+            "kind": "teacher_subject",
+            "title": f"{project.title} 講師 指導可能科目アンケート",
+            "deadline": cleaned_deadline,
+            "contact": cleaned_contact,
+            "description": (
+                "現在、講師本人が単独で授業を進められる指導可能科目を確認する"
+                "フォームです。小学校・中学校・高校から、該当する科目をすべて"
+                "選択してください。\n\n回答は講師マスターの更新、担当可能科目の確認、"
+                "時間割作成にだけ使用します。回答先スプレッドシートの閲覧者は"
+                "担当者に限定してください。"
+            ),
+            "subjectsBySchoolLevel": {
+                "elementary": subjects_by_level["elementary"],
+                "juniorHigh": subjects_by_level["junior_high"],
+                "highSchool": subjects_by_level["high_school"],
+            },
+        }
 
         timestamp = self._clock().strftime("%Y%m%d_%H%M%S")
         base_name = f"Googleフォーム_{_safe_filename(project.title)}_{timestamp}"
@@ -148,6 +167,7 @@ class QuestionnaireScriptService:
         try:
             student_path = temporary / "create_student_questionnaire.gs"
             teacher_path = temporary / "create_teacher_questionnaire.gs"
+            teacher_subject_path = temporary / "create_teacher_subject_questionnaire.gs"
             instructions_path = temporary / "Googleフォーム作成手順.txt"
             student_path.write_text(
                 _render_script(student_config, kind="student"),
@@ -156,6 +176,11 @@ class QuestionnaireScriptService:
             )
             teacher_path.write_text(
                 _render_script(teacher_config, kind="teacher"),
+                encoding="utf-8",
+                newline="\n",
+            )
+            teacher_subject_path.write_text(
+                _render_script(teacher_subject_config, kind="teacher_subject"),
                 encoding="utf-8",
                 newline="\n",
             )
@@ -173,6 +198,7 @@ class QuestionnaireScriptService:
             directory=destination,
             student_script=destination / "create_student_questionnaire.gs",
             teacher_script=destination / "create_teacher_questionnaire.gs",
+            teacher_subject_script=destination / "create_teacher_subject_questionnaire.gs",
             instructions=destination / "Googleフォーム作成手順.txt",
             open_date_count=len(open_dates),
             time_slot_count=len(time_slots),
@@ -220,6 +246,15 @@ def _render_script(config: dict[str, object], *, kind: str) -> str:
             "__REPLACEMENT_FUNCTION__": "createReplacementTeacherQuestionnaire",
             "__KIND_LABEL__": "講師用",
         }
+    elif kind == "teacher_subject":
+        replacements = {
+            "__FORM_ID_PROPERTY__": "SUMMER_SCHEDULER_TEACHER_SUBJECT_FORM_ID",
+            "__SHEET_ID_PROPERTY__": "SUMMER_SCHEDULER_TEACHER_SUBJECT_RESPONSE_SHEET_ID",
+            "__CREATE_FUNCTION__": "createTeacherSubjectQuestionnaire",
+            "__SHOW_FUNCTION__": "showCreatedTeacherSubjectQuestionnaireUrls",
+            "__REPLACEMENT_FUNCTION__": "createReplacementTeacherSubjectQuestionnaire",
+            "__KIND_LABEL__": "講師指導可能科目用",
+        }
     else:
         raise ValueError("Googleフォームの種類が不正です")
 
@@ -236,7 +271,7 @@ def _instructions(project_title: str, open_date_count: int, time_slot_count: int
     return f"""{project_title} Googleフォーム作成手順
 
 このフォルダーには、①で設定した開校日{open_date_count}日・有効コマ{time_slot_count}件を
-反映した生徒用／講師用Google Apps Scriptが入っています。
+反映した生徒用／講師勤務日時用／講師指導可能科目用Google Apps Scriptが入っています。
 
 【生徒用】
 1. https://script.google.com/ で「新しいプロジェクト」を作ります。
@@ -251,11 +286,20 @@ def _instructions(project_title: str, open_date_count: int, time_slot_count: int
 3. 保存後、関数createTeacherQuestionnaireを選択して「実行」を押します。
 4. 実行ログのフォーム編集URLを開きます。
 
+【講師・指導可能科目用】
+1. 上記2つとは別のApps Scriptプロジェクトを新しく作ります。
+2. create_teacher_subject_questionnaire.gsの全内容をCode.gsへ貼り付けます。
+3. 保存後、関数createTeacherSubjectQuestionnaireを選択して「実行」を押します。
+4. 実行ログのフォーム編集URLを開き、26科目と説明文を確認します。
+5. 回答用URLを講師へ案内します。講師のメールアドレスは収集しません。
+
 Google Apps Scriptの「デプロイ」は不要です。配布前に、タイトル、締切、質問、開校日、
 コマ、回答先スプレッドシートの共有範囲を必ず確認してください。
 
-回答後はGoogleスプレッドシートからxlsxまたはCSVをダウンロードし、アプリの②
-「アンケート取込み」で生徒回答／講師回答を選んで検証・反映します。
+生徒・講師勤務日時の回答後はGoogleスプレッドシートからxlsxまたはCSVをダウンロードし、
+アプリの②「アンケート取込み」で生徒回答／講師回答を選んで検証・反映します。
+指導可能科目の回答は回答原本で確認し、ホームの「生徒・講師_基本情報.xlsx」の
+「講師対応科目」へ、校舎側で内容を確認して反映してください。
 
 このスクリプトはフォーム作成時だけGoogleへアクセスします。アプリ本体はGoogleへ接続せず、
 回答や個人情報を外部へ送信しません。
@@ -315,7 +359,9 @@ function __CREATE_FUNCTION__() {
     .setHelpText(
       QUESTIONNAIRE_CONFIG.kind === "student"
         ? "回答を講習の受付、時間割作成、内容確認、必要な連絡に使用します。"
-        : "回答を勤務希望の確認、時間割作成、内容確認、必要な連絡に使用します。",
+        : QUESTIONNAIRE_CONFIG.kind === "teacher_subject"
+          ? "回答を講師マスターの更新、担当可能科目の確認、時間割作成に使用します。"
+          : "回答を勤務希望の確認、時間割作成、内容確認、必要な連絡に使用します。",
     )
     .setChoiceValues(["上記の利用目的を確認し、回答します"])
     .setRequired(true);
@@ -332,8 +378,10 @@ function __CREATE_FUNCTION__() {
 
   if (QUESTIONNAIRE_CONFIG.kind === "student") {
     addStudentQuestions_(form);
-  } else {
+  } else if (QUESTIONNAIRE_CONFIG.kind === "teacher") {
     addTeacherQuestions_(form);
+  } else {
+    addTeacherSubjectQuestions_(form);
   }
 
   const spreadsheet = SpreadsheetApp.create(`${QUESTIONNAIRE_CONFIG.title} 回答原本`);
@@ -430,6 +478,58 @@ function addTeacherQuestions_(form) {
     .setRequired(false);
 }
 
+function addTeacherSubjectQuestions_(form) {
+  form
+    .addSectionHeaderItem()
+    .setTitle("現在の指導可能科目")
+    .setHelpText(
+      "教材を使い、講師本人が単独で授業を進められる科目をすべて選択してください。" +
+        "未経験、補助が必要、または現在は担当できない科目は選択しないでください。",
+    );
+  addTeacherSubjectCheckbox_(
+    form,
+    "指導可能科目（小学校）",
+    QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.elementary,
+  );
+  addTeacherSubjectCheckbox_(
+    form,
+    "指導可能科目（中学校）",
+    QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.juniorHigh,
+  );
+  addTeacherSubjectCheckbox_(
+    form,
+    "指導可能科目（高校）",
+    QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.highSchool,
+  );
+  form
+    .addMultipleChoiceItem()
+    .setTitle("指導可能科目の確認（必須）")
+    .setHelpText(
+      "選択した科目だけを現在の指導可能科目として回答することを確認してください。" +
+        "1科目もない場合は、2つ目を選択してください。",
+    )
+    .setChoiceValues([
+      "上記で選択した科目を現在指導できます",
+      "現在指導可能な科目はありません",
+    ])
+    .setRequired(true);
+  form
+    .addParagraphTextItem()
+    .setTitle("指導可能科目に関する補足")
+    .setHelpText(
+      "例: 高校数学は数学I・Aのみ、受験指導は要相談、研修後に追加可能、など。",
+    )
+    .setRequired(false);
+}
+
+function addTeacherSubjectCheckbox_(form, title, subjects) {
+  form
+    .addCheckboxItem()
+    .setTitle(title)
+    .setChoiceValues(subjects)
+    .setRequired(false);
+}
+
 function addSubjectRequestSection_(form, schoolLabel, subjects) {
   for (let index = 1; index <= 4; index += 1) {
     const required = index === 1;
@@ -492,18 +592,23 @@ function formatDateLabel_(isoDate) {
 }
 
 function validateQuestionnaireConfig_() {
-  const dates = QUESTIONNAIRE_CONFIG.openDates;
-  if (dates.length === 0) throw new Error("開校日を1日以上設定してください。");
-  if (new Set(dates).size !== dates.length) throw new Error("開校日が重複しています。");
-  dates.forEach((value) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      throw new Error(`開校日はYYYY-MM-DD形式にしてください: ${value}`);
+  if (QUESTIONNAIRE_CONFIG.kind !== "teacher_subject") {
+    const dates = QUESTIONNAIRE_CONFIG.openDates;
+    if (dates.length === 0) throw new Error("開校日を1日以上設定してください。");
+    if (new Set(dates).size !== dates.length) throw new Error("開校日が重複しています。");
+    dates.forEach((value) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        throw new Error(`開校日はYYYY-MM-DD形式にしてください: ${value}`);
+      }
+    });
+    if (QUESTIONNAIRE_CONFIG.timeSlots.length === 0) {
+      throw new Error("時間帯を1件以上設定してください。");
     }
-  });
-  if (QUESTIONNAIRE_CONFIG.timeSlots.length === 0) {
-    throw new Error("時間帯を1件以上設定してください。");
   }
-  if (QUESTIONNAIRE_CONFIG.kind === "student") {
+  if (
+    QUESTIONNAIRE_CONFIG.kind === "student" ||
+    QUESTIONNAIRE_CONFIG.kind === "teacher_subject"
+  ) {
     const subjects = Object.values(QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel).flat();
     if (subjects.length === 0 || new Set(subjects).size !== subjects.length) {
       throw new Error("科目選択肢が未設定または重複しています。");

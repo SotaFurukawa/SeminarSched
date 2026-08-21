@@ -72,12 +72,15 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
     assert result.directory.name == "Googleフォーム_2026年 夏期講習_20260601_123000"
     assert result.student_script.is_file()
     assert result.teacher_script.is_file()
+    assert result.teacher_subject_script.is_file()
     assert result.instructions.is_file()
 
     student_source = result.student_script.read_text(encoding="utf-8")
     teacher_source = result.teacher_script.read_text(encoding="utf-8")
+    teacher_subject_source = result.teacher_subject_script.read_text(encoding="utf-8")
     student_config = _script_config(student_source)
     teacher_config = _script_config(teacher_source)
+    teacher_subject_config = _script_config(teacher_subject_source)
 
     assert student_config["openDates"] == ["2026-08-01", "2026-08-03"]
     assert teacher_config["openDates"] == student_config["openDates"]
@@ -95,6 +98,14 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
         *subject_groups["highSchool"],
     ]
     assert generated_subjects == [subject.display_name for subject in DEFAULT_SUBJECTS]
+    teacher_subject_groups = cast(
+        dict[str, list[str]], teacher_subject_config["subjectsBySchoolLevel"]
+    )
+    assert [
+        *teacher_subject_groups["elementary"],
+        *teacher_subject_groups["juniorHigh"],
+        *teacher_subject_groups["highSchool"],
+    ] == generated_subjects
     assert "function createStudentQuestionnaire()" in student_source
     assert "elementaryPage.setGoToPage(availabilityPage)" in student_source
     assert "juniorHighPage.setGoToPage(availabilityPage)" in student_source
@@ -102,11 +113,19 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
     assert "function createReplacementStudentQuestionnaire()" in student_source
     assert "function createTeacherQuestionnaire()" in teacher_source
     assert "function createReplacementTeacherQuestionnaire()" in teacher_source
+    assert "function createTeacherSubjectQuestionnaire()" in teacher_subject_source
+    assert "function createReplacementTeacherSubjectQuestionnaire()" in teacher_subject_source
+    assert '"指導可能科目（小学校）"' in teacher_subject_source
+    assert '"指導可能科目（中学校）"' in teacher_subject_source
+    assert '"指導可能科目（高校）"' in teacher_subject_source
+    assert 'setCollectEmail(QUESTIONNAIRE_CONFIG.kind === "student")' in teacher_subject_source
     assert "__CONFIG_JSON__" not in student_source
     assert "__CREATE_FUNCTION__" not in teacher_source
-    assert "Google Apps Scriptの「デプロイ」は不要" in result.instructions.read_text(
-        encoding="utf-8"
-    )
+    instructions = result.instructions.read_text(encoding="utf-8")
+    assert "Google Apps Scriptの「デプロイ」は不要" in instructions
+    assert "create_teacher_subject_questionnaire.gs" in instructions
+    assert "createTeacherSubjectQuestionnaire" in instructions
+    assert "講師のメールアドレスは収集しません" in instructions
 
 
 def test_export_uses_a_new_directory_instead_of_overwriting(
@@ -135,6 +154,9 @@ def test_export_uses_a_new_directory_instead_of_overwriting(
     assert first.student_script.read_text(encoding="utf-8") == second.student_script.read_text(
         encoding="utf-8"
     )
+    assert first.teacher_subject_script.read_text(
+        encoding="utf-8"
+    ) == second.teacher_subject_script.read_text(encoding="utf-8")
 
 
 def test_export_requires_open_dates_and_required_form_settings(

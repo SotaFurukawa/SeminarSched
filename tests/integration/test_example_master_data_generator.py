@@ -43,8 +43,8 @@ def test_generated_example_imports_and_regular_teachers_are_qualified(
         expected_counts = {
             STUDENT_SHEET.name: 50,
             TEACHER_SHEET.name: 20,
-            SUBJECT_SHEET.name: 23,
-            QUALIFICATION_SHEET.name: 460,
+            SUBJECT_SHEET.name: 26,
+            QUALIFICATION_SHEET.name: 520,
             LESSON_REQUEST_SHEET.name: len(rows[LESSON_REQUEST_SHEET.name]),
         }
         for sheet_name, expected_count in expected_counts.items():
@@ -82,8 +82,8 @@ def test_generated_example_imports_and_regular_teachers_are_qualified(
 
         assert session.scalar(select(func.count()).select_from(Student)) == 50
         assert session.scalar(select(func.count()).select_from(Teacher)) == 20
-        assert session.scalar(select(func.count()).select_from(Subject)) == 23
-        assert session.scalar(select(func.count()).select_from(TeacherQualification)) == 20 * 23
+        assert session.scalar(select(func.count()).select_from(Subject)) == 26
+        assert session.scalar(select(func.count()).select_from(TeacherQualification)) == 20 * 26
 
         unqualified_regular_count = session.scalar(
             select(func.count())

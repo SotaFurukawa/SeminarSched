@@ -75,6 +75,34 @@ def test_duplicate_student_and_teacher_ids_are_rejected(
         )
 
 
+def test_blank_student_and_teacher_ids_are_generated_in_sequence(
+    master_service: MasterDataService,
+) -> None:
+    for name in ("架空 花子", "架空 太郎"):
+        master_service.save_student(
+            record_id=None,
+            external_id="",
+            name=name,
+            grade="中1",
+            default_max_consecutive_slots=2,
+            allow_gap=False,
+            note="",
+            active=True,
+        )
+    for name in ("講師 一郎", "講師 二郎"):
+        master_service.save_teacher(
+            record_id=None,
+            external_id="",
+            name=name,
+            allow_gap=False,
+            note="",
+            active=True,
+        )
+
+    assert [row.external_id for row in master_service.list_students()] == ["S-0001", "S-0002"]
+    assert [row.external_id for row in master_service.list_teachers()] == ["T-0001", "T-0002"]
+
+
 def test_student_grade_filter_accepts_common_japanese_notation(
     master_service: MasterDataService,
 ) -> None:

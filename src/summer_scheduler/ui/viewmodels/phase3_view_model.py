@@ -606,7 +606,7 @@ class Phase3ViewModel(QObject):
         deadline: str,
         contact: str,
     ) -> bool:
-        """現在の日程・コマを反映した生徒用／講師用Apps Scriptを生成する。"""
+        """生徒用・講師勤務日時用・講師指導可能科目用Apps Scriptを生成する。"""
 
         def action() -> None:
             result = self._questionnaires.export_scripts(
@@ -621,7 +621,7 @@ class Phase3ViewModel(QObject):
 
         return self._perform(
             action,
-            "生徒用・講師用Googleフォーム作成キットを保存しました",
+            "生徒用・講師勤務日時用・講師指導可能科目用フォーム作成キットを保存しました",
         )
 
     @Slot(result=bool)

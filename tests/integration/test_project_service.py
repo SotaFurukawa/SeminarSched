@@ -53,7 +53,7 @@ def test_create_save_reopen_and_recent_project(
     database = project_service.require_database()
     with database.session_factory() as session:
         assert session.scalar(select(func.count()).select_from(TimeSlot)) == 5
-        assert session.scalar(select(func.count()).select_from(Subject)) == 23
+        assert session.scalar(select(func.count()).select_from(Subject)) == 26
         assert session.scalar(select(func.count()).select_from(OpenDate)) == 3
 
     project_service.close_project()

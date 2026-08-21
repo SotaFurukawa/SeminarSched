@@ -12,6 +12,7 @@ SCRIPT = (
     / "create_student_questionnaire.gs"
 )
 TEACHER_SCRIPT = SCRIPT.with_name("create_teacher_questionnaire.gs")
+TEACHER_SUBJECT_SCRIPT = SCRIPT.with_name("create_teacher_subject_questionnaire.gs")
 
 
 def test_google_form_generator_uses_application_subject_names() -> None:
@@ -94,3 +95,20 @@ def test_teacher_google_form_generator_matches_unavailable_grid_contract() -> No
     assert 'setTitle("出勤不可日時の確認（必須）")' in source
     assert "FormApp.DestinationType.SPREADSHEET" in source
     assert len(re.findall(r'"2026-\d{2}-\d{2}"', source)) == 21
+
+
+def test_teacher_subject_google_form_generator_uses_all_application_subjects() -> None:
+    source = TEACHER_SUBJECT_SCRIPT.read_text(encoding="utf-8")
+
+    for subject in DEFAULT_SUBJECTS:
+        assert source.count(f'"{subject.display_name}"') == 1
+    assert "function createTeacherSubjectQuestionnaire()" in source
+    assert "function createReplacementTeacherSubjectQuestionnaire()" in source
+    assert "setCollectEmail(false)" in source
+    assert source.count(".addCheckboxItem()") == 1
+    assert '"指導可能科目（小学校）"' in source
+    assert '"指導可能科目（中学校）"' in source
+    assert '"指導可能科目（高校）"' in source
+    assert 'setTitle("指導可能科目の確認（必須）")' in source
+    assert "現在指導可能な科目はありません" in source
+    assert "FormApp.DestinationType.SPREADSHEET" in source

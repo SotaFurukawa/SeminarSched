@@ -18,7 +18,7 @@
 
 ## 2. 実装済みのスコープ
 
-Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.3.0`の
+Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.3.1`の
 公開準備版である。Windows成果物は社内利用向けに未署名で配布する方針である。
 
 ### Phase 0：設計
@@ -71,7 +71,7 @@ Phase 1で作った画面シェルと基盤はPhase 2でも維持する。
   TeacherQualification、LessonRequestのDBモデルとAlembic migration
 - 既定5コマと、重複・時刻範囲・時刻区間重複等の検証
 - 講習期間内の開校日・休校日・備考、一括開校、曜日休校、選択日変更
-- 小学校5、中学校5、高校13区分、合計23科目の初期登録
+- 小学校7、中学校5、高校14区分、合計26科目の初期登録
 - 生徒・講師の一覧、部分一致検索、追加、編集、使用停止、削除確認
 - 講師×科目の指導可否と一括操作
 - 生徒×科目のLessonRequestと優先度・講師参照等の検証
@@ -254,7 +254,7 @@ PDFとExcelの共通レイアウト、Qt選定、原子的保存、安全検証�
 
 ### Phase 7：品質保証・バックアップ・Windows配布
 
-- app version `1.3.0`をpackage metadata、Qt application、About、log、帳票へ
+- app version `1.3.1`をpackage metadata、Qt application、About、log、帳票へ
   表示し、Alembic schema revisionとは別の版として扱う
 - project open直後と設定間隔ごとの自動backup。既定5分間隔・project別5世代で、
   `%LOCALAPPDATA%\SummerScheduler\backups`へ保存する

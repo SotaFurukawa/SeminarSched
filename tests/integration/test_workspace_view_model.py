@@ -35,7 +35,7 @@ def test_unicode_file_url_project_lifecycle_and_qml_weekday_mapping(
         assert cast(bool, view_model.hasOpenProject)
         assert cast(str, view_model.currentProjectTitle) == "2026年 夏期講習"
         assert len(cast(list[dict[str, object]], view_model.timeSlots)) == 5
-        assert len(cast(list[dict[str, object]], view_model.subjects)) == 23
+        assert len(cast(list[dict[str, object]], view_model.subjects)) == 26
         assert project_path.is_file()
 
         # QMLの曜日一覧は日曜=0。Pythonのweekday()へ正しく変換する。

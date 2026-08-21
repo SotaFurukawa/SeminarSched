@@ -23,7 +23,8 @@ from summer_scheduler.infrastructure.db import (
 _PHASE5_REVISION = "20260729_0005"
 _PHASE6_REVISION = "20260729_0006"
 _IMPORT_SNAPSHOT_REVISION = "20260807_0007"
-_HEAD_REVISION = "20260818_0008"
+_REGULAR_LESSON_REVISION = "20260818_0008"
+_HEAD_REVISION = "20260822_0009"
 
 
 def test_first_migration_creates_unicode_path_database(tmp_path: Path) -> None:
@@ -147,7 +148,7 @@ def test_regular_lesson_profile_migration_round_trip_preserves_existing_data(
         _seed_phase5_business_rows(database)
         expected = _phase5_business_rows(database)
 
-        _migrate_to(database, _HEAD_REVISION)
+        _migrate_to(database, _REGULAR_LESSON_REVISION)
         with database.engine.begin() as connection:
             connection.execute(
                 text(
@@ -166,9 +167,110 @@ def test_regular_lesson_profile_migration_round_trip_preserves_existing_data(
         assert "regular_lesson_profiles" not in inspect(database.engine).get_table_names()
         assert _phase5_business_rows(database) == expected
 
-        _migrate_to(database, _HEAD_REVISION)
+        _migrate_to(database, _REGULAR_LESSON_REVISION)
         assert "regular_lesson_profiles" in inspect(database.engine).get_table_names()
         assert _phase5_business_rows(database) == expected
+    finally:
+        database.dispose()
+
+
+def test_subject_split_migration_preserves_ids_and_does_not_infer_qualifications(
+    tmp_path: Path,
+) -> None:
+    database = create_database(tmp_path / "科目分割_migration.jukuschedule")
+    try:
+        _migrate_to(database, _REGULAR_LESSON_REVISION)
+        with database.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO teachers (id, external_id, name)
+                    VALUES (20, 'T-0001', '架空 講師')
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO subjects
+                        (id, code, display_name, school_level, sort_order, active)
+                    VALUES
+                        (31, 'ES_MATH', '小学校・算数', 'elementary', 2, 1),
+                        (32, 'ES_JPN', '小学校・国語', 'elementary', 3, 1),
+                        (33, 'HS_MATH_GENERAL', '高校・数学一般', 'high_school', 14, 1)
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO teacher_qualifications
+                        (teacher_id, subject_id, can_teach)
+                    VALUES (20, 31, 1)
+                    """
+                )
+            )
+
+        _migrate_to(database, _HEAD_REVISION)
+        with database.engine.connect() as connection:
+            subjects = {
+                row.code: (row.id, row.display_name, row.active)
+                for row in connection.execute(
+                    text(
+                        """
+                        SELECT id, code, display_name, active
+                        FROM subjects
+                        ORDER BY sort_order
+                        """
+                    )
+                )
+            }
+            qualification_codes = (
+                connection.execute(
+                    text(
+                        """
+                    SELECT subjects.code
+                    FROM teacher_qualifications
+                    JOIN subjects ON subjects.id = teacher_qualifications.subject_id
+                    WHERE teacher_qualifications.teacher_id = 20
+                      AND teacher_qualifications.can_teach = 1
+                    """
+                    )
+                )
+                .scalars()
+                .all()
+            )
+
+        assert subjects["ES_MATH"] == (
+            31,
+            "小学校・算数（中学受験以外なら可能）",
+            1,
+        )
+        assert subjects["ES_JPN"] == (
+            32,
+            "小学校・国語（中学受験以外なら可能）",
+            1,
+        )
+        assert subjects["HS_MATH_GENERAL"] == (33, "高校・数学IA", 1)
+        assert subjects["ES_MATH_ENTRANCE"][1:] == ("小学校・算数（中学受験）", 1)
+        assert subjects["ES_JPN_ENTRANCE"][1:] == ("小学校・国語（中学受験）", 1)
+        assert subjects["HS_MATH_IIBC"][1:] == ("高校・数学IIBC", 1)
+        assert qualification_codes == ["ES_MATH"]
+
+        _migrate_to(database, _REGULAR_LESSON_REVISION, downgrade=True)
+        with database.engine.connect() as connection:
+            legacy_subjects = {
+                row.code: (row.id, row.display_name)
+                for row in connection.execute(text("SELECT id, code, display_name FROM subjects"))
+            }
+        assert legacy_subjects == {
+            "ES_MATH": (31, "小学校・算数"),
+            "ES_JPN": (32, "小学校・国語"),
+            "HS_MATH_GENERAL": (33, "高校・数学一般"),
+        }
+
+        _migrate_to(database, _HEAD_REVISION)
+        assert get_current_revision(database.engine) == _HEAD_REVISION
     finally:
         database.dispose()
 

@@ -228,7 +228,7 @@ Item {
                             font.weight: Font.DemiBold
                         }
                         Label {
-                            text: qsTr("①の開校日・コマ・科目を反映した生徒用／講師用Apps Scriptをまとめて作ります。")
+                            text: qsTr("生徒用／講師勤務日時用／講師指導可能科目用のApps Scriptをまとめて作ります。")
                             color: "#667085"
                             font.pixelSize: 9
                         }
@@ -310,7 +310,7 @@ Item {
                         text: root.viewModel.lastQuestionnaireScriptDirectory
                               ? qsTr("保存済み：%1")
                                 .arg(root.viewModel.lastQuestionnaireScriptDirectory)
-                              : qsTr("2つの.gsと、貼り付け・実行手順書を同じフォルダーへ保存します。")
+                              : qsTr("3つの.gsと、貼り付け・実行手順書を同じフォルダーへ保存します。")
                         color: root.viewModel.lastQuestionnaireScriptDirectory
                                ? "#176b40" : "#667085"
                         font.pixelSize: 9
@@ -329,7 +329,7 @@ Item {
                     }
 
                     AppButton {
-                        text: qsTr("生徒用・講師用をまとめて作成…")
+                        text: qsTr("3種類のフォームをまとめて作成…")
                         kind: "primary"
                         enabled: root.configuredOpenDateCount > 0
                                  && root.configuredTimeSlotCount > 0

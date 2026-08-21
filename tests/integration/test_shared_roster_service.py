@@ -16,6 +16,7 @@ from summer_scheduler.infrastructure.db import create_database, upgrade_database
 from summer_scheduler.infrastructure.db.models import (
     RegularLessonProfile,
     Student,
+    Subject,
     Teacher,
     TeacherQualification,
 )
@@ -78,6 +79,7 @@ def test_shared_roster_syncs_people_qualifications_and_regular_lessons(
         teacher = session.scalar(select(Teacher).where(Teacher.external_id == "T001"))
         qualification = session.scalar(select(TeacherQualification))
         profile = session.scalar(select(RegularLessonProfile))
+        subjects = list(session.scalars(select(Subject).order_by(Subject.sort_order)))
     assert [(row.name, row.active) for row in students] == [
         ("山田 花子", True),
         ("佐藤 次郎", False),
@@ -87,12 +89,23 @@ def test_shared_roster_syncs_people_qualifications_and_regular_lessons(
     assert profile is not None
     assert profile.regular_teacher_id_optional == teacher.id
     assert profile.regular_teacher_priority == 4
+    assert len(subjects) == 26
+    assert {row.display_name for row in subjects} >= {
+        "小学校・算数（中学受験）",
+        "小学校・算数（中学受験以外なら可能）",
+        "小学校・国語（中学受験）",
+        "小学校・国語（中学受験以外なら可能）",
+        "高校・数学IA",
+        "高校・数学IIBC",
+        "高校・数学III",
+    }
 
     workbook = load_workbook(roster_service.path, data_only=False)
     try:
         assert workbook["生徒"]["H3"].value == "☐ 退籍"
         assert len(workbook["生徒"].conditional_formatting) > 0
         assert workbook["通常授業"]["J2"].value == 4
+        assert workbook["科目"].max_row == 27
     finally:
         workbook.close()
 
@@ -113,5 +126,61 @@ def test_blank_ids_are_generated_and_persisted(roster_service: SharedRosterServi
     try:
         assert workbook["生徒"]["A2"].value == "S-0001"
         assert workbook["講師"]["A2"].value == "T-0001"
+    finally:
+        workbook.close()
+
+
+def test_blank_ids_do_not_collide_with_ids_on_later_rows(
+    roster_service: SharedRosterService,
+) -> None:
+    write_shared_roster(
+        roster_service.path,
+        SharedRosterData(
+            students=(
+                SharedStudent("", "青木", "花子", "小2"),
+                SharedStudent("S-0001", "山田", "太郎", "中1"),
+            ),
+            teachers=(
+                SharedTeacher("", "伊藤", "一郎"),
+                SharedTeacher("T0001", "田中", "二郎"),
+            ),
+            subjects=(SharedSubject("ES_MATH", "小学校・算数", "elementary", 1),),
+        ),
+    )
+
+    roster_service.sync_to_current_project()
+
+    workbook = load_workbook(roster_service.path, data_only=False)
+    try:
+        student_ids = {workbook["生徒"][f"A{row}"].value for row in (2, 3)}
+        teacher_ids = {workbook["講師"][f"A{row}"].value for row in (2, 3)}
+        assert student_ids == {"S-0001", "S-0002"}
+        assert teacher_ids == {"T0001", "T-0002"}
+    finally:
+        workbook.close()
+
+
+def test_blank_ids_do_not_reuse_an_id_only_present_in_the_project(
+    roster_service: SharedRosterService,
+) -> None:
+    database = roster_service._projects.require_database()  # noqa: SLF001
+    with database.session_factory.begin() as session:
+        session.add(Student(external_id="S-0001", name="過去 生徒", grade="中3", active=False))
+        session.add(Teacher(external_id="T-0001", name="過去 講師", active=False))
+    write_shared_roster(
+        roster_service.path,
+        SharedRosterData(
+            students=(SharedStudent("", "新規", "生徒", "小2"),),
+            teachers=(SharedTeacher("", "新規", "講師"),),
+            subjects=(SharedSubject("ES_MATH", "小学校・算数", "elementary", 1),),
+        ),
+    )
+
+    roster_service.sync_to_current_project()
+
+    workbook = load_workbook(roster_service.path, data_only=False)
+    try:
+        assert workbook["生徒"]["A2"].value == "S-0002"
+        assert workbook["講師"]["A2"].value == "T-0002"
     finally:
         workbook.close()

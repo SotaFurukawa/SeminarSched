@@ -30,8 +30,10 @@ const QUESTIONNAIRE_CONFIG = Object.freeze({
   subjectsBySchoolLevel: {
     elementary: [
       "小学校・英語",
-      "小学校・算数",
-      "小学校・国語",
+      "小学校・算数（中学受験）",
+      "小学校・算数（中学受験以外なら可能）",
+      "小学校・国語（中学受験）",
+      "小学校・国語（中学受験以外なら可能）",
       "小学校・理科",
       "小学校・社会",
     ],
@@ -46,7 +48,8 @@ const QUESTIONNAIRE_CONFIG = Object.freeze({
       "高校・英語",
       "高校・現代文",
       "高校・古文",
-      "高校・数学一般",
+      "高校・数学IA",
+      "高校・数学IIBC",
       "高校・数学III",
       "高校・物理",
       "高校・化学",
@@ -329,8 +332,8 @@ function validateQuestionnaireConfig_() {
     throw new Error("学年は小1～高3の重複しない12項目にしてください。");
   }
   const subjects = Object.values(QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel).flat();
-  if (subjects.length !== 23) {
-    throw new Error("科目選択肢はアプリ既定の23科目と一致させてください。");
+  if (subjects.length !== 26) {
+    throw new Error("科目選択肢はアプリ既定の26科目と一致させてください。");
   }
   if (new Set(subjects).size !== subjects.length) {
     throw new Error("科目選択肢が重複しています。");

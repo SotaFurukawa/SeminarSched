@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.3.0** です。Phase 1の
+現在のアプリ版は **v1.3.1** です。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
 ドラッグ＆ドロップの即時検証、ロック、Undo / Redo、差分・監査、自動保存、
@@ -47,13 +47,15 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 ホームの`生徒・講師_基本情報.xlsx`は講習間で共通です。在籍情報、指導可能科目、
 通常授業の担当をここで編集し、新規講習には自動反映します。退籍者は削除せず
 `☐ 退籍`として灰色・末尾に保持します。日常的な少人数追加にはアプリ内の個別登録も
-使えます。集団授業は週カレンダー、時間割編集は未配置・時間割・
+使えます。生徒・講師IDの入力は不要で、保存時に`S-0001`／`T-0001`形式で自動採番します。
+集団授業は週カレンダー、時間割編集は未配置・時間割・
 選択詳細の3ペインです。出力は対象、形式、保存先の順に進み、詳細な帳票設定は必要な
 場合だけ開きます。詳細は[`docs/user_manual.md`](docs/user_manual.md)を参照してください。
 
-①で開校日とコマを設定した後、②の「Googleフォームを作る」から、生徒用・講師用の
-Google Apps Scriptと作成手順を一括出力できます。アプリはGoogleへ直接接続せず、回答や
-個人情報もスクリプトへ書き出しません。
+①で開校日とコマを設定した後、②の「Googleフォームを作る」から、生徒用・講師勤務日時用・
+講師指導可能科目用のGoogle Apps Scriptと作成手順を一括出力できます。講師用ではメール
+アドレスを収集しません。アプリはGoogleへ直接接続せず、回答や個人情報もスクリプトへ
+書き出しません。
 
 回答後は生徒回答と講師回答のCSV／xlsxを「おすすめ：まとめて取り込む」へそれぞれ
 1回ずつ指定します。基本情報にない在籍生・講師は赤、フォームで体験生と回答した生徒は
@@ -64,15 +66,15 @@ Google Apps Scriptと作成手順を一括出力できます。アプリはGoogl
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.3.0.exe`
-- `SummerCourseScheduler-Portable-1.3.0.zip`
+- `SummerCourseScheduler-Setup-1.3.1.exe`
+- `SummerCourseScheduler-Portable-1.3.1.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.3.0.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.3.0.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.3.1.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.3.1.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -151,7 +153,7 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 - プロジェクト名、校舎名、講習期間の編集
 - Y / Z / A / B / Cの初期コマと、コマ名・時刻・順序・使用可否の編集
 - 講習期間内の開校日・休校日・備考と一括設定
-- 小学校5科目、中学校5科目、高校13区分の初期科目
+- 小学校7科目、中学校5科目、高校14区分の初期科目
 - 生徒・講師の検索、追加、編集、使用停止、削除
 - 講師×科目の指導可否と、生徒×科目の受講希望
 - `master_data.xlsx` の出力、検証プレビュー、確認後の一括反映
@@ -300,7 +302,7 @@ python -m summer_scheduler --config .\config.example.yaml
 
 1. 「ホーム」の「新規プロジェクト」から、プロジェクト名、開始日、終了日を入力します。
    保存先はアプリの標準プロジェクトフォルダーへ自動的に決まります。
-2. 作成直後に既定の5コマ、23科目、期間内の開校日が登録されます。
+2. 作成直後に既定の5コマ、26科目、期間内の開校日が登録されます。
 3. 初期名簿は「生徒」「講師」のExcel一括追加・更新から登録します。設定では
    プロジェクト情報、コマ、開校日・休校日、科目、Excel入出力を扱います。
 4. 別ファイルへ切り替える場合は「既存プロジェクトを開く」または「最近使用した
@@ -548,11 +550,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.0
+  -Version 1.3.1
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.3.0.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.3.1.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -564,13 +566,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.0 `
+  -Version 1.3.1 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.3.0.zip `
-  dist\SummerCourseScheduler-Setup-1.3.0.exe
+  dist\SummerCourseScheduler-Portable-1.3.1.zip `
+  dist\SummerCourseScheduler-Setup-1.3.1.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

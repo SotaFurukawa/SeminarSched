@@ -142,6 +142,7 @@ def test_google_forms_script_export_is_exposed_to_qml(
     assert destination.parent == output.resolve()
     assert (destination / "create_student_questionnaire.gs").is_file()
     assert (destination / "create_teacher_questionnaire.gs").is_file()
+    assert (destination / "create_teacher_subject_questionnaire.gs").is_file()
     assert (destination / "Googleフォーム作成手順.txt").is_file()
     assert signal_spy.count() == 1
 

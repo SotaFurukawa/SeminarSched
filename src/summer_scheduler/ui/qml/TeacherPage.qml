@@ -208,7 +208,6 @@ Item {
 
     function openTeacherWizard() {
         root.teacherWizardStep = 0
-        wizardTeacherExternalId.text = "T-" + String(Date.now()).slice(-8)
         wizardTeacherFamilyName.text = ""
         wizardTeacherGivenName.text = ""
         wizardTeacherAllowGap.checked = false
@@ -507,23 +506,16 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: 3
                                         Label {
-                                            text: qsTr("講師ID（必須）")
+                                            text: qsTr("講師ID（自動）")
                                             color: "#344054"
                                             font.pixelSize: 11
                                         }
                                         TextField {
                                             id: teacherExternalId
                                             Layout.fillWidth: true
-                                            placeholderText: qsTr("例：T001")
+                                            readOnly: true
+                                            placeholderText: qsTr("保存時にT-0001形式で自動採番")
                                             Accessible.name: qsTr("講師ID")
-                                            onTextEdited: root.viewModel.markDirty()
-                                        }
-                                        Label {
-                                            visible: root.teacherSaveAttempted
-                                                     && teacherExternalId.text.trim() === ""
-                                            text: qsTr("講師IDを入力してください。")
-                                            color: "#a23b3b"
-                                            font.pixelSize: 10
                                         }
                                     }
 
@@ -641,8 +633,7 @@ Item {
                                         highlighted: true
                                         onClicked: {
                                             root.teacherSaveAttempted = true
-                                            if (teacherExternalId.text.trim() === ""
-                                                    || teacherName.text.trim() === "")
+                                            if (teacherName.text.trim() === "")
                                                 return
                                             root.viewModel.saveTeacher(
                                                         root.editingTeacherId,
@@ -1059,12 +1050,6 @@ Item {
                     columns: 2
                     columnSpacing: 12
                     rowSpacing: 8
-                    Label { text: qsTr("講師ID（必須）") }
-                    TextField {
-                        id: wizardTeacherExternalId
-                        Layout.fillWidth: true
-                        Accessible.name: qsTr("追加する講師のID")
-                    }
                     Label { text: qsTr("苗字（必須）") }
                     TextField {
                         id: wizardTeacherFamilyName
@@ -1124,8 +1109,7 @@ Item {
                     }
                     Label {
                         Layout.fillWidth: true
-                        text: qsTr("ID: %1\n空きコマ: %2\n状態: %3")
-                              .arg(wizardTeacherExternalId.text.trim())
+                        text: qsTr("ID: 保存時に自動採番\n空きコマ: %1\n状態: %2")
                               .arg(wizardTeacherAllowGap.checked ? qsTr("許可") : qsTr("不許可"))
                               .arg(wizardTeacherActive.checked ? qsTr("有効") : qsTr("停止"))
                         color: theme.textSecondary
@@ -1162,8 +1146,7 @@ Item {
                     text: root.teacherWizardStep < 2 ? qsTr("次へ") : qsTr("登録")
                     kind: "primary"
                     enabled: root.teacherWizardStep > 0
-                             || (wizardTeacherExternalId.text.trim().length > 0
-                                 && wizardTeacherFamilyName.text.trim().length > 0
+                             || (wizardTeacherFamilyName.text.trim().length > 0
                                  && wizardTeacherGivenName.text.trim().length > 0)
                     onClicked: {
                         if (root.teacherWizardStep < 2) {
@@ -1174,7 +1157,7 @@ Item {
                                          + " " + wizardTeacherGivenName.text.trim()
                         if (root.viewModel.saveTeacher(
                                     0,
-                                    wizardTeacherExternalId.text.trim(),
+                                    "",
                                     fullName,
                                     wizardTeacherAllowGap.checked,
                                     wizardTeacherNote.text,

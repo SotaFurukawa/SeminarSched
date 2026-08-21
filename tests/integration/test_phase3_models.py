@@ -258,11 +258,11 @@ def test_upgrade_from_0002_preserves_data_and_matches_metadata(
 
         assert database_path.is_file()
         assert set(inspect(database.engine).get_table_names()) == _CURRENT_TABLES
-        assert get_head_revision() == "20260818_0008"
+        assert get_head_revision() == "20260822_0009"
         with database.engine.connect() as connection:
             assert (
                 connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "20260818_0008"
+                == "20260822_0009"
             )
             assert (
                 connection.execute(

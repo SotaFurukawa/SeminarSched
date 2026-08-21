@@ -15,7 +15,7 @@ Availability取込みの同一transactionでBLOB、SHA-256、元ファイル名�
 
 ## 1. この文書の位置づけ
 
-このガイドは`1.3.0`時点の実装を説明する。公開版の機能仕様と
+このガイドは`1.3.1`時点の実装を説明する。公開版の機能仕様と
 ハード制約は[`specification.md`](specification.md)、初期設計は
 [`phase0_design.md`](phase0_design.md)、主要な判断理由は[`adr/`](adr/)を参照する。
 このガイドは、仕様に定めたハード制約やデータ安全性要件を緩和しない。
@@ -83,7 +83,7 @@ QML の表示だけを確認する場合も、QML ファイルを単独起動せ
 | `src/summer_scheduler/infrastructure/db/base.py` | SQLAlchemy declarative base |
 | `src/summer_scheduler/infrastructure/db/database.py` | engine / session と SQLite 接続 |
 | `src/summer_scheduler/infrastructure/db/migration_runner.py` | 埋込み Alembic 環境の実行 |
-| `src/summer_scheduler/domain/defaults.py` | 既定5コマと23科目 |
+| `src/summer_scheduler/domain/defaults.py` | 既定5コマと26科目 |
 | `src/summer_scheduler/domain/validation.py` | UIとDBに依存しないPhase 2入力検証 |
 | `src/summer_scheduler/domain/time_ranges.py` | 任意時刻を半開区間で比較する共通規則 |
 | `src/summer_scheduler/application/project_service.py` | `.jukuschedule`の作成・読込み・コピー・整合性検査・世代backup・安全な復元 |
@@ -417,8 +417,8 @@ Student、Teacher、Subjectはファイル境界のマスターである。各�
 
 TimeSlot、OpenDate、LessonRequestは`project_id`を持つ。LessonRequestは
 `(project_id, student_id, subject_id)`を一意とし、通常担当と希望講師の参照は
-nullableで保持する。TeacherQualificationは複合主キーとし、高校数学一般と
-高校数学IIIを含む各科目の`can_teach`を個別に明示する。
+nullableで保持する。TeacherQualificationは複合主キーとし、小学校の中学受験区分や
+高校数学IA・IIBC・IIIを含む各科目の`can_teach`を個別に明示する。
 
 ### 9.4 削除方針
 
@@ -1102,7 +1102,7 @@ py -3.12 -m venv .venv-release
 ```powershell
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.0
+  -Version 1.3.1
 ```
 
 scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し、
@@ -1110,7 +1110,7 @@ scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し�
 既定YAML、全Alembic revision、Qt Quick／PDF、OR-Tools native runtime、
 `THIRD_PARTY_NOTICES.md`、収集したlicenseが必要で、DB、`.jukuschedule`、log、
 入出力、backup、user config、build crash reportを拒否する。検査後に
-`dist/SummerCourseScheduler-Portable-1.3.0.zip`を決定的順序で作る。
+`dist/SummerCourseScheduler-Portable-1.3.1.zip`を決定的順序で作る。
 
 2026-07-29に同一build machineで生成した未公開候補は143,564,844 bytes、
 SHA-256 `5611f8e62b6e7e8e9ac456ca91186f5a52e207573fb866b377ccbaf0796eba2f`だった。
@@ -1132,13 +1132,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.0 `
+  -Version 1.3.1 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.3.0.zip `
-  dist\SummerCourseScheduler-Setup-1.3.0.exe
+  dist\SummerCourseScheduler-Portable-1.3.1.zip `
+  dist\SummerCourseScheduler-Setup-1.3.1.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

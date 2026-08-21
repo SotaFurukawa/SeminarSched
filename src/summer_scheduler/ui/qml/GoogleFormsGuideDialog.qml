@@ -11,30 +11,31 @@ Dialog {
         {
             "number": "1",
             "title": qsTr("アプリで作成キットを保存"),
-            "description": qsTr("②のフォーム作成欄へフォーム名・締切・問い合わせ先を入力し、生徒用と講師用をまとめて作成します。"),
+            "description": qsTr("②のフォーム作成欄へフォーム名・締切・問い合わせ先を入力し、3種類をまとめて作成します。"),
             "mockTitle": qsTr("SummerCourseScheduler"),
             "mockRows": [
                 {"label": qsTr("開校日 18日／有効コマ 4件"), "kind": "complete"},
                 {"label": qsTr("フォーム名・締切・問い合わせ先"), "kind": "field"},
-                {"label": qsTr("生徒用・講師用をまとめて作成"), "kind": "action"}
+                {"label": qsTr("3種類のフォームをまとめて作成"), "kind": "action"}
             ],
             "bullets": [
                 qsTr("①で設定した開校日・コマ・科目が自動反映されます。"),
-                qsTr("保存先には2つの.gsと手順書が作成されます。")
+                qsTr("保存先には3つの.gsと手順書が作成されます。")
             ]
         },
         {
             "number": "2",
-            "title": qsTr("Apps Scriptを2つ用意"),
-            "description": qsTr("ブラウザーでGoogle Apps Scriptを開き、生徒用と講師用に別々の「新しいプロジェクト」を作ります。"),
+            "title": qsTr("Apps Scriptを3つ用意"),
+            "description": qsTr("ブラウザーでGoogle Apps Scriptを開き、3種類それぞれに別の「新しいプロジェクト」を作ります。"),
             "mockTitle": qsTr("Google Apps Script"),
             "mockRows": [
                 {"label": qsTr("＋ 新しいプロジェクト"), "kind": "action"},
                 {"label": qsTr("生徒アンケート用プロジェクト"), "kind": "field"},
-                {"label": qsTr("講師アンケート用プロジェクト"), "kind": "field"}
+                {"label": qsTr("講師勤務日時用プロジェクト"), "kind": "field"},
+                {"label": qsTr("講師指導科目用プロジェクト"), "kind": "field"}
             ],
             "bullets": [
-                qsTr("同じプロジェクトへ2ファイルを混ぜないでください。"),
+                qsTr("同じプロジェクトへ複数ファイルを混ぜないでください。"),
                 qsTr("Google Apps Scriptの「デプロイ」は不要です。")
             ]
         },
@@ -50,7 +51,8 @@ Dialog {
             ],
             "bullets": [
                 qsTr("生徒用にはcreate_student_questionnaire.gsを使います。"),
-                qsTr("講師用にはcreate_teacher_questionnaire.gsを使います。")
+                qsTr("講師勤務日時用にはcreate_teacher_questionnaire.gsを使います。"),
+                qsTr("指導可能科目用にはcreate_teacher_subject_questionnaire.gsを使います。")
             ]
         },
         {
@@ -64,7 +66,7 @@ Dialog {
                 {"label": qsTr("権限を確認 → 許可"), "kind": "warning"}
             ],
             "bullets": [
-                qsTr("講師用ではcreateTeacherQuestionnaireを選びます。"),
+                qsTr("講師勤務日時用はcreateTeacherQuestionnaire、指導可能科目用はcreateTeacherSubjectQuestionnaireを選びます。"),
                 qsTr("再実行時は既存フォームのURLが表示され、重複作成を防ぎます。")
             ]
         },
@@ -155,7 +157,9 @@ Dialog {
                             Layout.preferredWidth: Math.min(360,
                                                             Math.max(280,
                                                                      guideCard.width * 0.44))
-                            implicitHeight: 188
+                            implicitHeight: Math.max(
+                                                188,
+                                                50 + guideCard.modelData.mockRows.length * 43)
                             radius: 8
                             color: "#f8fafc"
                             border.color: "#aeb8c7"
