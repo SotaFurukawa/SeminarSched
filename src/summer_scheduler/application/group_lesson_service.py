@@ -22,6 +22,7 @@ from summer_scheduler.application.phase3_dto import (
     ImportIssueDto,
 )
 from summer_scheduler.application.project_service import ProjectService
+from summer_scheduler.domain.grades import grade_from_excel
 from summer_scheduler.domain.time_ranges import time_ranges_overlap
 from summer_scheduler.infrastructure.db.models import (
     AuditLog,
@@ -724,7 +725,7 @@ def _lesson_rows(
         row = GroupLessonRow(
             source_row=normalized.row_number,
             group_code=group_code,
-            grade=grade,
+            grade=grade_from_excel(grade),
             subject_code=subject_code,
             course_name=_optional_text(values.get("course_name")),
             day=day,
@@ -874,7 +875,7 @@ def _issues_message(issues: Sequence[ImportIssueDto]) -> str:
 
 
 def _school_level_for_grade(grade: str) -> str | None:
-    normalized = grade.strip()
+    normalized = grade_from_excel(grade)
     if normalized.startswith("小"):
         return "elementary"
     if normalized.startswith("中"):

@@ -93,7 +93,7 @@ STUDENT_SHEET: Final = SheetSpec(
             "学年",
             ValueKind.TEXT,
             True,
-            "小1～小6、中1～中3、高1～高3から選択します。",
+            "S1～S6（小学校）、J1～J3（中学校）、H1～H3（高校）から選択します。",
             14,
         ),
         ColumnSpec(
@@ -130,7 +130,7 @@ STUDENT_SHEET: Final = SheetSpec(
         "is_example": True,
         "external_id": "S-EXAMPLE",
         "name": "架空 花子",
-        "grade": "中2",
+        "grade": "J2",
         "default_max_consecutive_slots": 2,
         "allow_gap": False,
         "note": "この行は架空の例示行で、取込み時に無視されます。",

@@ -15,7 +15,7 @@ Availability取込みの同一transactionでBLOB、SHA-256、元ファイル名�
 
 ## 1. この文書の位置づけ
 
-このガイドは`1.3.1`時点の実装を説明する。公開版の機能仕様と
+このガイドは`1.3.2`時点の実装を説明する。公開版の機能仕様と
 ハード制約は[`specification.md`](specification.md)、初期設計は
 [`phase0_design.md`](phase0_design.md)、主要な判断理由は[`adr/`](adr/)を参照する。
 このガイドは、仕様に定めたハード制約やデータ安全性要件を緩和しない。
@@ -509,6 +509,10 @@ QML
 5. エラーがない同じpreviewを利用者が確認した後、全シートを1transactionで反映する。
 6. flush / commitで例外が発生した場合は全体をrollbackする。
 
+学年のExcel境界は`domain/grades.py`へ集約する。書出しは`S1`～`S6`、`J1`～`J3`、
+`H1`～`H3`へ変換し、読込みはこの表記と従来の日本語表記を内部の`小1`／`中1`／`高1`
+形式へ正規化する。DB migrationで保存済み学年を一括変更してはならない。
+
 入力エラーをログへ記録するとき、Excel行全体や氏名をそのまま残さない。Phase 3の
 日時アンケート取込みは、列マッピング・差分を持つ別adapter / application flowとして
 追加し、この固定5シートschemaへ混在させない。
@@ -904,6 +908,8 @@ fit-to-width、印刷範囲、改ページ、繰り返し文書見出し、ヘ�
 罫線、結合、列幅、行高、折返し、縮小表示を設定する。利用者文字列は明示的な文字列型とし、
 先頭`=`等を数式に変換しない。共通レイアウトはロゴパスを持つが、Phase 6のExcelには
 編集性と画像依存追加を避けるためロゴ画像を埋め込まない。
+Excel帳票のセルに含まれる既知の日本語学年表記は、保存時だけS/J/H表記へ変換する。
+同じ`LayoutDocument`から作るPDFや画面表示は変更しない。
 
 PDFは次のローカル処理だけで生成する。
 
@@ -1102,7 +1108,7 @@ py -3.12 -m venv .venv-release
 ```powershell
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.1
+  -Version 1.3.2
 ```
 
 scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し、
@@ -1110,7 +1116,7 @@ scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し�
 既定YAML、全Alembic revision、Qt Quick／PDF、OR-Tools native runtime、
 `THIRD_PARTY_NOTICES.md`、収集したlicenseが必要で、DB、`.jukuschedule`、log、
 入出力、backup、user config、build crash reportを拒否する。検査後に
-`dist/SummerCourseScheduler-Portable-1.3.1.zip`を決定的順序で作る。
+`dist/SummerCourseScheduler-Portable-1.3.2.zip`を決定的順序で作る。
 
 2026-07-29に同一build machineで生成した未公開候補は143,564,844 bytes、
 SHA-256 `5611f8e62b6e7e8e9ac456ca91186f5a52e207573fb866b377ccbaf0796eba2f`だった。
@@ -1132,13 +1138,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.1 `
+  -Version 1.3.2 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.3.1.zip `
-  dist\SummerCourseScheduler-Setup-1.3.1.exe
+  dist\SummerCourseScheduler-Portable-1.3.2.zip `
+  dist\SummerCourseScheduler-Setup-1.3.2.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

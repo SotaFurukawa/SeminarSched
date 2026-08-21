@@ -83,6 +83,7 @@ def test_student_template_supports_dynamic_slots_rows_and_japanese_path(
         assert worksheet["A3"].value == "いいえ"
         assert worksheet["C3"].value == "架空 青空"
         assert workbook[STUDENT_REFERENCE_SHEET]["A2"].value == "S001"
+        assert workbook[STUDENT_REFERENCE_SHEET]["C2"].value == "J2"
         assert workbook[TEACHER_REFERENCE_SHEET]["B2"].value == "架空 一郎"
         assert workbook[SUBJECT_REFERENCE_SHEET]["B2"].value == "中学校・数学"
         validations = tuple(worksheet.data_validations.dataValidation)
@@ -161,5 +162,6 @@ def test_group_template_two_data_sheets_are_readable_and_examples_are_skipped(
     assert not lesson_result.has_errors
     assert not participant_result.has_errors
     assert lesson_result.rows[0].values["group_lesson_id"] == "G001"
+    assert lesson_result.rows[0].values["grade"] == "J3"
     assert lesson_result.rows[0].values["start_time"] == time(17, 20)
     assert participant_result.rows[0].values["student_id"] == "S001"

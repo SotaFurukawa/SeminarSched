@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.3.1** です。Phase 1の
+現在のアプリ版は **v1.3.2** です。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
 ドラッグ＆ドロップの即時検証、ロック、Undo / Redo、差分・監査、自動保存、
@@ -66,15 +66,15 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.3.1.exe`
-- `SummerCourseScheduler-Portable-1.3.1.zip`
+- `SummerCourseScheduler-Setup-1.3.2.exe`
+- `SummerCourseScheduler-Portable-1.3.2.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.3.1.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.3.1.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.3.2.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.3.2.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -159,7 +159,7 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 - `master_data.xlsx` の出力、検証プレビュー、確認後の一括反映
 - 生徒用・講師用availabilityテンプレートと0／1／2の入力規則
 - アンケートブック内の生徒・講師・科目マスター参照、ID選択、名前・科目名確認
-- 必須列表示、学年の小1～高3選択、業務上安全な空欄既定値
+- 必須列表示、Excel学年のS1～S6／J1～J3／H1～H3選択、業務上安全な空欄既定値
 - xlsx／UTF-8 CSV／CP932 CSVのシート・文字コード・列マッピング・先頭プレビュー
 - ID、名前、期間、開校日、科目、LessonRequest、希望講師資格等の検証
 - 追加・変更・変更なし・削除候補のセル差分と、明示選択時だけの削除
@@ -550,11 +550,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.1
+  -Version 1.3.2
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.3.1.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.3.2.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -566,13 +566,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.1 `
+  -Version 1.3.2 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.3.1.zip `
-  dist\SummerCourseScheduler-Setup-1.3.1.exe
+  dist\SummerCourseScheduler-Portable-1.3.2.zip `
+  dist\SummerCourseScheduler-Setup-1.3.2.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

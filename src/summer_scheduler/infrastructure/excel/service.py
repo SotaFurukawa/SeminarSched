@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from summer_scheduler.domain.grades import grade_to_excel
 from summer_scheduler.infrastructure.db.models import (
     CourseProject,
     LessonRequest,
@@ -191,7 +192,7 @@ class MasterDataExcelService:
                 {
                     "external_id": student.external_id,
                     "name": student.name,
-                    "grade": student.grade,
+                    "grade": grade_to_excel(student.grade),
                     "default_max_consecutive_slots": student.default_max_consecutive_slots,
                     "allow_gap": student.allow_gap,
                     "note": student.note,

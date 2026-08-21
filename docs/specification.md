@@ -18,7 +18,7 @@
 
 ## 2. 実装済みのスコープ
 
-Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.3.1`の
+Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.3.2`の
 公開準備版である。Windows成果物は社内利用向けに未署名で配布する方針である。
 
 ### Phase 0：設計
@@ -77,6 +77,8 @@ Phase 1で作った画面シェルと基盤はPhase 2でも維持する。
 - 生徒×科目のLessonRequestと優先度・講師参照等の検証
 - `master_data.xlsx`の5シート出力、再取込み、行単位検証、プレビュー、
   新規／更新件数、確認後のtransaction反映、失敗時rollback
+- Excel上の生徒学年は小学校`S1`～`S6`、中学校`J1`～`J3`、高校`H1`～`H3`とする。
+  旧日本語表記も取込み可能とし、DB・画面・Googleフォームの表記は変更しない
 - 日本語名、日本語ファイル名、Windowsパスを含む自動・手動確認
 
 Phase 2では「生徒」「講師」「設定」を実画面へ置き換えた。Phase 3で「集団授業」
@@ -98,6 +100,7 @@ Phase 6で「出力」を実画面へ置き換えた。
 - 追加、変更、変更なし、削除候補と、利用者が明示した場合だけの削除
 - アンケートから通常担当、優先度5、1対1契約を変更させない保護
 - 集団授業と受講者の2シートテンプレート・取込み
+- 共通名簿、参照シート、統合xlsx、集団授業テンプレートの学年も同じS/J/H表記で出力する
 - 任意時刻を半開区間として扱う講師・生徒衝突判定
 - 反映直前の再読込み・再検証、業務データ・ImportBatch・AuditLogの
   1トランザクション保存とrollback
@@ -254,7 +257,7 @@ PDFとExcelの共通レイアウト、Qt選定、原子的保存、安全検証�
 
 ### Phase 7：品質保証・バックアップ・Windows配布
 
-- app version `1.3.1`をpackage metadata、Qt application、About、log、帳票へ
+- app version `1.3.2`をpackage metadata、Qt application、About、log、帳票へ
   表示し、Alembic schema revisionとは別の版として扱う
 - project open直後と設定間隔ごとの自動backup。既定5分間隔・project別5世代で、
   `%LOCALAPPDATA%\SummerScheduler\backups`へ保存する

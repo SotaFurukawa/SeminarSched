@@ -11,6 +11,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
+from summer_scheduler.domain.grades import grade_from_excel
 from summer_scheduler.infrastructure.excel.contracts import ImportIssue, IssueSeverity
 from summer_scheduler.infrastructure.excel.schema import (
     MASTER_DATA_SHEETS,
@@ -149,7 +150,10 @@ def _read_sheet(
         row_has_error = False
         for column in sheet_spec.columns[1:]:
             try:
-                values[column.key] = normalize_cell_value(raw_values[column.key], column)
+                normalized_value = normalize_cell_value(raw_values[column.key], column)
+                if column.key == "grade" and isinstance(normalized_value, str):
+                    normalized_value = grade_from_excel(normalized_value)
+                values[column.key] = normalized_value
             except CellValueError as exc:
                 issues.append(
                     ImportIssue(

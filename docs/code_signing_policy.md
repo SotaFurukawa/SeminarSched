@@ -20,7 +20,7 @@ GitHub Releaseに添付された`SHA256SUMS.txt`とダウンロードしたフ�
 照合します。PowerShellでは次のように確認できます。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.3.1.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.3.2.exe -Algorithm SHA256
 Get-Content .\SHA256SUMS.txt
 ```
 

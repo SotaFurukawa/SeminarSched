@@ -102,6 +102,8 @@ def test_shared_roster_syncs_people_qualifications_and_regular_lessons(
 
     workbook = load_workbook(roster_service.path, data_only=False)
     try:
+        assert workbook["生徒"]["E2"].value == "J2"
+        assert workbook["生徒"]["E3"].value == "J3"
         assert workbook["生徒"]["H3"].value == "☐ 退籍"
         assert len(workbook["生徒"].conditional_formatting) > 0
         assert workbook["通常授業"]["J2"].value == 4
@@ -125,6 +127,7 @@ def test_blank_ids_are_generated_and_persisted(roster_service: SharedRosterServi
     workbook = load_workbook(roster_service.path, data_only=False)
     try:
         assert workbook["生徒"]["A2"].value == "S-0001"
+        assert workbook["生徒"]["E2"].value == "S2"
         assert workbook["講師"]["A2"].value == "T-0001"
     finally:
         workbook.close()

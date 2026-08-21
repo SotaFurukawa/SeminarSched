@@ -68,6 +68,7 @@ def test_excel_renderer_round_trips_layout_print_settings_and_safe_text(
         assert worksheet["A2"].value == "架空みらい校／2026年度 夏期講習"
         assert worksheet["A7"].value == '=HYPERLINK("https://invalid.example")'
         assert worksheet["A7"].data_type == "s"
+        assert "（J2）" in worksheet["B7"].value
         assert worksheet["B7"].alignment.wrap_text is True
         assert worksheet["B7"].alignment.shrink_to_fit is True
         assert worksheet["A7"].border.left.style == "thin"
@@ -406,7 +407,7 @@ def _layout_document() -> LayoutDocument:
                         row_span=2,
                         style_codes=("manual", "locked", "one_to_one"),
                     ),
-                    LayoutCell("非常に長い日本語氏名と科目名\n[1対1] 中学校・数学"),
+                    LayoutCell("非常に長い日本語氏名（中学2年）\n[1対1] 中学校・数学"),
                     LayoutCell("1回目"),
                 ),
                 height_points_optional=34,

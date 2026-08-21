@@ -139,8 +139,9 @@ def test_template_supports_id_entry_and_name_selection_helpers(
         )
         student = workbook["生徒"]
         assert "生徒ID（必須）" in [cell.value for cell in student[1]]
+        assert student["D2"].value == "J2"
         assert any(
-            validation.formula1 == '"小1,小2,小3,小4,小5,小6,中1,中2,中3,高1,高2,高3"'
+            validation.formula1 == '"S1,S2,S3,S4,S5,S6,J1,J2,J3,H1,H2,H3"'
             for validation in student.data_validations.dataValidation
         )
     finally:
@@ -275,6 +276,7 @@ def test_japanese_workbook_import_and_export_round_trip(
     teacher = session.scalar(select(Teacher).where(Teacher.external_id == "T-001"))
     subject = session.scalar(select(Subject).where(Subject.code == "JH_CUSTOM_MATH"))
     assert student is not None and student.name == "架空 花子"
+    assert student.grade == "中2"
     assert teacher is not None and teacher.name == "架空 太郎"
     assert subject is not None and subject.school_level == "junior_high"
     assert session.scalar(select(func.count()).select_from(TeacherQualification)) == 1
@@ -284,6 +286,11 @@ def test_japanese_workbook_import_and_export_round_trip(
     assert request.regular_teacher_id_optional == teacher.id
 
     exported = service.export_template(tmp_path / "再出力_日本語.xlsx")
+    exported_workbook = load_workbook(exported, data_only=True)
+    try:
+        assert exported_workbook["生徒"]["D3"].value == "J2"
+    finally:
+        exported_workbook.close()
     second_preview = service.preview_import(exported)
     assert not second_preview.has_errors
     assert dict(second_preview.new_counts) == dict.fromkeys(SHEET_NAMES, 0)

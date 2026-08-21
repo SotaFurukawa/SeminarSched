@@ -23,6 +23,7 @@ from summer_scheduler.application.project_service import (
     ProjectService,
 )
 from summer_scheduler.domain.defaults import SCHOOL_LEVEL_LABELS
+from summer_scheduler.domain.grades import grade_from_excel
 from summer_scheduler.domain.identifiers import next_person_external_id
 from summer_scheduler.domain.validation import (
     DomainValidationError,
@@ -974,14 +975,4 @@ def _grade_matches(value: str, selected: str) -> bool:
 
 
 def _normalize_grade(value: str) -> str:
-    return (
-        value.strip()
-        .replace("小学校", "小")
-        .replace("中学校", "中")
-        .replace("高校", "高")
-        .replace("小学", "小")
-        .replace("中学", "中")
-        .replace("高等学校", "高")
-        .replace("年生", "")
-        .replace("年", "")
-    )
+    return grade_from_excel(value)

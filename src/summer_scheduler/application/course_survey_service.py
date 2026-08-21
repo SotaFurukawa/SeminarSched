@@ -21,6 +21,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from summer_scheduler.application.project_service import ProjectService
+from summer_scheduler.domain.grades import grade_from_excel, grade_to_excel
 from summer_scheduler.infrastructure.db.models import (
     Assignment,
     AuditLog,
@@ -205,7 +206,7 @@ class CourseSurveyService:
                     "従来の差分取込みを使用してください。"
                 )
             student_by_key = {
-                (_name_key(row.name), row.grade): row
+                (_name_key(row.name), grade_from_excel(row.grade)): row
                 for row in session.scalars(select(Student).where(Student.active.is_(True)))
             }
             teacher_by_name = {
@@ -434,14 +435,14 @@ def _parse_student_responses(
         raise CourseSurveyError("生徒回答の受講教科・受講回数列を判別できません。")
     date_headers = _date_headers(table, "受講不可日時")
     _validate_dates(date_headers, open_dates, "生徒回答", issues)
-    known_students = {(_name_key(row.name), row.grade) for row in master_students}
+    known_students = {(_name_key(row.name), grade_from_excel(row.grade)) for row in master_students}
     known_subjects = {_text_key(row.display_name) for row in subjects}
     result: list[_StudentResponse] = []
     seen: set[tuple[str, str]] = set()
     for source_row in table.rows:
         values = source_row.raw_values
         name = _full_name(values.get(surname_header), values.get(given_header))
-        grade = _text(values.get(grade_header))
+        grade = grade_from_excel(_text(values.get(grade_header)))
         enrollment = (
             "体験生"
             if source_row.row_number in trial_student_rows
@@ -641,7 +642,14 @@ def _combined_workbook(preview: CourseSurveyPreview) -> bytes:
     for student in preview.students:
         for subject, count in student.requests:
             requests.append(
-                (student.row, student.name, student.grade, student.enrollment_type, subject, count)
+                (
+                    student.row,
+                    student.name,
+                    grade_to_excel(student.grade),
+                    student.enrollment_type,
+                    subject,
+                    count,
+                )
             )
     _style_header(requests)
     availability = workbook.create_sheet("可用性（正規化）")

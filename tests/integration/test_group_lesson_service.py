@@ -63,7 +63,7 @@ def test_import_diff_apply_and_explicit_deletion(
         lessons=[
             (
                 "G-数学",
-                "中2",
+                "J2",
                 "JH_MATH",
                 "夏期数学",
                 date(2026, 8, 1),
@@ -104,6 +104,7 @@ def test_import_diff_apply_and_explicit_deletion(
     assert [(row.group_code, row.student_count, row.teacher_name) for row in listed] == [
         ("G-数学", 2, "講師 一郎"),
     ]
+    assert listed[0].grade == "中2"
 
     _write_group_rows(workbook, lessons=[], participants=[])
     deletion_preview = group_service.prepare_group_import(workbook)

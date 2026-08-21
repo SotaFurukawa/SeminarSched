@@ -17,6 +17,7 @@ from openpyxl.worksheet.pagebreak import Break
 from openpyxl.worksheet.properties import PageSetupProperties
 from openpyxl.worksheet.worksheet import Worksheet
 
+from summer_scheduler.domain.grades import excelize_grades_in_text
 from summer_scheduler.infrastructure.exporting.atomic_output import atomic_output_path
 from summer_scheduler.infrastructure.exporting.errors import OutputRenderError
 from summer_scheduler.reporting.layout import (
@@ -357,7 +358,7 @@ class ExcelRenderer:
                     shrink_to_fit=True,
                 )
         value_cell = cast(Cell, worksheet.cell(row=first_row, column=first_column))
-        _set_explicit_text(value_cell, layout_cell.text)
+        _set_explicit_text(value_cell, excelize_grades_in_text(layout_cell.text))
         if first_row != last_row or first_column != last_column:
             worksheet.merge_cells(
                 start_row=first_row,

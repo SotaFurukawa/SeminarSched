@@ -17,6 +17,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
+from summer_scheduler.domain.grades import EXCEL_GRADE_OPTIONS, grade_to_excel
 from summer_scheduler.infrastructure.importing.readers import (
     GROUP_LESSON_SHEET,
     GROUP_PARTICIPANT_SHEET,
@@ -192,7 +193,12 @@ def write_group_lessons_template(
     lesson_columns = (
         _example_column(),
         _TemplateColumn("group_lesson_id", "集団授業ID", width=18, required=True),
-        _TemplateColumn("grade", "学年", required=True),
+        _TemplateColumn(
+            "grade",
+            "学年",
+            comment="S1～S6 = 小学校、J1～J3 = 中学校、H1～H3 = 高校",
+            required=True,
+        ),
         _TemplateColumn("subject_code", "科目コード", required=True),
         _TemplateColumn("course_name", "コース名", width=22),
         _TemplateColumn("date", "日付", date_value=True, required=True),
@@ -215,7 +221,7 @@ def write_group_lessons_template(
         {
             "example": True,
             "group_lesson_id": "SAMPLE-G001",
-            "grade": "中学3年",
+            "grade": "J3",
             "subject_code": "JH_MATH",
             "course_name": "架空 夏期数学",
             "date": "2026-08-01",
@@ -273,13 +279,14 @@ def _write_data_sheet(
     worksheet.freeze_panes = "A2"
     worksheet.sheet_view.showGridLines = False
     worksheet.append([column.display_header for column in columns])
-    worksheet.append([_excel_value(example.get(column.key)) for column in columns])
+    worksheet.append([_column_excel_value(column, example.get(column.key)) for column in columns])
     for source_row in rows:
         row = dict(source_row)
         row.setdefault("example", False)
         worksheet.append(
             [
-                _excel_value(
+                _column_excel_value(
+                    column,
                     row.get(column.key, row.get(column.header)),
                 )
                 for column in columns
@@ -301,6 +308,8 @@ def _write_data_sheet(
         worksheet.column_dimensions[letter].width = column.width
         if column.availability:
             _add_availability_validation(worksheet, letter)
+        if column.key == "grade":
+            _add_grade_validation(worksheet, letter)
         if column.date_value:
             for row_number in range(2, worksheet.max_row + 1):
                 worksheet.cell(row=row_number, column=column_number).number_format = "yyyy-mm-dd"
@@ -346,6 +355,22 @@ def _add_availability_validation(worksheet: Any, column_letter: str) -> None:
     validation.error = "0（不可）、1（可能）、2（希望）から選択してください。"
     validation.promptTitle = "コマ希望"
     validation.prompt = "0 = 不可、1 = 可能、2 = 希望"
+    validation.showErrorMessage = True
+    validation.showInputMessage = True
+    worksheet.add_data_validation(validation)
+    validation.add(f"{column_letter}2:{column_letter}{_MAX_INPUT_ROW}")
+
+
+def _add_grade_validation(worksheet: Any, column_letter: str) -> None:
+    validation = DataValidation(
+        type="list",
+        formula1=f'"{",".join(EXCEL_GRADE_OPTIONS)}"',
+        allow_blank=False,
+    )
+    validation.errorTitle = "入力値を確認してください"
+    validation.error = "S1～S6、J1～J3、H1～H3から選択してください。"
+    validation.promptTitle = "学年"
+    validation.prompt = "S = 小学校、J = 中学校、H = 高校"
     validation.showErrorMessage = True
     validation.showInputMessage = True
     worksheet.add_data_validation(validation)
@@ -426,7 +451,14 @@ def _write_master_reference_sheets(
         worksheet.sheet_view.showGridLines = False
         worksheet.append(list(headers))
         for row in rows:
-            worksheet.append([row.get(key) for key in keys])
+            worksheet.append(
+                [
+                    grade_to_excel(str(row.get(key, "")))
+                    if key == "grade" and row.get(key) is not None
+                    else row.get(key)
+                    for key in keys
+                ]
+            )
         for cell in worksheet[1]:
             cell.fill = _HEADER_FILL
             cell.font = _HEADER_FONT
@@ -526,3 +558,9 @@ def _excel_value(value: object) -> object:
     if isinstance(value, bool):
         return "はい" if value else "いいえ"
     return value
+
+
+def _column_excel_value(column: _TemplateColumn, value: object) -> object:
+    if column.key == "grade" and isinstance(value, str):
+        return grade_to_excel(value)
+    return _excel_value(value)

@@ -18,6 +18,12 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from summer_scheduler.domain.defaults import DEFAULT_SUBJECTS
+from summer_scheduler.domain.grades import (
+    EXCEL_GRADE_OPTIONS,
+    INTERNAL_GRADE_OPTIONS,
+    grade_from_excel,
+    grade_to_excel,
+)
 from summer_scheduler.domain.identifiers import next_person_external_id
 
 SHARED_ROSTER_FILENAME: Final = "生徒・講師_基本情報.xlsx"
@@ -197,14 +203,14 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
                 student_row.surname,
                 student_row.given_name,
                 f'=IF(COUNTA(B{index}:C{index})=0,"",TRIM(B{index}&" "&C{index}))',
-                student_row.grade,
+                grade_to_excel(student_row.grade),
                 student_row.max_consecutive_slots,
                 _yes_no(student_row.allow_gap),
                 _membership(student_row.active),
                 student_row.note,
             ]
         )
-    _add_list(student_sheet, "E2:E10000", '"小1,小2,小3,小4,小5,小6,中1,中2,中3,高1,高2,高3"')
+    _add_list(student_sheet, "E2:E10000", f'"{",".join(EXCEL_GRADE_OPTIONS)}"')
     _add_whole(student_sheet, "F2:F10000", 1, 3, allow_blank=True)
     _add_list(student_sheet, "G2:G10000", '"はい,いいえ"', allow_blank=True)
     _add_list(student_sheet, "H2:H10000", '"☑ 在籍,☐ 退籍"', allow_blank=True)
@@ -385,17 +391,17 @@ def _read_students(
         if not external_id:
             external_id = next_person_external_id(reserved, prefix="S")
             reserved.add(external_id)
-        surname, given_name, grade = _text(values[1]), _text(values[2]), _text(values[4])
+        surname = _text(values[1])
+        given_name = _text(values[2])
+        grade = grade_from_excel(_text(values[4]))
         if external_id in used:
             errors.append(f"生徒 {row_number}行: 生徒ID「{external_id}」が重複しています")
             continue
         used.add(external_id)
         if not surname:
             errors.append(f"生徒 {row_number}行: 姓は必須です")
-        if grade not in {f"小{i}" for i in range(1, 7)} | {f"中{i}" for i in range(1, 4)} | {
-            f"高{i}" for i in range(1, 4)
-        }:
-            errors.append(f"生徒 {row_number}行: 学年を選択してください")
+        if grade not in INTERNAL_GRADE_OPTIONS:
+            errors.append(f"生徒 {row_number}行: 学年はS1～S6、J1～J3、H1～H3から選択してください")
         maximum = _integer(values[5], 2)
         if not 1 <= maximum <= 3:
             errors.append(f"生徒 {row_number}行: 最大連続コマ数は1～3です")

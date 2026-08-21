@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from openpyxl import load_workbook
 from sqlalchemy import select
 
 from summer_scheduler.application.course_survey_service import CourseSurveyService
@@ -135,6 +136,13 @@ def test_generated_google_forms_answers_are_combined_and_stored(
         "teacher_availability",
         "combined_course_survey",
     }
+    combined_path = survey_service.export_latest_combined(tmp_path / "統合結果.xlsx")
+    workbook = load_workbook(combined_path, data_only=True)
+    try:
+        assert workbook["受講希望（正規化）"]["C2"].value == "J2"
+        assert workbook["生徒回答原本"]["D2"].value == "中2"
+    finally:
+        workbook.close()
 
 
 def test_missing_trial_student_is_warning_and_project_local(

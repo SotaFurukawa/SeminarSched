@@ -18,6 +18,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
+from summer_scheduler.domain.grades import EXCEL_GRADE_OPTIONS, grade_to_excel
 from summer_scheduler.infrastructure.excel.schema import (
     LESSON_REQUEST_SHEET,
     MASTER_DATA_SHEETS,
@@ -279,9 +280,17 @@ def _sheet_layout(sheet_spec: SheetSpec) -> tuple[_LayoutColumn, ...]:
 
 def _row_values(layout: Sequence[_LayoutColumn], row: Mapping[str, object]) -> list[object]:
     return [
-        _excel_value(row.get(column.canonical.key)) if column.canonical is not None else None
+        _excel_column_value(column.canonical, row.get(column.canonical.key))
+        if column.canonical is not None
+        else None
         for column in layout
     ]
+
+
+def _excel_column_value(column: ColumnSpec, value: object) -> object:
+    if column.key == "grade" and isinstance(value, str):
+        return grade_to_excel(value)
+    return _excel_value(value)
 
 
 def _excel_value(value: object) -> object:
@@ -334,10 +343,10 @@ def _add_column_validation(
     elif column.key == "grade":
         validation = DataValidation(
             type="list",
-            formula1='"小1,小2,小3,小4,小5,小6,中1,中2,中3,高1,高2,高3"',
+            formula1=f'"{",".join(EXCEL_GRADE_OPTIONS)}"',
             allow_blank=False,
         )
-        validation.error = "小1～小6、中1～中3、高1～高3から選択してください。"
+        validation.error = "S1～S6、J1～J3、H1～H3から選択してください。"
 
     if validation is not None:
         validation.errorTitle = "入力値を確認してください"

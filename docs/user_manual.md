@@ -31,7 +31,7 @@ Excelの在籍列は`☑ 在籍`／`☐ 退籍`から選びます。退籍者は
 生徒画面の「在籍中」を外すと卒業・退会扱いとなり、一覧の末尾へ移動して灰色表示されます。
 講師も同様に、在籍中を外すと退職・休止として末尾へ表示されます。
 
-対象: `1.3.1`
+対象: `1.3.2`
 最終更新: 2026-08-12
 
 初めて利用する場合は、先に
@@ -77,8 +77,8 @@ Releaseページ以外から受け取った実行ファイルを安易に実行�
 公開版では`SHA256SUMS.txt`とダウンロードしたファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Portable-1.3.1.zip -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Setup-1.3.1.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.3.2.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.3.2.exe -Algorithm SHA256
 ```
 
 表示されたhashがReleaseページの値と1文字でも異なる場合は使用しません。
@@ -219,6 +219,8 @@ appのbackup機能で同期先へ複製する運用を推奨します。
 - 使用中／停止
 
 内部では名前だけで生徒を識別せず、同姓同名でも区別できる自動IDを使います。
+Excelでは小学を`S`、中学を`J`、高校を`H`で表し、例えば高2は`H2`と入力します。
+画面とGoogleフォームは従来どおり「高2」等で表示されます。
 
 ### 7.2 科目別の受講希望
 
@@ -381,6 +383,7 @@ availabilityは次の3段階です。
 
 集団授業には、集団授業ID、学年、科目code、course名、日付、開始・終了、任意の担当講師、
 教室、備考を入力します。受講者sheetには集団授業IDと生徒IDを入力します。
+テンプレートの学年も、小学校は`S1`～`S6`、中学校は`J1`～`J3`、高校は`H1`～`H3`です。
 
 開始・終了はY/Z/A/B/Cと完全一致しなくても構いません。時間帯が重なる担当講師と
 受講生を個別授業へ配置しません。ある授業の終了時刻と次の開始時刻が同じだけなら
@@ -602,7 +605,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 
 ## 20. 現在の既知の制限
 
-- `1.3.1`のGitHub Release公開状態は配布元のReleaseページで確認します。成果物は
+- `1.3.2`のGitHub Release公開状態は配布元のReleaseページで確認します。成果物は
   方針どおり未署名です。
 - clean Windows、実installer / portable、SmartScreen、install / uninstallの受入結果は
   [`acceptance_test_phase7.md`](acceptance_test_phase7.md)を参照してください。
