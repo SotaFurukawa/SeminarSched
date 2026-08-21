@@ -27,6 +27,7 @@ from summer_scheduler.infrastructure.excel.shared_roster import (
     SharedStudent,
     SharedSubject,
     SharedTeacher,
+    read_shared_roster,
     write_shared_roster,
 )
 
@@ -102,9 +103,10 @@ def test_shared_roster_syncs_people_qualifications_and_regular_lessons(
 
     workbook = load_workbook(roster_service.path, data_only=False)
     try:
-        assert workbook["生徒"]["E2"].value == "J2"
-        assert workbook["生徒"]["E3"].value == "J3"
-        assert workbook["生徒"]["H3"].value == "☐ 退籍"
+        assert workbook["生徒"]["A2"].value == "☑ 在籍"
+        assert workbook["生徒"]["A3"].value == "☐ 退籍"
+        assert workbook["生徒"]["F2"].value == "J2"
+        assert workbook["生徒"]["F3"].value == "J3"
         assert len(workbook["生徒"].conditional_formatting) > 0
         assert workbook["通常授業"]["J2"].value == 4
         assert workbook["科目"].max_row == 27
@@ -126,9 +128,9 @@ def test_blank_ids_are_generated_and_persisted(roster_service: SharedRosterServi
 
     workbook = load_workbook(roster_service.path, data_only=False)
     try:
-        assert workbook["生徒"]["A2"].value == "S-0001"
-        assert workbook["生徒"]["E2"].value == "S2"
-        assert workbook["講師"]["A2"].value == "T-0001"
+        assert workbook["生徒"]["B2"].value == "S-0001"
+        assert workbook["生徒"]["F2"].value == "S2"
+        assert workbook["講師"]["B2"].value == "T-0001"
     finally:
         workbook.close()
 
@@ -155,8 +157,8 @@ def test_blank_ids_do_not_collide_with_ids_on_later_rows(
 
     workbook = load_workbook(roster_service.path, data_only=False)
     try:
-        student_ids = {workbook["生徒"][f"A{row}"].value for row in (2, 3)}
-        teacher_ids = {workbook["講師"][f"A{row}"].value for row in (2, 3)}
+        student_ids = {workbook["生徒"][f"B{row}"].value for row in (2, 3)}
+        teacher_ids = {workbook["講師"][f"B{row}"].value for row in (2, 3)}
         assert student_ids == {"S-0001", "S-0002"}
         assert teacher_ids == {"T0001", "T-0002"}
     finally:
@@ -183,7 +185,101 @@ def test_blank_ids_do_not_reuse_an_id_only_present_in_the_project(
 
     workbook = load_workbook(roster_service.path, data_only=False)
     try:
-        assert workbook["生徒"]["A2"].value == "S-0002"
-        assert workbook["講師"]["A2"].value == "T-0002"
+        assert workbook["生徒"]["B2"].value == "S-0002"
+        assert workbook["講師"]["B2"].value == "T-0002"
     finally:
         workbook.close()
+
+
+def test_shared_roster_prepares_status_first_defaults_and_required_cells(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "roster.xlsx"
+    write_shared_roster(path, SharedRosterData((), (), ()))
+
+    workbook = load_workbook(path, data_only=False)
+    try:
+        students = workbook["生徒"]
+        teachers = workbook["講師"]
+        assert students["A1"].value == "在籍（姓入力時は自動で☑）"
+        assert students["B1"].value == "生徒ID（自動・入力不要）"
+        assert "デフォルトは2" in str(students["G1"].value)
+        assert "デフォルトはなし" in str(students["H1"].value)
+        assert students["A2"].value == '=IF(C2="","","☑ 在籍")'
+        assert str(students["B2"].value).startswith('=IF(C2="","","S-"')
+        assert students["G2"].value == '=IF(C2="","",2)'
+        assert students["H2"].value == '=IF(C2="","","なし")'
+        assert students["C2"].fill.fgColor.rgb == "00FFF2CC"
+        assert students["F2"].fill.fgColor.rgb == "00FFF2CC"
+        assert teachers["A2"].value == '=IF(C2="","","☑ 在籍")'
+        assert str(teachers["B2"].value).startswith('=IF(C2="","","T-"')
+        assert teachers["F2"].value == '=IF(C2="","","なし")'
+        assert teachers["C2"].fill.fgColor.rgb == "00FFF2CC"
+        assert students.auto_filter.ref == "A1:I2"
+        assert teachers.auto_filter.ref == "A1:G2"
+    finally:
+        workbook.close()
+
+
+def test_surname_only_input_gets_ids_and_defaults_when_imported(tmp_path: Path) -> None:
+    path = tmp_path / "surname_only.xlsx"
+    write_shared_roster(path, SharedRosterData((), (), ()))
+    workbook = load_workbook(path, data_only=False)
+    try:
+        workbook["生徒"]["C2"] = "新規"
+        workbook["生徒"]["F2"] = "H2"
+        workbook["講師"]["C2"] = "担当"
+        workbook.save(path)
+    finally:
+        workbook.close()
+
+    data = read_shared_roster(path)
+
+    assert data.students == (SharedStudent("S-0001", "新規", "", "高2", 2, False, True, ""),)
+    assert data.teachers == (SharedTeacher("T-0001", "担当", "", False, True, ""),)
+
+
+def test_shared_roster_reads_legacy_person_column_order(tmp_path: Path) -> None:
+    path = tmp_path / "legacy.xlsx"
+    write_shared_roster(path, SharedRosterData((), (), ()))
+    workbook = load_workbook(path)
+    try:
+        students = workbook["生徒"]
+        students.delete_rows(1, students.max_row)
+        students.append(
+            (
+                "生徒ID（自動・入力不要）",
+                "姓（必須）",
+                "名",
+                "氏名（確認）",
+                "学年（必須）",
+                "標準最大連続コマ数",
+                "空きコマ許可",
+                "在籍",
+                "備考",
+            )
+        )
+        students.append(("S-0007", "旧式", "生徒", "旧式 生徒", "中2", 3, "はい", "☐ 退籍", "旧"))
+
+        teachers = workbook["講師"]
+        teachers.delete_rows(1, teachers.max_row)
+        teachers.append(
+            (
+                "講師ID（自動・入力不要）",
+                "姓（必須）",
+                "名",
+                "氏名（確認）",
+                "空きコマ許可",
+                "在籍",
+                "備考",
+            )
+        )
+        teachers.append(("T-0008", "旧式", "講師", "旧式 講師", "いいえ", "☑ 在籍", "旧"))
+        workbook.save(path)
+    finally:
+        workbook.close()
+
+    data = read_shared_roster(path)
+
+    assert data.students == (SharedStudent("S-0007", "旧式", "生徒", "中2", 3, True, False, "旧"),)
+    assert data.teachers == (SharedTeacher("T-0008", "旧式", "講師", False, True, "旧"),)

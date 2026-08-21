@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.3.2** です。Phase 1の
+現在のアプリ版は **v1.3.3** です。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
 ドラッグ＆ドロップの即時検証、ロック、Undo / Redo、差分・監査、自動保存、
@@ -47,7 +47,8 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 ホームの`生徒・講師_基本情報.xlsx`は講習間で共通です。在籍情報、指導可能科目、
 通常授業の担当をここで編集し、新規講習には自動反映します。退籍者は削除せず
 `☐ 退籍`として灰色・末尾に保持します。日常的な少人数追加にはアプリ内の個別登録も
-使えます。生徒・講師IDの入力は不要で、保存時に`S-0001`／`T-0001`形式で自動採番します。
+使えます。在籍はA列の`☑ 在籍`／`☐ 退籍`で選択します。姓を入力すると、ID・在籍・
+最大連続2・空きなしの既定値を表示し、アプリ反映時に衝突しないIDへ確定します。
 集団授業は週カレンダー、時間割編集は未配置・時間割・
 選択詳細の3ペインです。出力は対象、形式、保存先の順に進み、詳細な帳票設定は必要な
 場合だけ開きます。詳細は[`docs/user_manual.md`](docs/user_manual.md)を参照してください。
@@ -66,15 +67,15 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.3.2.exe`
-- `SummerCourseScheduler-Portable-1.3.2.zip`
+- `SummerCourseScheduler-Setup-1.3.3.exe`
+- `SummerCourseScheduler-Portable-1.3.3.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.3.2.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.3.2.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.3.3.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.3.3.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -550,11 +551,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.2
+  -Version 1.3.3
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.3.2.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.3.3.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -566,13 +567,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.3.2 `
+  -Version 1.3.3 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.3.2.zip `
-  dist\SummerCourseScheduler-Setup-1.3.2.exe
+  dist\SummerCourseScheduler-Portable-1.3.3.zip `
+  dist\SummerCourseScheduler-Setup-1.3.3.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

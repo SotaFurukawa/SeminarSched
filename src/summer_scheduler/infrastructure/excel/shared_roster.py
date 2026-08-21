@@ -29,23 +29,23 @@ from summer_scheduler.domain.identifiers import next_person_external_id
 SHARED_ROSTER_FILENAME: Final = "生徒・講師_基本情報.xlsx"
 
 _STUDENT_HEADERS: Final = (
+    "在籍（姓入力時は自動で☑）",
     "生徒ID（自動・入力不要）",
     "姓（必須）",
     "名",
     "氏名（確認）",
     "学年（必須）",
-    "標準最大連続コマ数",
-    "空きコマ許可",
-    "在籍",
+    "標準最大連続コマ数（デフォルトは2）",
+    "空きコマ許可（デフォルトはなし）",
     "備考",
 )
 _TEACHER_HEADERS: Final = (
+    "在籍（姓入力時は自動で☑）",
     "講師ID（自動・入力不要）",
     "姓（必須）",
     "名",
     "氏名（確認）",
-    "空きコマ許可",
-    "在籍",
+    "空きコマ許可（デフォルトはなし）",
     "備考",
 )
 _SUBJECT_HEADERS: Final = (
@@ -83,9 +83,11 @@ _SHEETS: Final = ("生徒", "講師", "科目", "講師対応科目", "通常授
 _HEADER_FILL = PatternFill(fill_type="solid", fgColor="1F4E78")
 _HELPER_FILL = PatternFill(fill_type="solid", fgColor="5B9BD5")
 _INACTIVE_FILL = PatternFill(fill_type="solid", fgColor="E7E6E6")
+_REQUIRED_FILL = PatternFill(fill_type="solid", fgColor="FFF2CC")
 _HEADER_FONT = Font(color="FFFFFF", bold=True)
 _THIN_GREY = Side(style="thin", color="D9DEE7")
 _MAX_ROW: Final = 10_000
+_FORMULA_TEMPLATE_MAX_ROW: Final = 1_000
 _formula_rule = cast(Callable[..., Any], FormulaRule)
 
 
@@ -192,50 +194,54 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
     workbook.calculation.fullCalcOnLoad = True
 
     student_sheet = workbook.create_sheet("生徒")
-    _setup_sheet(student_sheet, _STUDENT_HEADERS, (18, 15, 15, 24, 12, 22, 15, 13, 32))
-    _mark_auto_id_header(student_sheet, "生徒", "S-0001")
+    _setup_sheet(student_sheet, _STUDENT_HEADERS, (20, 18, 15, 15, 24, 12, 25, 24, 32))
+    _mark_auto_id_header(student_sheet, "B1", "生徒", "S-0001")
     for index, student_row in enumerate(
         sorted(data.students, key=lambda item: (not item.active, item.external_id)), start=2
     ):
         student_sheet.append(
             [
+                _membership(student_row.active),
                 student_row.external_id,
                 student_row.surname,
                 student_row.given_name,
-                f'=IF(COUNTA(B{index}:C{index})=0,"",TRIM(B{index}&" "&C{index}))',
+                f'=IF(COUNTA(C{index}:D{index})=0,"",TRIM(C{index}&" "&D{index}))',
                 grade_to_excel(student_row.grade),
                 student_row.max_consecutive_slots,
-                _yes_no(student_row.allow_gap),
-                _membership(student_row.active),
+                _gap_label(student_row.allow_gap),
                 student_row.note,
             ]
         )
-    _add_list(student_sheet, "E2:E10000", f'"{",".join(EXCEL_GRADE_OPTIONS)}"')
-    _add_whole(student_sheet, "F2:F10000", 1, 3, allow_blank=True)
-    _add_list(student_sheet, "G2:G10000", '"はい,いいえ"', allow_blank=True)
-    _add_list(student_sheet, "H2:H10000", '"☑ 在籍,☐ 退籍"', allow_blank=True)
-    _grey_inactive(student_sheet, "H", len(_STUDENT_HEADERS))
+    _prepare_student_input_rows(student_sheet, len(data.students) + 2)
+    _add_list(student_sheet, "A2:A10000", '"☑ 在籍,☐ 退籍"', allow_blank=True)
+    _add_list(student_sheet, "F2:F10000", f'"{",".join(EXCEL_GRADE_OPTIONS)}"')
+    _add_whole(student_sheet, "G2:G10000", 1, 3, allow_blank=True)
+    _add_list(student_sheet, "H2:H10000", '"あり,なし"', allow_blank=True)
+    _fill_required_columns(student_sheet, ("C", "F"))
+    _grey_inactive(student_sheet, "A", len(_STUDENT_HEADERS))
 
     teacher_sheet = workbook.create_sheet("講師")
-    _setup_sheet(teacher_sheet, _TEACHER_HEADERS, (18, 15, 15, 24, 15, 13, 32))
-    _mark_auto_id_header(teacher_sheet, "講師", "T-0001")
+    _setup_sheet(teacher_sheet, _TEACHER_HEADERS, (20, 18, 15, 15, 24, 24, 32))
+    _mark_auto_id_header(teacher_sheet, "B1", "講師", "T-0001")
     for index, teacher_row in enumerate(
         sorted(data.teachers, key=lambda item: (not item.active, item.external_id)), start=2
     ):
         teacher_sheet.append(
             [
+                _membership(teacher_row.active),
                 teacher_row.external_id,
                 teacher_row.surname,
                 teacher_row.given_name,
-                f'=IF(COUNTA(B{index}:C{index})=0,"",TRIM(B{index}&" "&C{index}))',
-                _yes_no(teacher_row.allow_gap),
-                _membership(teacher_row.active),
+                f'=IF(COUNTA(C{index}:D{index})=0,"",TRIM(C{index}&" "&D{index}))',
+                _gap_label(teacher_row.allow_gap),
                 teacher_row.note,
             ]
         )
-    _add_list(teacher_sheet, "E2:E10000", '"はい,いいえ"', allow_blank=True)
-    _add_list(teacher_sheet, "F2:F10000", '"☑ 在籍,☐ 退籍"', allow_blank=True)
-    _grey_inactive(teacher_sheet, "F", len(_TEACHER_HEADERS))
+    _prepare_teacher_input_rows(teacher_sheet, len(data.teachers) + 2)
+    _add_list(teacher_sheet, "A2:A10000", '"☑ 在籍,☐ 退籍"', allow_blank=True)
+    _add_list(teacher_sheet, "F2:F10000", '"あり,なし"', allow_blank=True)
+    _fill_required_columns(teacher_sheet, ("C",))
+    _grey_inactive(teacher_sheet, "A", len(_TEACHER_HEADERS))
 
     subject_sheet = workbook.create_sheet("科目")
     _setup_sheet(subject_sheet, _SUBJECT_HEADERS, (20, 28, 15, 13, 12))
@@ -265,7 +271,7 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
             [
                 qualification_row.teacher_external_id,
                 "",
-                _lookup_formula(index, "A", "講師", "A", "D", "B"),
+                _lookup_formula(index, "A", "講師", "B", "E", "B"),
                 qualification_row.subject_code,
                 "",
                 _lookup_formula(index, "D", "科目", "A", "B", "E"),
@@ -273,8 +279,8 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
                 qualification_row.note,
             ]
         )
-    _add_list(qualification_sheet, "A2:A10000", "=INDIRECT(\"'講師'!$A$2:$A$10000\")", True)
-    _add_list(qualification_sheet, "B2:B10000", "=INDIRECT(\"'講師'!$D$2:$D$10000\")", True)
+    _add_list(qualification_sheet, "A2:A10000", "=INDIRECT(\"'講師'!$B$2:$B$10000\")", True)
+    _add_list(qualification_sheet, "B2:B10000", "=INDIRECT(\"'講師'!$E$2:$E$10000\")", True)
     _add_list(qualification_sheet, "D2:D10000", "=INDIRECT(\"'科目'!$A$2:$A$10000\")", True)
     _add_list(qualification_sheet, "E2:E10000", "=INDIRECT(\"'科目'!$B$2:$B$10000\")", True)
     _add_list(qualification_sheet, "G2:G10000", '"はい,いいえ"', True)
@@ -291,24 +297,24 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
             [
                 lesson_row.student_external_id,
                 "",
-                _lookup_formula(index, "A", "生徒", "A", "D", "B"),
+                _lookup_formula(index, "A", "生徒", "B", "E", "B"),
                 lesson_row.subject_code,
                 "",
                 _lookup_formula(index, "D", "科目", "A", "B", "E"),
                 lesson_row.regular_teacher_external_id,
                 "",
-                _lookup_formula(index, "G", "講師", "A", "D", "H"),
+                _lookup_formula(index, "G", "講師", "B", "E", "H"),
                 lesson_row.regular_teacher_priority,
                 _yes_no(lesson_row.one_to_one_required),
                 lesson_row.note,
             ]
         )
-    _add_list(regular_sheet, "A2:A10000", "=INDIRECT(\"'生徒'!$A$2:$A$10000\")", True)
-    _add_list(regular_sheet, "B2:B10000", "=INDIRECT(\"'生徒'!$D$2:$D$10000\")", True)
+    _add_list(regular_sheet, "A2:A10000", "=INDIRECT(\"'生徒'!$B$2:$B$10000\")", True)
+    _add_list(regular_sheet, "B2:B10000", "=INDIRECT(\"'生徒'!$E$2:$E$10000\")", True)
     _add_list(regular_sheet, "D2:D10000", "=INDIRECT(\"'科目'!$A$2:$A$10000\")", True)
     _add_list(regular_sheet, "E2:E10000", "=INDIRECT(\"'科目'!$B$2:$B$10000\")", True)
-    _add_list(regular_sheet, "G2:G10000", "=INDIRECT(\"'講師'!$A$2:$A$10000\")", True)
-    _add_list(regular_sheet, "H2:H10000", "=INDIRECT(\"'講師'!$D$2:$D$10000\")", True)
+    _add_list(regular_sheet, "G2:G10000", "=INDIRECT(\"'講師'!$B$2:$B$10000\")", True)
+    _add_list(regular_sheet, "H2:H10000", "=INDIRECT(\"'講師'!$E$2:$E$10000\")", True)
     _add_whole(regular_sheet, "J2:J10000", 1, 5, allow_blank=True)
     _add_list(regular_sheet, "K2:K10000", '"はい,いいえ"', True)
 
@@ -382,18 +388,27 @@ def _read_students(
     result: list[SharedStudent] = []
     used: set[str] = set()
     rows = _rows(sheet, len(_STUDENT_HEADERS))
+    status_first = _status_is_first_column(sheet)
+    active_index, id_index, surname_index, given_name_index = (
+        (0, 1, 2, 3) if status_first else (7, 0, 1, 2)
+    )
+    grade_index, maximum_index, gap_index, note_index = (
+        (5, 6, 7, 8) if status_first else (4, 5, 6, 8)
+    )
     reserved = {value.strip() for value in reserved_external_ids if value.strip()}
-    reserved.update(_text(values[0]) for _row_number, values in rows if _text(values[0]))
+    reserved.update(
+        _text(values[id_index]) for _row_number, values in rows if _text(values[id_index])
+    )
     for row_number, values in rows:
         if _empty(values):
             continue
-        external_id = _text(values[0])
+        external_id = _text(values[id_index])
         if not external_id:
             external_id = next_person_external_id(reserved, prefix="S")
             reserved.add(external_id)
-        surname = _text(values[1])
-        given_name = _text(values[2])
-        grade = grade_from_excel(_text(values[4]))
+        surname = _text(values[surname_index])
+        given_name = _text(values[given_name_index])
+        grade = grade_from_excel(_text(values[grade_index]))
         if external_id in used:
             errors.append(f"生徒 {row_number}行: 生徒ID「{external_id}」が重複しています")
             continue
@@ -402,7 +417,7 @@ def _read_students(
             errors.append(f"生徒 {row_number}行: 姓は必須です")
         if grade not in INTERNAL_GRADE_OPTIONS:
             errors.append(f"生徒 {row_number}行: 学年はS1～S6、J1～J3、H1～H3から選択してください")
-        maximum = _integer(values[5], 2)
+        maximum = _integer(values[maximum_index], 2)
         if not 1 <= maximum <= 3:
             errors.append(f"生徒 {row_number}行: 最大連続コマ数は1～3です")
         result.append(
@@ -412,9 +427,9 @@ def _read_students(
                 given_name,
                 grade,
                 maximum,
-                _boolean(values[6], False),
-                _active(values[7]),
-                _text(values[8]),
+                _boolean(values[gap_index], False),
+                _active(values[active_index]),
+                _text(values[note_index]),
             )
         )
     return result
@@ -428,16 +443,23 @@ def _read_teachers(
     result: list[SharedTeacher] = []
     used: set[str] = set()
     rows = _rows(sheet, len(_TEACHER_HEADERS))
+    status_first = _status_is_first_column(sheet)
+    active_index, id_index, surname_index, given_name_index, gap_index, note_index = (
+        (0, 1, 2, 3, 5, 6) if status_first else (5, 0, 1, 2, 4, 6)
+    )
     reserved = {value.strip() for value in reserved_external_ids if value.strip()}
-    reserved.update(_text(values[0]) for _row_number, values in rows if _text(values[0]))
+    reserved.update(
+        _text(values[id_index]) for _row_number, values in rows if _text(values[id_index])
+    )
     for row_number, values in rows:
         if _empty(values):
             continue
-        external_id = _text(values[0])
+        external_id = _text(values[id_index])
         if not external_id:
             external_id = next_person_external_id(reserved, prefix="T")
             reserved.add(external_id)
-        surname, given_name = _text(values[1]), _text(values[2])
+        surname = _text(values[surname_index])
+        given_name = _text(values[given_name_index])
         if external_id in used:
             errors.append(f"講師 {row_number}行: 講師ID「{external_id}」が重複しています")
             continue
@@ -449,9 +471,9 @@ def _read_teachers(
                 external_id,
                 surname,
                 given_name,
-                _boolean(values[4], False),
-                _active(values[5]),
-                _text(values[6]),
+                _boolean(values[gap_index], False),
+                _active(values[active_index]),
+                _text(values[note_index]),
             )
         )
     return result
@@ -561,6 +583,43 @@ def _read_regular_lessons(
     return result
 
 
+def _prepare_student_input_rows(sheet: Any, first_blank_row: int) -> None:
+    """姓を入力するとID・在籍・既定値が表示される入力行を用意する。"""
+    for row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
+        sheet[f"A{row}"] = f'=IF(C{row}="","","☑ 在籍")'
+        sheet[f"B{row}"] = _next_id_formula(row, "S")
+        sheet[f"E{row}"] = f'=IF(COUNTA(C{row}:D{row})=0,"",TRIM(C{row}&" "&D{row}))'
+        sheet[f"G{row}"] = f'=IF(C{row}="","",2)'
+        sheet[f"H{row}"] = f'=IF(C{row}="","","なし")'
+
+
+def _prepare_teacher_input_rows(sheet: Any, first_blank_row: int) -> None:
+    """姓を入力するとID・在籍・既定値が表示される入力行を用意する。"""
+    for row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
+        sheet[f"A{row}"] = f'=IF(C{row}="","","☑ 在籍")'
+        sheet[f"B{row}"] = _next_id_formula(row, "T")
+        sheet[f"E{row}"] = f'=IF(COUNTA(C{row}:D{row})=0,"",TRIM(C{row}&" "&D{row}))'
+        sheet[f"F{row}"] = f'=IF(C{row}="","","なし")'
+
+
+def _next_id_formula(row: int, prefix: str) -> str:
+    """既存IDの最大番号に続く候補をExcel上で表示する。正式採番は読込み時に行う。"""
+    previous = row - 1
+    numeric_ids = f'VALUE(SUBSTITUTE(SUBSTITUTE($B$1:B{previous},"{prefix}-",""),"{prefix}",""))'
+    maximum = f"IFERROR(AGGREGATE(14,6,{numeric_ids},1),0)"
+    return f'=IF(C{row}="","","{prefix}-"&TEXT({maximum}+1,"0000"))'
+
+
+def _fill_required_columns(sheet: Any, columns: tuple[str, ...]) -> None:
+    for column in columns:
+        for row in range(2, _FORMULA_TEMPLATE_MAX_ROW + 1):
+            sheet[f"{column}{row}"].fill = _REQUIRED_FILL
+
+
+def _status_is_first_column(sheet: Any) -> bool:
+    return _text(sheet.cell(1, 1).value).startswith("在籍")
+
+
 def _setup_sheet(
     sheet: Any,
     headers: tuple[str, ...],
@@ -585,19 +644,24 @@ def _setup_sheet(
 
 
 def _finish_rows(sheet: Any) -> None:
-    last_row = max(sheet.max_row, 2)
+    last_data_row = 1
+    for row in range(2, sheet.max_row + 1):
+        if any(_text(sheet.cell(row, column).value) for column in range(1, sheet.max_column + 1)):
+            last_data_row = row
+    # 入力開始用の空行は含めるが、数式だけの将来行をソート対象にしない。
+    last_row = max(last_data_row + 1, 2)
     last_column = sheet.cell(1, sheet.max_column).column_letter
     sheet.auto_filter.ref = f"A1:{last_column}{last_row}"
-    for row in sheet.iter_rows(min_row=2, max_row=last_row):
+    for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row):
         for cell in row:
             cell.alignment = Alignment(vertical="top", wrap_text=True)
             cell.border = Border(bottom=_THIN_GREY)
 
 
-def _mark_auto_id_header(sheet: Any, person_label: str, example: str) -> None:
-    sheet["A1"].comment = Comment(
-        f"入力不要です。{person_label}の姓などを入力し、アプリで反映すると"
-        f"{example}形式のIDを自動採番してこの列へ書き戻します。",
+def _mark_auto_id_header(sheet: Any, coordinate: str, person_label: str, example: str) -> None:
+    sheet[coordinate].comment = Comment(
+        f"入力不要です。{person_label}の姓を入力すると{example}形式の候補を表示します。"
+        "アプリで反映すると、既存IDと衝突しない正式IDとしてこの列へ書き戻します。",
         "夏期講習時間割作成アプリ",
     )
 
@@ -695,9 +759,9 @@ def _boolean(value: object, default: bool) -> bool:
     text = _text(value).casefold()
     if not text:
         return default
-    if text in {"はい", "yes", "true", "1", "☑", "可", "在籍"}:
+    if text in {"はい", "あり", "yes", "true", "1", "☑", "可", "在籍"}:
         return True
-    if text in {"いいえ", "no", "false", "0", "☐", "不可", "退籍"}:
+    if text in {"いいえ", "なし", "no", "false", "0", "☐", "不可", "退籍"}:
         return False
     return default
 
@@ -715,6 +779,10 @@ def _membership(active: bool) -> str:
 
 def _yes_no(value: bool) -> str:
     return "はい" if value else "いいえ"
+
+
+def _gap_label(value: bool) -> str:
+    return "あり" if value else "なし"
 
 
 def _school_level_label(value: str) -> str:
