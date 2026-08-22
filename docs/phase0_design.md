@@ -7,7 +7,7 @@
 省略・緩和・変更しない。
 
 本書の実装計画部分は、Phase 0 / 1着手時点の記録である。現在は
-Phase 7および`1.3.3`まで実装している。Phase 2で確定した
+Phase 7および`1.3.4`まで実装している。Phase 2で確定した
 プロジェクトファイル、マスターの所属範囲、
 削除、Excel transactionは
 [`ADR 0005`](adr/0005-project-file-and-master-data-lifecycle.md)を参照する。
@@ -34,7 +34,7 @@ Phase 3のアンケート・集団授業・入力検証、Phase 4の最適化境
 | CI | GitHub Actions | lint、型検査、test |
 | 最適化 | Google OR-Tools CP-SAT `9.14.6206` | Phase 4で候補、制約、辞書式Solve、中断、診断を実装 |
 | 時間割編集model | `QAbstractTableModel` + QML `TableView` | Phase 5で当日グリッドを仮想化・再利用表示 |
-| Excel | openpyxl | Phase 2 / 3の入出力、Phase 6の編集可能な帳票 |
+| Excel | openpyxl / XlsxWriter | Phase 2 / 3の入出力、セル内チェックボックス付き共通名簿、Phase 6の編集可能な帳票 |
 | PDF | Qt rich text + `QPdfWriter`、QtQuick.Pdf | Phase 6のローカルPDF生成とプレビュー |
 | バックアップ・復旧 | SQLite backup API + 原子的置換 | Phase 7の世代管理、整合性検査、復元前退避 |
 | Windows standalone | pyside6-deploy + Nuitka 4.0 | Phase 7のportable正本を生成する配布script |
@@ -125,7 +125,7 @@ Infrastructure Repository / DB / Excel / PDF / Logging
 SQLite またはローカルファイル
 ```
 
-依存は上から下へ向ける。Domain は PySide6、SQLAlchemy、openpyxl、OR-Tools に依存しない。Application は QML の型を受け取らず、画面で必要な変換は ViewModel が担当する。Infrastructure は Domain / Application が定義する境界を実装する。
+依存は上から下へ向ける。Domain は PySide6、SQLAlchemy、openpyxl、XlsxWriter、OR-Tools に依存しない。Application は QML の型を受け取らず、画面で必要な変換は ViewModel が担当する。Infrastructure は Domain / Application が定義する境界を実装する。
 
 Phase 1では、起動・設定・DB・ログ・ViewModel・QMLの最小限だけを実装した。Phase 4は
 この境界に従い、Application ServiceがORMを不変DTOへコピーし、最適化packageから

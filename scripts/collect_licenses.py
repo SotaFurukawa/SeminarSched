@@ -23,6 +23,7 @@ _ROOT_DISTRIBUTIONS = (
     "PySide6",
     "PyYAML",
     "SQLAlchemy",
+    "XlsxWriter",
 )
 _LICENSE_MARKERS = ("authors", "copying", "copyright", "licence", "license", "notice")
 

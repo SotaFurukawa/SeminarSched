@@ -17,14 +17,14 @@ ROOT = Path(__file__).parents[2]
 def test_release_candidate_version_is_consistent_in_package_and_metadata() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
-    assert __version__ == "1.3.3"
+    assert __version__ == "1.3.4"
     assert metadata["project"]["version"] == __version__
 
 
 def test_app_view_model_distinguishes_application_and_database_versions() -> None:
     view_model = AppViewModel(__version__, "20260729_0006", database_ready=True)
 
-    assert view_model._get_app_version() == "1.3.3"
+    assert view_model._get_app_version() == "1.3.4"
     assert view_model._get_schema_version() == "20260729_0006"
     assert view_model._get_database_ready() is True
 
@@ -63,4 +63,4 @@ def test_report_metadata_contains_application_version() -> None:
         warnings=(),
     )
 
-    assert updated_text(snapshot).endswith("／アプリ v1.3.3")
+    assert updated_text(snapshot).endswith("／アプリ v1.3.4")

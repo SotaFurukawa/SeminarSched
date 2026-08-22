@@ -5,17 +5,14 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, Final, cast
+from typing import Any, Final
 
-from openpyxl import Workbook, load_workbook
-from openpyxl.comments import Comment
-from openpyxl.formatting.rule import FormulaRule
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.worksheet.datavalidation import DataValidation
+import xlsxwriter
+from openpyxl import load_workbook
 
 from summer_scheduler.domain.defaults import DEFAULT_SUBJECTS
 from summer_scheduler.domain.grades import (
@@ -24,12 +21,12 @@ from summer_scheduler.domain.grades import (
     grade_from_excel,
     grade_to_excel,
 )
-from summer_scheduler.domain.identifiers import next_person_external_id
+from summer_scheduler.domain.identifiers import PersonIdPrefix, next_person_external_id
 
 SHARED_ROSTER_FILENAME: Final = "生徒・講師_基本情報.xlsx"
 
 _STUDENT_HEADERS: Final = (
-    "在籍（姓入力時は自動で☑）",
+    "在籍",
     "生徒ID（自動・入力不要）",
     "姓（必須）",
     "名",
@@ -40,7 +37,7 @@ _STUDENT_HEADERS: Final = (
     "備考",
 )
 _TEACHER_HEADERS: Final = (
-    "在籍（姓入力時は自動で☑）",
+    "在籍",
     "講師ID（自動・入力不要）",
     "姓（必須）",
     "名",
@@ -80,15 +77,9 @@ _REGULAR_HEADERS: Final = (
     "備考",
 )
 _SHEETS: Final = ("生徒", "講師", "科目", "講師対応科目", "通常授業")
-_HEADER_FILL = PatternFill(fill_type="solid", fgColor="1F4E78")
-_HELPER_FILL = PatternFill(fill_type="solid", fgColor="5B9BD5")
-_INACTIVE_FILL = PatternFill(fill_type="solid", fgColor="E7E6E6")
-_REQUIRED_FILL = PatternFill(fill_type="solid", fgColor="FFF2CC")
-_HEADER_FONT = Font(color="FFFFFF", bold=True)
-_THIN_GREY = Side(style="thin", color="D9DEE7")
+_ID_HELPER_SHEET: Final = "_入力補助"
 _MAX_ROW: Final = 10_000
 _FORMULA_TEMPLATE_MAX_ROW: Final = 1_000
-_formula_rule = cast(Callable[..., Any], FormulaRule)
 
 
 class SharedRosterError(ValueError):
@@ -183,145 +174,9 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
     """共通名簿を入力規則・参照表示・退籍行の灰色表示付きで保存する。"""
     destination = path.expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
-    workbook = Workbook()
-    active_sheet = workbook.active
-    if active_sheet is not None:
-        workbook.remove(active_sheet)
-    workbook.properties.title = "生徒・講師 基本情報"
-    workbook.properties.subject = "講習に依存しない在籍者・通常授業情報"
-    workbook.properties.creator = "夏期講習時間割作成アプリ"
-    workbook.calculation.calcMode = "auto"
-    workbook.calculation.fullCalcOnLoad = True
-
-    student_sheet = workbook.create_sheet("生徒")
-    _setup_sheet(student_sheet, _STUDENT_HEADERS, (20, 18, 15, 15, 24, 12, 25, 24, 32))
-    _mark_auto_id_header(student_sheet, "B1", "生徒", "S-0001")
-    for index, student_row in enumerate(
-        sorted(data.students, key=lambda item: (not item.active, item.external_id)), start=2
-    ):
-        student_sheet.append(
-            [
-                _membership(student_row.active),
-                student_row.external_id,
-                student_row.surname,
-                student_row.given_name,
-                f'=IF(COUNTA(C{index}:D{index})=0,"",TRIM(C{index}&" "&D{index}))',
-                grade_to_excel(student_row.grade),
-                student_row.max_consecutive_slots,
-                _gap_label(student_row.allow_gap),
-                student_row.note,
-            ]
-        )
-    _prepare_student_input_rows(student_sheet, len(data.students) + 2)
-    _add_list(student_sheet, "A2:A10000", '"☑ 在籍,☐ 退籍"', allow_blank=True)
-    _add_list(student_sheet, "F2:F10000", f'"{",".join(EXCEL_GRADE_OPTIONS)}"')
-    _add_whole(student_sheet, "G2:G10000", 1, 3, allow_blank=True)
-    _add_list(student_sheet, "H2:H10000", '"あり,なし"', allow_blank=True)
-    _fill_required_columns(student_sheet, ("C", "F"))
-    _grey_inactive(student_sheet, "A", len(_STUDENT_HEADERS))
-
-    teacher_sheet = workbook.create_sheet("講師")
-    _setup_sheet(teacher_sheet, _TEACHER_HEADERS, (20, 18, 15, 15, 24, 24, 32))
-    _mark_auto_id_header(teacher_sheet, "B1", "講師", "T-0001")
-    for index, teacher_row in enumerate(
-        sorted(data.teachers, key=lambda item: (not item.active, item.external_id)), start=2
-    ):
-        teacher_sheet.append(
-            [
-                _membership(teacher_row.active),
-                teacher_row.external_id,
-                teacher_row.surname,
-                teacher_row.given_name,
-                f'=IF(COUNTA(C{index}:D{index})=0,"",TRIM(C{index}&" "&D{index}))',
-                _gap_label(teacher_row.allow_gap),
-                teacher_row.note,
-            ]
-        )
-    _prepare_teacher_input_rows(teacher_sheet, len(data.teachers) + 2)
-    _add_list(teacher_sheet, "A2:A10000", '"☑ 在籍,☐ 退籍"', allow_blank=True)
-    _add_list(teacher_sheet, "F2:F10000", '"あり,なし"', allow_blank=True)
-    _fill_required_columns(teacher_sheet, ("C",))
-    _grey_inactive(teacher_sheet, "A", len(_TEACHER_HEADERS))
-
-    subject_sheet = workbook.create_sheet("科目")
-    _setup_sheet(subject_sheet, _SUBJECT_HEADERS, (20, 28, 15, 13, 12))
-    for subject_row in sorted(data.subjects, key=lambda item: (item.sort_order, item.code)):
-        subject_sheet.append(
-            [
-                subject_row.code,
-                subject_row.display_name,
-                _school_level_label(subject_row.school_level),
-                subject_row.sort_order,
-                _yes_no(subject_row.active),
-            ]
-        )
-    _add_list(subject_sheet, "C2:C10000", '"小学校,中学校,高校"')
-    _add_whole(subject_sheet, "D2:D10000", 1, 9999)
-    _add_list(subject_sheet, "E2:E10000", '"はい,いいえ"', allow_blank=True)
-
-    qualification_sheet = workbook.create_sheet("講師対応科目")
-    _setup_sheet(
-        qualification_sheet,
-        _QUALIFICATION_HEADERS,
-        (18, 24, 24, 20, 28, 28, 14, 30),
-        helper_columns={2, 3, 5, 6},
-    )
-    for index, qualification_row in enumerate(data.qualifications, start=2):
-        qualification_sheet.append(
-            [
-                qualification_row.teacher_external_id,
-                "",
-                _lookup_formula(index, "A", "講師", "B", "E", "B"),
-                qualification_row.subject_code,
-                "",
-                _lookup_formula(index, "D", "科目", "A", "B", "E"),
-                _yes_no(qualification_row.can_teach),
-                qualification_row.note,
-            ]
-        )
-    _add_list(qualification_sheet, "A2:A10000", "=INDIRECT(\"'講師'!$B$2:$B$10000\")", True)
-    _add_list(qualification_sheet, "B2:B10000", "=INDIRECT(\"'講師'!$E$2:$E$10000\")", True)
-    _add_list(qualification_sheet, "D2:D10000", "=INDIRECT(\"'科目'!$A$2:$A$10000\")", True)
-    _add_list(qualification_sheet, "E2:E10000", "=INDIRECT(\"'科目'!$B$2:$B$10000\")", True)
-    _add_list(qualification_sheet, "G2:G10000", '"はい,いいえ"', True)
-
-    regular_sheet = workbook.create_sheet("通常授業")
-    _setup_sheet(
-        regular_sheet,
-        _REGULAR_HEADERS,
-        (18, 24, 24, 20, 28, 28, 20, 26, 26, 18, 14, 30),
-        helper_columns={2, 3, 5, 6, 8, 9},
-    )
-    for index, lesson_row in enumerate(data.regular_lessons, start=2):
-        regular_sheet.append(
-            [
-                lesson_row.student_external_id,
-                "",
-                _lookup_formula(index, "A", "生徒", "B", "E", "B"),
-                lesson_row.subject_code,
-                "",
-                _lookup_formula(index, "D", "科目", "A", "B", "E"),
-                lesson_row.regular_teacher_external_id,
-                "",
-                _lookup_formula(index, "G", "講師", "B", "E", "H"),
-                lesson_row.regular_teacher_priority,
-                _yes_no(lesson_row.one_to_one_required),
-                lesson_row.note,
-            ]
-        )
-    _add_list(regular_sheet, "A2:A10000", "=INDIRECT(\"'生徒'!$B$2:$B$10000\")", True)
-    _add_list(regular_sheet, "B2:B10000", "=INDIRECT(\"'生徒'!$E$2:$E$10000\")", True)
-    _add_list(regular_sheet, "D2:D10000", "=INDIRECT(\"'科目'!$A$2:$A$10000\")", True)
-    _add_list(regular_sheet, "E2:E10000", "=INDIRECT(\"'科目'!$B$2:$B$10000\")", True)
-    _add_list(regular_sheet, "G2:G10000", "=INDIRECT(\"'講師'!$B$2:$B$10000\")", True)
-    _add_list(regular_sheet, "H2:H10000", "=INDIRECT(\"'講師'!$E$2:$E$10000\")", True)
-    _add_whole(regular_sheet, "J2:J10000", 1, 5, allow_blank=True)
-    _add_list(regular_sheet, "K2:K10000", '"はい,いいえ"', True)
-
-    # 空行までソート対象へ含めない。フィルター範囲は値がある最終行までに限定する。
-    for sheet in workbook.worksheets:
-        _finish_rows(sheet)
     temporary: Path | None = None
+    workbook: Any | None = None
+    closed = False
     try:
         with NamedTemporaryFile(
             prefix=f".{destination.stem}_",
@@ -330,11 +185,245 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
             delete=False,
         ) as stream:
             temporary = Path(stream.name)
-        workbook.save(temporary)
+        workbook = xlsxwriter.Workbook(str(temporary))
+        workbook.set_properties(
+            {
+                "title": "生徒・講師 基本情報",
+                "subject": "講習に依存しない在籍者・通常授業情報",
+                "author": "夏期講習時間割作成アプリ",
+            }
+        )
+        workbook.set_calc_mode("auto")
+        formats = _xlsx_formats(workbook)
+
+        student_rows = sorted(data.students, key=lambda item: (not item.active, item.external_id))
+        student_sheet = workbook.add_worksheet("生徒")
+        _setup_sheet(
+            student_sheet,
+            _STUDENT_HEADERS,
+            (20, 18, 15, 15, 24, 12, 25, 24, 32),
+            formats,
+        )
+        _mark_auto_id_header(student_sheet, "B1", "生徒", "S-0001")
+        for excel_row, student in enumerate(student_rows, start=2):
+            row = excel_row - 1
+            student_sheet.write_boolean(row, 0, student.active, formats["checkbox"])
+            student_sheet.write(row, 1, student.external_id, formats["normal"])
+            student_sheet.write(row, 2, student.surname, formats["required"])
+            student_sheet.write(row, 3, student.given_name, formats["normal"])
+            student_sheet.write_formula(
+                row,
+                4,
+                f'=IF(COUNTA(C{excel_row}:D{excel_row})=0,"",TRIM(C{excel_row}&" "&D{excel_row}))',
+                formats["normal"],
+                student.name,
+            )
+            student_sheet.write(row, 5, grade_to_excel(student.grade), formats["required"])
+            student_sheet.write(row, 6, student.max_consecutive_slots, formats["normal"])
+            student_sheet.write(row, 7, _gap_label(student.allow_gap), formats["normal"])
+            student_sheet.write(row, 8, student.note, formats["normal"])
+        _prepare_student_input_rows(student_sheet, len(student_rows) + 2, formats)
+        _add_list(student_sheet, "F2:F10000", list(EXCEL_GRADE_OPTIONS))
+        _add_whole(student_sheet, "G2:G10000", 1, 3, allow_blank=True)
+        _add_list(student_sheet, "H2:H10000", ["あり", "なし"], allow_blank=True)
+        _grey_inactive(student_sheet, len(_STUDENT_HEADERS), formats["inactive"])
+        _finish_rows(student_sheet, len(student_rows), len(_STUDENT_HEADERS))
+
+        teacher_rows = sorted(data.teachers, key=lambda item: (not item.active, item.external_id))
+        teacher_sheet = workbook.add_worksheet("講師")
+        _setup_sheet(
+            teacher_sheet,
+            _TEACHER_HEADERS,
+            (20, 18, 15, 15, 24, 24, 32),
+            formats,
+        )
+        _mark_auto_id_header(teacher_sheet, "B1", "講師", "T-0001")
+        for excel_row, teacher in enumerate(teacher_rows, start=2):
+            row = excel_row - 1
+            teacher_sheet.write_boolean(row, 0, teacher.active, formats["checkbox"])
+            teacher_sheet.write(row, 1, teacher.external_id, formats["normal"])
+            teacher_sheet.write(row, 2, teacher.surname, formats["required"])
+            teacher_sheet.write(row, 3, teacher.given_name, formats["normal"])
+            teacher_sheet.write_formula(
+                row,
+                4,
+                f'=IF(COUNTA(C{excel_row}:D{excel_row})=0,"",TRIM(C{excel_row}&" "&D{excel_row}))',
+                formats["normal"],
+                teacher.name,
+            )
+            teacher_sheet.write(row, 5, _gap_label(teacher.allow_gap), formats["normal"])
+            teacher_sheet.write(row, 6, teacher.note, formats["normal"])
+        _prepare_teacher_input_rows(teacher_sheet, len(teacher_rows) + 2, formats)
+        _add_list(teacher_sheet, "F2:F10000", ["あり", "なし"], allow_blank=True)
+        _grey_inactive(teacher_sheet, len(_TEACHER_HEADERS), formats["inactive"])
+        _finish_rows(teacher_sheet, len(teacher_rows), len(_TEACHER_HEADERS))
+
+        subject_rows = sorted(data.subjects, key=lambda item: (item.sort_order, item.code))
+        subject_sheet = workbook.add_worksheet("科目")
+        _setup_sheet(subject_sheet, _SUBJECT_HEADERS, (20, 28, 15, 13, 12), formats)
+        for row, subject in enumerate(subject_rows, start=1):
+            _write_plain_row(
+                subject_sheet,
+                row,
+                (
+                    subject.code,
+                    subject.display_name,
+                    _school_level_label(subject.school_level),
+                    subject.sort_order,
+                    _yes_no(subject.active),
+                ),
+                formats["normal"],
+            )
+        _add_list(subject_sheet, "C2:C10000", ["小学校", "中学校", "高校"])
+        _add_whole(subject_sheet, "D2:D10000", 1, 9999)
+        _add_list(subject_sheet, "E2:E10000", ["はい", "いいえ"], allow_blank=True)
+        _finish_rows(subject_sheet, len(subject_rows), len(_SUBJECT_HEADERS))
+
+        qualification_sheet = workbook.add_worksheet("講師対応科目")
+        _setup_sheet(
+            qualification_sheet,
+            _QUALIFICATION_HEADERS,
+            (18, 24, 24, 20, 28, 28, 14, 30),
+            formats,
+            helper_columns={2, 3, 5, 6},
+        )
+        for excel_row, qualification in enumerate(data.qualifications, start=2):
+            row = excel_row - 1
+            qualification_sheet.write(row, 0, qualification.teacher_external_id, formats["normal"])
+            qualification_sheet.write_blank(row, 1, None, formats["normal"])
+            qualification_sheet.write_formula(
+                row,
+                2,
+                _lookup_formula(excel_row, "A", "講師", "B", "E", "B"),
+                formats["normal"],
+                "",
+            )
+            qualification_sheet.write(row, 3, qualification.subject_code, formats["normal"])
+            qualification_sheet.write_blank(row, 4, None, formats["normal"])
+            qualification_sheet.write_formula(
+                row,
+                5,
+                _lookup_formula(excel_row, "D", "科目", "A", "B", "E"),
+                formats["normal"],
+                "",
+            )
+            qualification_sheet.write(row, 6, _yes_no(qualification.can_teach), formats["normal"])
+            qualification_sheet.write(row, 7, qualification.note, formats["normal"])
+        _add_list(
+            qualification_sheet,
+            "A2:A10000",
+            "=INDIRECT(\"'講師'!$B$2:$B$10000\")",
+            allow_blank=True,
+        )
+        _add_list(
+            qualification_sheet,
+            "B2:B10000",
+            "=INDIRECT(\"'講師'!$E$2:$E$10000\")",
+            allow_blank=True,
+        )
+        _add_list(
+            qualification_sheet,
+            "D2:D10000",
+            "=INDIRECT(\"'科目'!$A$2:$A$10000\")",
+            allow_blank=True,
+        )
+        _add_list(
+            qualification_sheet,
+            "E2:E10000",
+            "=INDIRECT(\"'科目'!$B$2:$B$10000\")",
+            allow_blank=True,
+        )
+        _add_list(qualification_sheet, "G2:G10000", ["はい", "いいえ"], allow_blank=True)
+        _finish_rows(qualification_sheet, len(data.qualifications), len(_QUALIFICATION_HEADERS))
+
+        regular_sheet = workbook.add_worksheet("通常授業")
+        _setup_sheet(
+            regular_sheet,
+            _REGULAR_HEADERS,
+            (18, 24, 24, 20, 28, 28, 20, 26, 26, 18, 14, 30),
+            formats,
+            helper_columns={2, 3, 5, 6, 8, 9},
+        )
+        for excel_row, lesson in enumerate(data.regular_lessons, start=2):
+            row = excel_row - 1
+            regular_sheet.write(row, 0, lesson.student_external_id, formats["normal"])
+            regular_sheet.write_blank(row, 1, None, formats["normal"])
+            regular_sheet.write_formula(
+                row,
+                2,
+                _lookup_formula(excel_row, "A", "生徒", "B", "E", "B"),
+                formats["normal"],
+                "",
+            )
+            regular_sheet.write(row, 3, lesson.subject_code, formats["normal"])
+            regular_sheet.write_blank(row, 4, None, formats["normal"])
+            regular_sheet.write_formula(
+                row,
+                5,
+                _lookup_formula(excel_row, "D", "科目", "A", "B", "E"),
+                formats["normal"],
+                "",
+            )
+            regular_sheet.write(row, 6, lesson.regular_teacher_external_id, formats["normal"])
+            regular_sheet.write_blank(row, 7, None, formats["normal"])
+            regular_sheet.write_formula(
+                row,
+                8,
+                _lookup_formula(excel_row, "G", "講師", "B", "E", "H"),
+                formats["normal"],
+                "",
+            )
+            regular_sheet.write(row, 9, lesson.regular_teacher_priority, formats["normal"])
+            regular_sheet.write(row, 10, _yes_no(lesson.one_to_one_required), formats["normal"])
+            regular_sheet.write(row, 11, lesson.note, formats["normal"])
+        _add_list(
+            regular_sheet,
+            "A2:A10000",
+            "=INDIRECT(\"'生徒'!$B$2:$B$10000\")",
+            allow_blank=True,
+        )
+        _add_list(
+            regular_sheet,
+            "B2:B10000",
+            "=INDIRECT(\"'生徒'!$E$2:$E$10000\")",
+            allow_blank=True,
+        )
+        _add_list(
+            regular_sheet,
+            "D2:D10000",
+            "=INDIRECT(\"'科目'!$A$2:$A$10000\")",
+            allow_blank=True,
+        )
+        _add_list(
+            regular_sheet,
+            "E2:E10000",
+            "=INDIRECT(\"'科目'!$B$2:$B$10000\")",
+            allow_blank=True,
+        )
+        _add_list(
+            regular_sheet,
+            "G2:G10000",
+            "=INDIRECT(\"'講師'!$B$2:$B$10000\")",
+            allow_blank=True,
+        )
+        _add_list(
+            regular_sheet,
+            "H2:H10000",
+            "=INDIRECT(\"'講師'!$E$2:$E$10000\")",
+            allow_blank=True,
+        )
+        _add_whole(regular_sheet, "J2:J10000", 1, 5, allow_blank=True)
+        _add_list(regular_sheet, "K2:K10000", ["はい", "いいえ"], allow_blank=True)
+        _finish_rows(regular_sheet, len(data.regular_lessons), len(_REGULAR_HEADERS))
+
+        _create_id_helper_sheet(workbook, data)
+        workbook.close()
+        closed = True
         os.replace(temporary, destination)
         temporary = None
     finally:
-        workbook.close()
+        if workbook is not None and not closed:
+            workbook.close()
         if temporary is not None:
             temporary.unlink(missing_ok=True)
 
@@ -400,6 +489,11 @@ def _read_students(
         _text(values[id_index]) for _row_number, values in rows if _text(values[id_index])
     )
     for row_number, values in rows:
+        if status_first and not any(
+            _text(values[index])
+            for index in (id_index, surname_index, given_name_index, grade_index, note_index)
+        ):
+            continue
         if _empty(values):
             continue
         external_id = _text(values[id_index])
@@ -452,6 +546,11 @@ def _read_teachers(
         _text(values[id_index]) for _row_number, values in rows if _text(values[id_index])
     )
     for row_number, values in rows:
+        if status_first and not any(
+            _text(values[index])
+            for index in (id_index, surname_index, given_name_index, note_index)
+        ):
+            continue
         if _empty(values):
             continue
         external_id = _text(values[id_index])
@@ -583,37 +682,148 @@ def _read_regular_lessons(
     return result
 
 
-def _prepare_student_input_rows(sheet: Any, first_blank_row: int) -> None:
+def _xlsx_formats(workbook: Any) -> dict[str, Any]:
+    common = {
+        "valign": "top",
+        "text_wrap": True,
+        "bottom": 1,
+        "bottom_color": "#D9DEE7",
+    }
+    return {
+        "header": workbook.add_format(
+            {
+                "bg_color": "#1F4E78",
+                "font_color": "#FFFFFF",
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "text_wrap": True,
+            }
+        ),
+        "helper_header": workbook.add_format(
+            {
+                "bg_color": "#5B9BD5",
+                "font_color": "#FFFFFF",
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "text_wrap": True,
+            }
+        ),
+        "normal": workbook.add_format(common),
+        "required": workbook.add_format({**common, "bg_color": "#FFF2CC"}),
+        "checkbox": workbook.add_format(
+            {**common, "checkbox": True, "align": "center", "valign": "vcenter"}
+        ),
+        "inactive": workbook.add_format({"bg_color": "#E7E6E6"}),
+    }
+
+
+def _prepare_student_input_rows(sheet: Any, first_blank_row: int, formats: dict[str, Any]) -> None:
     """姓を入力するとID・在籍・既定値が表示される入力行を用意する。"""
-    for row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
-        sheet[f"A{row}"] = f'=IF(C{row}="","","☑ 在籍")'
-        sheet[f"B{row}"] = _next_id_formula(row, "S")
-        sheet[f"E{row}"] = f'=IF(COUNTA(C{row}:D{row})=0,"",TRIM(C{row}&" "&D{row}))'
-        sheet[f"G{row}"] = f'=IF(C{row}="","",2)'
-        sheet[f"H{row}"] = f'=IF(C{row}="","","なし")'
+    for excel_row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
+        row = excel_row - 1
+        sheet.write_formula(row, 0, f'=C{excel_row}<>""', formats["checkbox"], False)
+        sheet.write_formula(
+            row,
+            1,
+            _next_id_formula(excel_row, "S", first_blank_row),
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 2, None, formats["required"])
+        sheet.write_blank(row, 3, None, formats["normal"])
+        sheet.write_formula(
+            row,
+            4,
+            f'=IF(COUNTA(C{excel_row}:D{excel_row})=0,"",TRIM(C{excel_row}&" "&D{excel_row}))',
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 5, None, formats["required"])
+        sheet.write_formula(
+            row,
+            6,
+            f'=IF(C{excel_row}="","",2)',
+            formats["normal"],
+            "",
+        )
+        sheet.write_formula(
+            row,
+            7,
+            f'=IF(C{excel_row}="","","なし")',
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 8, None, formats["normal"])
 
 
-def _prepare_teacher_input_rows(sheet: Any, first_blank_row: int) -> None:
+def _prepare_teacher_input_rows(sheet: Any, first_blank_row: int, formats: dict[str, Any]) -> None:
     """姓を入力するとID・在籍・既定値が表示される入力行を用意する。"""
-    for row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
-        sheet[f"A{row}"] = f'=IF(C{row}="","","☑ 在籍")'
-        sheet[f"B{row}"] = _next_id_formula(row, "T")
-        sheet[f"E{row}"] = f'=IF(COUNTA(C{row}:D{row})=0,"",TRIM(C{row}&" "&D{row}))'
-        sheet[f"F{row}"] = f'=IF(C{row}="","","なし")'
+    for excel_row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
+        row = excel_row - 1
+        sheet.write_formula(row, 0, f'=C{excel_row}<>""', formats["checkbox"], False)
+        sheet.write_formula(
+            row,
+            1,
+            _next_id_formula(excel_row, "T", first_blank_row),
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 2, None, formats["required"])
+        sheet.write_blank(row, 3, None, formats["normal"])
+        sheet.write_formula(
+            row,
+            4,
+            f'=IF(COUNTA(C{excel_row}:D{excel_row})=0,"",TRIM(C{excel_row}&" "&D{excel_row}))',
+            formats["normal"],
+            "",
+        )
+        sheet.write_formula(
+            row,
+            5,
+            f'=IF(C{excel_row}="","","なし")',
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 6, None, formats["normal"])
 
 
-def _next_id_formula(row: int, prefix: str) -> str:
-    """既存IDの最大番号に続く候補をExcel上で表示する。正式採番は読込み時に行う。"""
-    previous = row - 1
-    numeric_ids = f'VALUE(SUBSTITUTE(SUBSTITUTE($B$1:B{previous},"{prefix}-",""),"{prefix}",""))'
-    maximum = f"IFERROR(AGGREGATE(14,6,{numeric_ids},1),0)"
-    return f'=IF(C{row}="","","{prefix}-"&TEXT({maximum}+1,"0000"))'
+def _next_id_formula(row: int, prefix: PersonIdPrefix, first_blank_row: int) -> str:
+    """新規姓の順番に対応する未使用ID候補を補助シートから表示する。"""
+    helper_column = "A" if prefix == "S" else "B"
+    surname_count = f'COUNTIF($C${first_blank_row}:C{row},"?*")'
+    return (
+        f'=IF(C{row}="","",INDEX(\'{_ID_HELPER_SHEET}\'!'
+        f"${helper_column}$1:${helper_column}$999,{surname_count}))"
+    )
 
 
-def _fill_required_columns(sheet: Any, columns: tuple[str, ...]) -> None:
-    for column in columns:
-        for row in range(2, _FORMULA_TEMPLATE_MAX_ROW + 1):
-            sheet[f"{column}{row}"].fill = _REQUIRED_FILL
+def _create_id_helper_sheet(workbook: Any, data: SharedRosterData) -> None:
+    """数式同士の配列計算に依存せず、一意なID候補を参照できるようにする。"""
+    sheet = workbook.add_worksheet(_ID_HELPER_SHEET)
+    student_ids = _available_person_ids(
+        (student.external_id for student in data.students), prefix="S"
+    )
+    teacher_ids = _available_person_ids(
+        (teacher.external_id for teacher in data.teachers), prefix="T"
+    )
+    for row, (student_id, teacher_id) in enumerate(zip(student_ids, teacher_ids, strict=True)):
+        sheet.write_string(row, 0, student_id)
+        sheet.write_string(row, 1, teacher_id)
+    sheet.very_hidden()
+
+
+def _available_person_ids(
+    existing_ids: Iterable[str], *, prefix: PersonIdPrefix
+) -> tuple[str, ...]:
+    reserved = {value.strip() for value in existing_ids if value.strip()}
+    result: list[str] = []
+    for _ in range(_FORMULA_TEMPLATE_MAX_ROW - 1):
+        external_id = next_person_external_id(reserved, prefix=prefix)
+        result.append(external_id)
+        reserved.add(external_id)
+    return tuple(result)
 
 
 def _status_is_first_column(sheet: Any) -> bool:
@@ -624,68 +834,77 @@ def _setup_sheet(
     sheet: Any,
     headers: tuple[str, ...],
     widths: tuple[int, ...],
+    formats: dict[str, Any],
     *,
     helper_columns: set[int] | None = None,
 ) -> None:
-    sheet.sheet_view.showGridLines = False
-    sheet.freeze_panes = "A2"
-    sheet.row_dimensions[1].height = 34
-    sheet.append(headers)
+    sheet.hide_gridlines(2)
+    sheet.freeze_panes(1, 0)
+    sheet.set_row(0, 34)
     helpers = helper_columns or set()
-    for index, (cell, width) in enumerate(zip(sheet[1], widths, strict=True), start=1):
-        cell.fill = _HELPER_FILL if index in helpers else _HEADER_FILL
-        cell.font = _HEADER_FONT
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.comment = Comment(
+    for column, (header, width) in enumerate(zip(headers, widths, strict=True)):
+        header_format = formats["helper_header"] if column + 1 in helpers else formats["header"]
+        sheet.write(0, column, header, header_format)
+        sheet.write_comment(
+            0,
+            column,
             "（必須）は入力必須です。空欄時の既定値は列の入力規則に従います。",
-            "夏期講習時間割作成アプリ",
+            {"author": "夏期講習時間割作成アプリ"},
         )
-        sheet.column_dimensions[cell.column_letter].width = width
+        sheet.set_column(column, column, width)
 
 
-def _finish_rows(sheet: Any) -> None:
-    last_data_row = 1
-    for row in range(2, sheet.max_row + 1):
-        if any(_text(sheet.cell(row, column).value) for column in range(1, sheet.max_column + 1)):
-            last_data_row = row
+def _write_plain_row(sheet: Any, row: int, values: tuple[object, ...], cell_format: Any) -> None:
+    for column, value in enumerate(values):
+        sheet.write(row, column, value, cell_format)
+
+
+def _finish_rows(sheet: Any, data_count: int, column_count: int) -> None:
     # 入力開始用の空行は含めるが、数式だけの将来行をソート対象にしない。
-    last_row = max(last_data_row + 1, 2)
-    last_column = sheet.cell(1, sheet.max_column).column_letter
-    sheet.auto_filter.ref = f"A1:{last_column}{last_row}"
-    for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row):
-        for cell in row:
-            cell.alignment = Alignment(vertical="top", wrap_text=True)
-            cell.border = Border(bottom=_THIN_GREY)
+    last_row = max(data_count + 1, 1)
+    sheet.autofilter(0, 0, last_row, column_count - 1)
 
 
 def _mark_auto_id_header(sheet: Any, coordinate: str, person_label: str, example: str) -> None:
-    sheet[coordinate].comment = Comment(
+    sheet.write_comment(
+        coordinate,
         f"入力不要です。{person_label}の姓を入力すると{example}形式の候補を表示します。"
         "アプリで反映すると、既存IDと衝突しない正式IDとしてこの列へ書き戻します。",
-        "夏期講習時間割作成アプリ",
+        {"author": "夏期講習時間割作成アプリ"},
     )
 
 
-def _grey_inactive(sheet: Any, active_column: str, column_count: int) -> None:
-    last_column = sheet.cell(1, column_count).column_letter
-    sheet.conditional_formatting.add(
-        f"A2:{last_column}{_MAX_ROW}",
-        _formula_rule(formula=[f'${active_column}2="☐ 退籍"'], fill=_INACTIVE_FILL),
+def _grey_inactive(sheet: Any, column_count: int, inactive_format: Any) -> None:
+    sheet.conditional_format(
+        1,
+        0,
+        _MAX_ROW - 1,
+        column_count - 1,
+        {
+            "type": "formula",
+            "criteria": '=AND($C2<>"",$A2=FALSE)',
+            "format": inactive_format,
+        },
     )
 
 
 def _add_list(
     sheet: Any,
     cells: str,
-    formula: str,
+    source: list[str] | str,
     allow_blank: bool = False,
 ) -> None:
-    validation = DataValidation(type="list", formula1=formula, allow_blank=allow_blank)
-    validation.errorTitle = "入力値を確認してください"
-    validation.error = "一覧から選択してください。"
-    validation.showErrorMessage = True
-    sheet.add_data_validation(validation)
-    validation.add(cells)
+    sheet.data_validation(
+        cells,
+        {
+            "validate": "list",
+            "source": source,
+            "ignore_blank": allow_blank,
+            "error_title": "入力値を確認してください",
+            "error_message": "一覧から選択してください。",
+            "show_error": True,
+        },
+    )
 
 
 def _add_whole(
@@ -695,18 +914,19 @@ def _add_whole(
     maximum: int,
     allow_blank: bool = False,
 ) -> None:
-    validation = DataValidation(
-        type="whole",
-        operator="between",
-        formula1=str(minimum),
-        formula2=str(maximum),
-        allow_blank=allow_blank,
+    sheet.data_validation(
+        cells,
+        {
+            "validate": "integer",
+            "criteria": "between",
+            "minimum": minimum,
+            "maximum": maximum,
+            "ignore_blank": allow_blank,
+            "error_title": "入力値を確認してください",
+            "error_message": f"{minimum}～{maximum}の整数を入力してください。",
+            "show_error": True,
+        },
     )
-    validation.errorTitle = "入力値を確認してください"
-    validation.error = f"{minimum}～{maximum}の整数を入力してください。"
-    validation.showErrorMessage = True
-    sheet.add_data_validation(validation)
-    validation.add(cells)
 
 
 def _lookup_formula(
@@ -767,14 +987,10 @@ def _boolean(value: object, default: bool) -> bool:
 
 
 def _active(value: object) -> bool:
-    text = _text(value)
+    text = _text(value).casefold()
     if not text:
         return True
-    return text not in {"☐ 退籍", "退籍", "いいえ", "false", "FALSE", "0"}
-
-
-def _membership(active: bool) -> str:
-    return "☑ 在籍" if active else "☐ 退籍"
+    return text not in {"☐ 退籍", "退籍", "いいえ", "false", "0"}
 
 
 def _yes_no(value: bool) -> str:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "summer-course-scheduler"
-version = "1.3.3"
+version = "1.3.4"
 description = "夏期講習などの個別指導時間割を作成するWindows向けローカルデスクトップアプリ"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -27,6 +27,7 @@ dependencies = [
     "PySide6>=6.8,<7",
     "PyYAML>=6.0,<7",
     "SQLAlchemy>=2.0,<3",
+    "XlsxWriter>=3.2.9,<4",
 ]
 
 [project.optional-dependencies]

@@ -27,3 +27,4 @@ SQLAlchemy==2.0.51
 typing_extensions==4.16.0
 tzdata==2026.3
 wheel==0.47.0
+XlsxWriter==3.2.9

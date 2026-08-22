@@ -19,11 +19,14 @@
 します。既存講習へ反映するときは、Excelを保存して閉じてから「この講習へ反映」を押します。
 過去講習は開いただけでは最新名簿へ変更されません。
 
-Excelの在籍は生徒・講師ともA列の`☑ 在籍`／`☐ 退籍`から選びます。退籍者は削除されず、
-入力済み行の末尾へ移動して灰色になります。姓を入力すると在籍へチェックが付き、ID候補と
+Excelの在籍は生徒・講師ともA列のセル内チェックボックスをワンクリックして切り替えます。
+各行に「在籍」「退籍」の文字を入力する必要はありません。チェックを外した人は削除されず、
+入力済み行の末尾へ移動して行全体が灰色になります。姓を入力すると自動でチェックが付き、ID候補と
 既定値が数式で表示されます。生徒は最大連続`2`・空きコマ`なし`、講師は空きコマ`なし`が
 既定です。アプリへ反映すると未使用の`S-0001`／`T-0001`形式へ正式採番して書き戻します。
 薄い黄色のセルは入力必須です。
+セル内チェックボックスにはMicrosoft 365またはExcel 2024以降を使用してください。古い
+Excelでは`TRUE`／`FALSE`と表示されますが、アプリは同じ在籍値として読み込めます。
 必要授業回数と日時アンケートは講習ごとに異なるため、共通名簿には保存しません。
 
 アンケートを反映すると、選択したxlsx/CSVの内容が`.jukuschedule`内へ保存されます。
@@ -33,7 +36,7 @@ Excelの在籍は生徒・講師ともA列の`☑ 在籍`／`☐ 退籍`から�
 生徒画面の「在籍中」を外すと卒業・退会扱いとなり、一覧の末尾へ移動して灰色表示されます。
 講師も同様に、在籍中を外すと退職・休止として末尾へ表示されます。
 
-対象: `1.3.3`
+対象: `1.3.4`
 最終更新: 2026-08-22
 
 初めて利用する場合は、先に
@@ -79,8 +82,8 @@ Releaseページ以外から受け取った実行ファイルを安易に実行�
 公開版では`SHA256SUMS.txt`とダウンロードしたファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Portable-1.3.3.zip -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Setup-1.3.3.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.3.4.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.3.4.exe -Algorithm SHA256
 ```
 
 表示されたhashがReleaseページの値と1文字でも異なる場合は使用しません。
@@ -607,7 +610,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 
 ## 20. 現在の既知の制限
 
-- `1.3.3`のGitHub Release公開状態は配布元のReleaseページで確認します。成果物は
+- `1.3.4`のGitHub Release公開状態は配布元のReleaseページで確認します。成果物は
   方針どおり未署名です。
 - clean Windows、実installer / portable、SmartScreen、install / uninstallの受入結果は
   [`acceptance_test_phase7.md`](acceptance_test_phase7.md)を参照してください。

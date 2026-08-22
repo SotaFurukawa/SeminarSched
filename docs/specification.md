@@ -18,7 +18,7 @@
 
 ## 2. 実装済みのスコープ
 
-Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.3.3`の
+Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.3.4`の
 公開準備版である。Windows成果物は社内利用向けに未署名で配布する方針である。
 
 ### Phase 0：設計
@@ -90,8 +90,9 @@ Phase 6で「出力」を実画面へ置き換えた。
 - 講習に依存しない`生徒・講師_基本情報.xlsx`と、各`.jukuschedule`内の講習別
   アンケート・受講希望を分離する。共通名簿は在籍、姓・名、学年、指導可能科目、
   通常授業担当を保持し、新規講習へsnapshotする
-- 共通名簿では在籍をA列の`☑ 在籍`／`☐ 退籍`で入力し、姓入力時にID候補・在籍・
-  既定値を表示する。必須セルは薄い黄色とし、アプリ反映時に正式採番・既定値確定を行う。
+- 共通名簿では在籍をA列のセル内チェックボックス（基礎値`TRUE`／`FALSE`）で入力し、
+  姓入力時にID候補・在籍・既定値を表示する。チェックを外した入力済み行は灰色にする。
+  必須セルは薄い黄色とし、アプリ反映時に正式採番・既定値確定を行う。
   旧列順の共通名簿も互換読込みする
 - アプリ生成Googleフォームの生徒・講師回答を2ファイル同時に検証・反映し、原本と
   要確認一覧を含む統合xlsxを`.jukuschedule`へ内包する
@@ -260,7 +261,7 @@ PDFとExcelの共通レイアウト、Qt選定、原子的保存、安全検証�
 
 ### Phase 7：品質保証・バックアップ・Windows配布
 
-- app version `1.3.3`をpackage metadata、Qt application、About、log、帳票へ
+- app version `1.3.4`をpackage metadata、Qt application、About、log、帳票へ
   表示し、Alembic schema revisionとは別の版として扱う
 - project open直後と設定間隔ごとの自動backup。既定5分間隔・project別5世代で、
   `%LOCALAPPDATA%\SummerScheduler\backups`へ保存する

@@ -26,8 +26,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 def test_release_version_and_tag_match_project_metadata() -> None:
     version = version_from_pyproject(REPOSITORY_ROOT / "pyproject.toml")
 
-    assert version == "1.3.3"
-    validate_tag("v1.3.3", version)
+    assert version == "1.3.4"
+    validate_tag("v1.3.4", version)
     with pytest.raises(ReleasePackagingError, match="一致しません"):
         validate_tag("v1.0.0", version)
     with pytest.raises(ReleasePackagingError, match="Semantic Versioning"):
@@ -116,6 +116,10 @@ def test_license_collection_includes_nuitka_runtime_exception_not_compiler(
     assert any(path.name == "LICENSE.txt" and "CPython-" in str(path) for path in output.rglob("*"))
     assert any(
         path.name == "LICENCE.rst" and path.parent.name.startswith("openpyxl-")
+        for path in output.rglob("*")
+    )
+    assert any(
+        path.name == "LICENSE.txt" and path.parent.name.startswith("xlsxwriter-")
         for path in output.rglob("*")
     )
     assert (output / "Qt-Community-GPL-3.0-only" / "LICENSE.txt").is_file()

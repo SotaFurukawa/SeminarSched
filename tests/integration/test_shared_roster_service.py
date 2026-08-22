@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
+from typing import Any, cast
+from zipfile import ZipFile
 
 import pytest
 from openpyxl import load_workbook
@@ -103,8 +105,8 @@ def test_shared_roster_syncs_people_qualifications_and_regular_lessons(
 
     workbook = load_workbook(roster_service.path, data_only=False)
     try:
-        assert workbook["生徒"]["A2"].value == "☑ 在籍"
-        assert workbook["生徒"]["A3"].value == "☐ 退籍"
+        assert workbook["生徒"]["A2"].value is True
+        assert workbook["生徒"]["A3"].value is False
         assert workbook["生徒"]["F2"].value == "J2"
         assert workbook["生徒"]["F3"].value == "J3"
         assert len(workbook["生徒"].conditional_formatting) > 0
@@ -201,22 +203,84 @@ def test_shared_roster_prepares_status_first_defaults_and_required_cells(
     try:
         students = workbook["生徒"]
         teachers = workbook["講師"]
-        assert students["A1"].value == "在籍（姓入力時は自動で☑）"
+        assert students["A1"].value == "在籍"
         assert students["B1"].value == "生徒ID（自動・入力不要）"
         assert "デフォルトは2" in str(students["G1"].value)
         assert "デフォルトはなし" in str(students["H1"].value)
-        assert students["A2"].value == '=IF(C2="","","☑ 在籍")'
-        assert str(students["B2"].value).startswith('=IF(C2="","","S-"')
+        assert students["A2"].value == '=C2<>""'
+        assert students["B2"].value == (
+            '=IF(C2="","",INDEX(\'_入力補助\'!$A$1:$A$999,COUNTIF($C$2:C2,"?*")))'
+        )
+        assert students["B3"].value == (
+            '=IF(C3="","",INDEX(\'_入力補助\'!$A$1:$A$999,COUNTIF($C$2:C3,"?*")))'
+        )
         assert students["G2"].value == '=IF(C2="","",2)'
         assert students["H2"].value == '=IF(C2="","","なし")'
-        assert students["C2"].fill.fgColor.rgb == "00FFF2CC"
-        assert students["F2"].fill.fgColor.rgb == "00FFF2CC"
-        assert teachers["A2"].value == '=IF(C2="","","☑ 在籍")'
-        assert str(teachers["B2"].value).startswith('=IF(C2="","","T-"')
+        assert students["C2"].fill.fgColor.rgb == "FFFFF2CC"
+        assert students["F2"].fill.fgColor.rgb == "FFFFF2CC"
+        student_rules = [
+            rule
+            for rules in cast(Any, students.conditional_formatting)._cf_rules.values()  # noqa: SLF001
+            for rule in rules
+        ]
+        assert any(rule.formula == ['AND($C2<>"",$A2=FALSE)'] for rule in student_rules)
+        assert teachers["A2"].value == '=C2<>""'
+        assert teachers["B2"].value == (
+            '=IF(C2="","",INDEX(\'_入力補助\'!$B$1:$B$999,COUNTIF($C$2:C2,"?*")))'
+        )
         assert teachers["F2"].value == '=IF(C2="","","なし")'
-        assert teachers["C2"].fill.fgColor.rgb == "00FFF2CC"
+        assert teachers["C2"].fill.fgColor.rgb == "FFFFF2CC"
         assert students.auto_filter.ref == "A1:I2"
         assert teachers.auto_filter.ref == "A1:G2"
+        helper = workbook["_入力補助"]
+        assert helper.sheet_state == "veryHidden"
+        assert helper["A1"].value == "S-0001"
+        assert helper["A2"].value == "S-0002"
+        assert helper["B1"].value == "T-0001"
+        assert helper["B2"].value == "T-0002"
+    finally:
+        workbook.close()
+
+    with ZipFile(path) as archive:
+        assert "xl/featurePropertyBag/featurePropertyBag.xml" in archive.namelist()
+
+
+def test_id_helper_lists_unused_ids_in_assignment_order(tmp_path: Path) -> None:
+    path = tmp_path / "existing_ids.xlsx"
+    write_shared_roster(
+        path,
+        SharedRosterData(
+            (
+                SharedStudent("S-0001", "一番", "", "小1"),
+                SharedStudent("S-0003", "三番", "", "小3"),
+            ),
+            (SharedTeacher("T-0002", "二番", ""),),
+            (),
+        ),
+    )
+
+    workbook = load_workbook(path, data_only=False)
+    try:
+        helper = workbook["_入力補助"]
+        assert [helper[f"A{row}"].value for row in range(1, 4)] == [
+            "S-0002",
+            "S-0004",
+            "S-0005",
+        ]
+        assert [helper[f"B{row}"].value for row in range(1, 4)] == [
+            "T-0001",
+            "T-0003",
+            "T-0004",
+        ]
+        assert workbook["生徒"]["B2"].value == "S-0001"
+        assert workbook["生徒"]["B3"].value == "S-0003"
+        assert workbook["講師"]["B2"].value == "T-0002"
+        assert workbook["生徒"]["B4"].value == (
+            '=IF(C4="","",INDEX(\'_入力補助\'!$A$1:$A$999,COUNTIF($C$4:C4,"?*")))'
+        )
+        assert workbook["講師"]["B3"].value == (
+            '=IF(C3="","",INDEX(\'_入力補助\'!$B$1:$B$999,COUNTIF($C$3:C3,"?*")))'
+        )
     finally:
         workbook.close()
 
@@ -237,6 +301,46 @@ def test_surname_only_input_gets_ids_and_defaults_when_imported(tmp_path: Path) 
 
     assert data.students == (SharedStudent("S-0001", "新規", "", "高2", 2, False, True, ""),)
     assert data.teachers == (SharedTeacher("T-0001", "担当", "", False, True, ""),)
+
+
+def test_native_checkbox_false_is_imported_as_inactive(tmp_path: Path) -> None:
+    path = tmp_path / "inactive.xlsx"
+    write_shared_roster(path, SharedRosterData((), (), ()))
+    workbook = load_workbook(path, data_only=False)
+    try:
+        workbook["生徒"]["A2"] = False
+        workbook["生徒"]["C2"] = "退籍"
+        workbook["生徒"]["F2"] = "J3"
+        workbook["講師"]["A2"] = False
+        workbook["講師"]["C2"] = "退職"
+        workbook.save(path)
+    finally:
+        workbook.close()
+
+    data = read_shared_roster(path)
+
+    assert data.students == (SharedStudent("S-0001", "退籍", "", "中3", 2, False, False, ""),)
+    assert data.teachers == (SharedTeacher("T-0001", "退職", "", False, False, ""),)
+
+
+def test_multiple_formula_id_rows_receive_distinct_ids_when_imported(tmp_path: Path) -> None:
+    path = tmp_path / "multiple_new_people.xlsx"
+    write_shared_roster(path, SharedRosterData((), (), ()))
+    workbook = load_workbook(path, data_only=False)
+    try:
+        students = workbook["生徒"]
+        students["C2"], students["F2"] = "一番", "S1"
+        students["C3"], students["F3"] = "二番", "S2"
+        teachers = workbook["講師"]
+        teachers["C2"], teachers["C3"] = "一番", "二番"
+        workbook.save(path)
+    finally:
+        workbook.close()
+
+    data = read_shared_roster(path)
+
+    assert [student.external_id for student in data.students] == ["S-0001", "S-0002"]
+    assert [teacher.external_id for teacher in data.teachers] == ["T-0001", "T-0002"]
 
 
 def test_shared_roster_reads_legacy_person_column_order(tmp_path: Path) -> None:
