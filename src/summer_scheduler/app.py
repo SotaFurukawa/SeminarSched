@@ -12,7 +12,7 @@ from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
-from summer_scheduler import __version__
+from summer_scheduler import __release_channel__, __version__
 from summer_scheduler.application.availability_import_service import (
     AvailabilityImportService,
 )
@@ -65,11 +65,13 @@ def run(argv: Sequence[str] | None = None) -> int:
         view_model = AppViewModel(
             __version__,
             schema_version,
+            release_channel=__release_channel__,
             database_ready=True,
         )
         logger.info(
-            "アプリケーションを起動します（app_version=%s, db_schema=%s）",
+            "アプリケーションを起動します（app_version=%s, release_channel=%s, db_schema=%s）",
             __version__,
+            __release_channel__,
             schema_version,
         )
         workspace_view_model = WorkspaceViewModel(

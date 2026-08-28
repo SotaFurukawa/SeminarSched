@@ -53,29 +53,26 @@ _SUBJECT_HEADERS: Final = (
     "有効",
 )
 _QUALIFICATION_HEADERS: Final = (
-    "講師ID（自動・入力不要）",
     "講師名から選択",
-    "講師名（確認）",
-    "科目コード",
+    "講師ID（自動・入力不要）",
     "科目名から選択",
-    "科目名（確認）",
-    "指導可能",
+    "科目コード（自動・入力不要）",
+    "指導可能（デフォルトははい）",
     "備考",
 )
 _REGULAR_HEADERS: Final = (
-    "生徒ID（自動・入力不要）",
     "生徒名から選択",
-    "生徒名（確認）",
-    "科目コード",
+    "生徒ID（自動・入力不要）",
     "科目名から選択",
-    "科目名（確認）",
-    "通常担当講師ID（自動・入力不要）",
+    "科目コード（自動・入力不要）",
     "通常担当講師名から選択",
-    "通常担当講師名（確認）",
-    "担当講師優先度",
-    "1対1必須",
+    "通常担当講師ID（自動・入力不要）",
+    "担当講師優先度（デフォルトは3）",
+    "1対1必須（デフォルトはいいえ）",
     "備考",
 )
+_LEGACY_QUALIFICATION_WIDTH: Final = 8
+_LEGACY_REGULAR_WIDTH: Final = 12
 _SHEETS: Final = ("生徒", "講師", "科目", "講師対応科目", "通常授業")
 _ID_HELPER_SHEET: Final = "_入力補助"
 _MAX_ROW: Final = 10_000
@@ -283,137 +280,114 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
         _setup_sheet(
             qualification_sheet,
             _QUALIFICATION_HEADERS,
-            (18, 24, 24, 20, 28, 28, 14, 30),
+            (28, 22, 32, 24, 24, 32),
             formats,
-            helper_columns={2, 3, 5, 6},
+            helper_columns={2, 4},
         )
+        teacher_name_by_id = {row.external_id: row.name for row in data.teachers}
+        subject_name_by_code = {row.code: row.display_name for row in data.subjects}
         for excel_row, qualification in enumerate(data.qualifications, start=2):
             row = excel_row - 1
-            qualification_sheet.write(row, 0, qualification.teacher_external_id, formats["normal"])
-            qualification_sheet.write_blank(row, 1, None, formats["normal"])
+            qualification_sheet.write_formula(
+                row,
+                0,
+                _linked_display_formula(excel_row, "B", "講師", "B", "E"),
+                formats["normal"],
+                teacher_name_by_id.get(qualification.teacher_external_id, ""),
+            )
+            qualification_sheet.write(row, 1, qualification.teacher_external_id, formats["normal"])
             qualification_sheet.write_formula(
                 row,
                 2,
-                _lookup_formula(excel_row, "A", "講師", "B", "E", "B"),
+                _linked_display_formula(excel_row, "D", "科目", "A", "B"),
                 formats["normal"],
-                "",
+                subject_name_by_code.get(qualification.subject_code, ""),
             )
             qualification_sheet.write(row, 3, qualification.subject_code, formats["normal"])
-            qualification_sheet.write_blank(row, 4, None, formats["normal"])
-            qualification_sheet.write_formula(
-                row,
-                5,
-                _lookup_formula(excel_row, "D", "科目", "A", "B", "E"),
-                formats["normal"],
-                "",
-            )
-            qualification_sheet.write(row, 6, _yes_no(qualification.can_teach), formats["normal"])
-            qualification_sheet.write(row, 7, qualification.note, formats["normal"])
-        _add_list(
-            qualification_sheet,
-            "A2:A10000",
-            "=INDIRECT(\"'講師'!$B$2:$B$10000\")",
-            allow_blank=True,
+            qualification_sheet.write(row, 4, _yes_no(qualification.can_teach), formats["normal"])
+            qualification_sheet.write(row, 5, qualification.note, formats["normal"])
+        _prepare_qualification_input_rows(
+            qualification_sheet, len(data.qualifications) + 2, formats
         )
         _add_list(
             qualification_sheet,
-            "B2:B10000",
+            "A2:A10000",
             "=INDIRECT(\"'講師'!$E$2:$E$10000\")",
             allow_blank=True,
         )
         _add_list(
             qualification_sheet,
-            "D2:D10000",
-            "=INDIRECT(\"'科目'!$A$2:$A$10000\")",
-            allow_blank=True,
-        )
-        _add_list(
-            qualification_sheet,
-            "E2:E10000",
+            "C2:C10000",
             "=INDIRECT(\"'科目'!$B$2:$B$10000\")",
             allow_blank=True,
         )
-        _add_list(qualification_sheet, "G2:G10000", ["はい", "いいえ"], allow_blank=True)
+        _add_list(qualification_sheet, "E2:E10000", ["はい", "いいえ"], allow_blank=True)
         _finish_rows(qualification_sheet, len(data.qualifications), len(_QUALIFICATION_HEADERS))
 
         regular_sheet = workbook.add_worksheet("通常授業")
         _setup_sheet(
             regular_sheet,
             _REGULAR_HEADERS,
-            (18, 24, 24, 20, 28, 28, 20, 26, 26, 18, 14, 30),
+            (28, 22, 32, 24, 28, 24, 24, 26, 32),
             formats,
-            helper_columns={2, 3, 5, 6, 8, 9},
+            helper_columns={2, 4, 6},
         )
+        student_name_by_id = {row.external_id: row.name for row in data.students}
         for excel_row, lesson in enumerate(data.regular_lessons, start=2):
             row = excel_row - 1
-            regular_sheet.write(row, 0, lesson.student_external_id, formats["normal"])
-            regular_sheet.write_blank(row, 1, None, formats["normal"])
+            regular_sheet.write_formula(
+                row,
+                0,
+                _linked_display_formula(excel_row, "B", "生徒", "B", "E"),
+                formats["normal"],
+                student_name_by_id.get(lesson.student_external_id, ""),
+            )
+            regular_sheet.write(row, 1, lesson.student_external_id, formats["normal"])
             regular_sheet.write_formula(
                 row,
                 2,
-                _lookup_formula(excel_row, "A", "生徒", "B", "E", "B"),
+                _linked_display_formula(excel_row, "D", "科目", "A", "B"),
                 formats["normal"],
-                "",
+                subject_name_by_code.get(lesson.subject_code, ""),
             )
             regular_sheet.write(row, 3, lesson.subject_code, formats["normal"])
-            regular_sheet.write_blank(row, 4, None, formats["normal"])
             regular_sheet.write_formula(
+                row,
+                4,
+                _linked_display_formula(excel_row, "F", "講師", "B", "E"),
+                formats["normal"],
+                teacher_name_by_id.get(lesson.regular_teacher_external_id, ""),
+            )
+            regular_sheet.write(
                 row,
                 5,
-                _lookup_formula(excel_row, "D", "科目", "A", "B", "E"),
+                lesson.regular_teacher_external_id,
                 formats["normal"],
-                "",
             )
-            regular_sheet.write(row, 6, lesson.regular_teacher_external_id, formats["normal"])
-            regular_sheet.write_blank(row, 7, None, formats["normal"])
-            regular_sheet.write_formula(
-                row,
-                8,
-                _lookup_formula(excel_row, "G", "講師", "B", "E", "H"),
-                formats["normal"],
-                "",
-            )
-            regular_sheet.write(row, 9, lesson.regular_teacher_priority, formats["normal"])
-            regular_sheet.write(row, 10, _yes_no(lesson.one_to_one_required), formats["normal"])
-            regular_sheet.write(row, 11, lesson.note, formats["normal"])
+            regular_sheet.write(row, 6, lesson.regular_teacher_priority, formats["normal"])
+            regular_sheet.write(row, 7, _yes_no(lesson.one_to_one_required), formats["normal"])
+            regular_sheet.write(row, 8, lesson.note, formats["normal"])
+        _prepare_regular_lesson_input_rows(regular_sheet, len(data.regular_lessons) + 2, formats)
         _add_list(
             regular_sheet,
             "A2:A10000",
-            "=INDIRECT(\"'生徒'!$B$2:$B$10000\")",
-            allow_blank=True,
-        )
-        _add_list(
-            regular_sheet,
-            "B2:B10000",
             "=INDIRECT(\"'生徒'!$E$2:$E$10000\")",
             allow_blank=True,
         )
         _add_list(
             regular_sheet,
-            "D2:D10000",
-            "=INDIRECT(\"'科目'!$A$2:$A$10000\")",
-            allow_blank=True,
-        )
-        _add_list(
-            regular_sheet,
-            "E2:E10000",
+            "C2:C10000",
             "=INDIRECT(\"'科目'!$B$2:$B$10000\")",
             allow_blank=True,
         )
         _add_list(
             regular_sheet,
-            "G2:G10000",
-            "=INDIRECT(\"'講師'!$B$2:$B$10000\")",
-            allow_blank=True,
-        )
-        _add_list(
-            regular_sheet,
-            "H2:H10000",
+            "E2:E10000",
             "=INDIRECT(\"'講師'!$E$2:$E$10000\")",
             allow_blank=True,
         )
-        _add_whole(regular_sheet, "J2:J10000", 1, 5, allow_blank=True)
-        _add_list(regular_sheet, "K2:K10000", ["はい", "いいえ"], allow_blank=True)
+        _add_whole(regular_sheet, "G2:G10000", 1, 5, allow_blank=True)
+        _add_list(regular_sheet, "H2:H10000", ["はい", "いいえ"], allow_blank=True)
         _finish_rows(regular_sheet, len(data.regular_lessons), len(_REGULAR_HEADERS))
 
         _create_id_helper_sheet(workbook, data)
@@ -612,11 +586,29 @@ def _read_qualifications(
     subject_codes = {row.code for row in subjects}
     result: list[SharedQualification] = []
     used: set[tuple[str, str]] = set()
-    for row_number, values in _rows(sheet, len(_QUALIFICATION_HEADERS)):
+    new_layout = _text(sheet.cell(1, 1).value).startswith("講師名から選択")
+    width = len(_QUALIFICATION_HEADERS) if new_layout else _LEGACY_QUALIFICATION_WIDTH
+    for row_number, values in _rows(sheet, width):
         if _empty(values):
             continue
-        teacher_id = _text(values[0]) or teacher_by_name.get(_text(values[1]), "")
-        subject_code = _text(values[3]) or subject_by_name.get(_text(values[4]), "")
+        if new_layout:
+            selected_teacher_name = _text(values[0])
+            selected_subject_name = _text(values[2])
+            teacher_id = (
+                teacher_by_name.get(selected_teacher_name, "")
+                if selected_teacher_name
+                else _text(values[1])
+            )
+            subject_code = (
+                subject_by_name.get(selected_subject_name, "")
+                if selected_subject_name
+                else _text(values[3])
+            )
+            can_teach_value, note_value = values[4], values[5]
+        else:
+            teacher_id = _text(values[0]) or teacher_by_name.get(_text(values[1]), "")
+            subject_code = _text(values[3]) or subject_by_name.get(_text(values[4]), "")
+            can_teach_value, note_value = values[6], values[7]
         if teacher_id not in teacher_ids:
             errors.append(f"講師対応科目 {row_number}行: 講師が基本情報にありません")
         if subject_code not in subject_codes:
@@ -628,7 +620,10 @@ def _read_qualifications(
         used.add(key)
         result.append(
             SharedQualification(
-                teacher_id, subject_code, _boolean(values[6], True), _text(values[7])
+                teacher_id,
+                subject_code,
+                _boolean(can_teach_value, True),
+                _text(note_value),
             )
         )
     return result
@@ -649,12 +644,36 @@ def _read_regular_lessons(
     subject_codes = {row.code for row in subjects}
     result: list[SharedRegularLesson] = []
     used: set[tuple[str, str]] = set()
-    for row_number, values in _rows(sheet, len(_REGULAR_HEADERS)):
+    new_layout = _text(sheet.cell(1, 1).value).startswith("生徒名から選択")
+    width = len(_REGULAR_HEADERS) if new_layout else _LEGACY_REGULAR_WIDTH
+    for row_number, values in _rows(sheet, width):
         if _empty(values):
             continue
-        student_id = _text(values[0]) or student_by_name.get(_text(values[1]), "")
-        subject_code = _text(values[3]) or subject_by_name.get(_text(values[4]), "")
-        teacher_id = _text(values[6]) or teacher_by_name.get(_text(values[7]), "")
+        if new_layout:
+            selected_student_name = _text(values[0])
+            selected_subject_name = _text(values[2])
+            selected_teacher_name = _text(values[4])
+            student_id = (
+                student_by_name.get(selected_student_name, "")
+                if selected_student_name
+                else _text(values[1])
+            )
+            subject_code = (
+                subject_by_name.get(selected_subject_name, "")
+                if selected_subject_name
+                else _text(values[3])
+            )
+            teacher_id = (
+                teacher_by_name.get(selected_teacher_name, "")
+                if selected_teacher_name
+                else _text(values[5])
+            )
+            priority_value, one_to_one_value, note_value = values[6], values[7], values[8]
+        else:
+            student_id = _text(values[0]) or student_by_name.get(_text(values[1]), "")
+            subject_code = _text(values[3]) or subject_by_name.get(_text(values[4]), "")
+            teacher_id = _text(values[6]) or teacher_by_name.get(_text(values[7]), "")
+            priority_value, one_to_one_value, note_value = values[9], values[10], values[11]
         if student_id not in student_ids:
             errors.append(f"通常授業 {row_number}行: 生徒が基本情報にありません")
         if subject_code not in subject_codes:
@@ -666,7 +685,7 @@ def _read_regular_lessons(
             errors.append(f"通常授業 {row_number}行: 生徒と科目の組が重複しています")
             continue
         used.add(key)
-        priority = _integer(values[9], 3)
+        priority = _integer(priority_value, 3)
         if not 1 <= priority <= 5:
             errors.append(f"通常授業 {row_number}行: 優先度は1～5です")
         result.append(
@@ -675,8 +694,8 @@ def _read_regular_lessons(
                 subject_code,
                 teacher_id,
                 priority,
-                _boolean(values[10], False),
-                _text(values[11]),
+                _boolean(one_to_one_value, False),
+                _text(note_value),
             )
         )
     return result
@@ -787,6 +806,89 @@ def _prepare_teacher_input_rows(sheet: Any, first_blank_row: int, formats: dict[
             "",
         )
         sheet.write_blank(row, 6, None, formats["normal"])
+
+
+def _prepare_qualification_input_rows(
+    sheet: Any,
+    first_blank_row: int,
+    formats: dict[str, Any],
+) -> None:
+    """名前を選ぶとID・科目コード・既定値が埋まる入力行を用意する。"""
+    for excel_row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
+        row = excel_row - 1
+        sheet.write_blank(row, 0, None, formats["required"])
+        sheet.write_formula(
+            row,
+            1,
+            _selected_lookup_formula(excel_row, "A", "講師", "E", "B"),
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 2, None, formats["required"])
+        sheet.write_formula(
+            row,
+            3,
+            _selected_lookup_formula(excel_row, "C", "科目", "B", "A"),
+            formats["normal"],
+            "",
+        )
+        sheet.write_formula(
+            row,
+            4,
+            f'=IF(OR(A{excel_row}="",C{excel_row}=""),"","はい")',
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 5, None, formats["normal"])
+
+
+def _prepare_regular_lesson_input_rows(
+    sheet: Any,
+    first_blank_row: int,
+    formats: dict[str, Any],
+) -> None:
+    """生徒・科目・講師名を選ぶと参照IDと既定値が埋まる入力行を用意する。"""
+    for excel_row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
+        row = excel_row - 1
+        sheet.write_blank(row, 0, None, formats["required"])
+        sheet.write_formula(
+            row,
+            1,
+            _selected_lookup_formula(excel_row, "A", "生徒", "E", "B"),
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 2, None, formats["required"])
+        sheet.write_formula(
+            row,
+            3,
+            _selected_lookup_formula(excel_row, "C", "科目", "B", "A"),
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 4, None, formats["normal"])
+        sheet.write_formula(
+            row,
+            5,
+            _selected_lookup_formula(excel_row, "E", "講師", "E", "B"),
+            formats["normal"],
+            "",
+        )
+        sheet.write_formula(
+            row,
+            6,
+            f'=IF(OR(A{excel_row}="",C{excel_row}=""),"",3)',
+            formats["normal"],
+            "",
+        )
+        sheet.write_formula(
+            row,
+            7,
+            f'=IF(OR(A{excel_row}="",C{excel_row}=""),"","いいえ")',
+            formats["normal"],
+            "",
+        )
+        sheet.write_blank(row, 8, None, formats["normal"])
 
 
 def _next_id_formula(row: int, prefix: PersonIdPrefix, first_blank_row: int) -> str:
@@ -929,18 +1031,32 @@ def _add_whole(
     )
 
 
-def _lookup_formula(
+def _linked_display_formula(
     row: int,
     id_column: str,
     source_sheet: str,
     source_id_column: str,
     source_name_column: str,
-    selected_name_column: str,
 ) -> str:
+    """安定IDを参照し、マスター側の最新表示名へ追従する。"""
     return (
-        f"=IF({id_column}{row}<>\"\",IFERROR(INDEX('{source_sheet}'!${source_name_column}:${source_name_column},"
-        f"MATCH({id_column}{row},'{source_sheet}'!${source_id_column}:${source_id_column},0)),\"⚠ 未登録\"),"
-        f"{selected_name_column}{row})"
+        f'=IF({id_column}{row}="","",IFERROR(INDEX(\'{source_sheet}\'!${source_name_column}:${source_name_column},'
+        f"MATCH({id_column}{row},'{source_sheet}'!${source_id_column}:${source_id_column},0)),\"⚠ 未登録\"))"
+    )
+
+
+def _selected_lookup_formula(
+    row: int,
+    selected_column: str,
+    source_sheet: str,
+    source_lookup_column: str,
+    source_result_column: str,
+) -> str:
+    """プルダウンで選んだ表示名からIDまたはコードを引く。"""
+    return (
+        f'=IF({selected_column}{row}="","",IFERROR(INDEX(\'{source_sheet}\'!'
+        f"${source_result_column}:${source_result_column},MATCH({selected_column}{row},"
+        f"'{source_sheet}'!${source_lookup_column}:${source_lookup_column},0)),\"⚠ 未登録\"))"
     )
 
 

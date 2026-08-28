@@ -29,7 +29,7 @@ Item {
                 }
 
                 Label {
-                    text: qsTr("プロジェクト、コマ、開校日、科目、Excel入出力")
+                    text: qsTr("プロジェクト、コマ、開校日、科目を設定します。基本情報Excelはホームで管理します。")
                     color: "#667085"
                     font.pixelSize: 11
                 }
@@ -111,9 +111,6 @@ Item {
                     TabButton {
                         text: qsTr("科目")
                     }
-                    TabButton {
-                        text: qsTr("Excel入出力")
-                    }
                 }
 
                 StackLayout {
@@ -137,9 +134,6 @@ Item {
                         viewModel: root.viewModel
                     }
 
-                    ExcelSettingsTab {
-                        viewModel: root.viewModel
-                    }
                 }
             }
         }

@@ -7,13 +7,30 @@ ScrollView {
 
     required property var viewModel
     property bool saveAttempted: false
+    readonly property string generatedTitle: String(projectYear.currentText)
+                                             + String(projectSeason.currentText)
+                                             + qsTr("講習")
 
     clip: true
     contentWidth: availableWidth
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
     function reload() {
-        projectTitle.text = root.viewModel.currentProjectTitle || ""
+        const title = String(root.viewModel.currentProjectTitle || "")
+        const yearMatch = title.match(/(20\d{2})/)
+        const wantedYear = yearMatch ? yearMatch[1] : String(new Date().getFullYear())
+        for (let index = 0; index < projectYear.count; ++index) {
+            if (String(projectYear.model[index]) === wantedYear) {
+                projectYear.currentIndex = index
+                break
+            }
+        }
+        if (title.indexOf("春期") >= 0)
+            projectSeason.currentIndex = 0
+        else if (title.indexOf("冬期") >= 0)
+            projectSeason.currentIndex = 2
+        else
+            projectSeason.currentIndex = 1
         startDate.text = root.viewModel.currentStartDate || ""
         endDate.text = root.viewModel.currentEndDate || ""
         root.saveAttempted = false
@@ -66,24 +83,47 @@ ScrollView {
                         spacing: 3
 
                         Label {
-                            text: qsTr("プロジェクト名 *")
+                            text: qsTr("年度 *")
                             color: "#344054"
                             font.pixelSize: 11
                         }
-                        TextField {
-                            id: projectTitle
+                        ComboBox {
+                            id: projectYear
                             Layout.fillWidth: true
-                            Accessible.name: qsTr("プロジェクト名")
-                            onTextEdited: root.viewModel.markDirty()
-                        }
-                        Label {
-                            visible: root.saveAttempted && projectTitle.text.trim() === ""
-                            text: qsTr("プロジェクト名を入力してください。")
-                            color: "#a23b3b"
-                            font.pixelSize: 10
+                            model: {
+                                const current = new Date().getFullYear()
+                                return [String(current - 1), String(current), String(current + 1),
+                                        String(current + 2), String(current + 3)]
+                            }
+                            currentIndex: 1
+                            onActivated: root.viewModel.markDirty()
                         }
                     }
 
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 3
+                        Label {
+                            text: qsTr("講習区分 *")
+                            color: "#344054"
+                            font.pixelSize: 11
+                        }
+                        ComboBox {
+                            id: projectSeason
+                            Layout.fillWidth: true
+                            model: [qsTr("春期"), qsTr("夏期"), qsTr("冬期")]
+                            currentIndex: 1
+                            onActivated: root.viewModel.markDirty()
+                        }
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("プロジェクト名：%1").arg(root.generatedTitle)
+                    color: "#183b59"
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
                 }
 
                 RowLayout {
@@ -173,12 +213,11 @@ ScrollView {
                         highlighted: true
                         onClicked: {
                             root.saveAttempted = true
-                            if (projectTitle.text.trim() === ""
-                                    || startDate.text.trim() === ""
+                            if (startDate.text.trim() === ""
                                     || endDate.text.trim() === "")
                                 return
                             root.viewModel.saveProjectInfo(
-                                        projectTitle.text.trim(),
+                                        root.generatedTitle,
                                         root.viewModel.currentCampusName || "既定校舎",
                                         startDate.text.trim(),
                                         endDate.text.trim())

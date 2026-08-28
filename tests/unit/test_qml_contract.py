@@ -15,6 +15,8 @@ def test_main_qml_contains_all_required_navigation_labels() -> None:
         "講師",
         "集団授業",
         "アンケート取込み",
+        "アンケート作成",
+        "事前確定",
         "時間割",
         "未配置・警告",
         "出力",

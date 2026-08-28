@@ -324,4 +324,4 @@ jobs:
             --verify-tag `
             --generate-notes `
             --notes $notes `
-            --title "SummerCourseScheduler $env:RELEASE_VERSION (draft)"
+            --title "SummerCourseScheduler $env:RELEASE_VERSION (Beta draft)"

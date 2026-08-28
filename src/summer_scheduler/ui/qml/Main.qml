@@ -92,7 +92,19 @@ ApplicationWindow {
             title: "設定"
             shortLabel: "設"
             phaseLabel: "Phase 2"
-            description: "プロジェクト、コマ、開校日、科目、Excel入出力を設定します。"
+            description: "プロジェクト、コマ、開校日、科目を設定します。基本情報Excelはホームで管理します。"
+        }
+        ListElement {
+            title: "アンケート作成"
+            shortLabel: "作"
+            phaseLabel: "入力準備"
+            description: "設定した開校日・コマから、生徒用・講師用Googleフォーム作成キットを生成します。"
+        }
+        ListElement {
+            title: "事前確定"
+            shortLabel: "固"
+            phaseLabel: "配置準備"
+            description: "調整済みの生徒・講師・日時を、最適化前の固定枠として登録します。"
         }
     }
 
@@ -148,7 +160,9 @@ ApplicationWindow {
             }
 
             Label {
-                text: qsTr("v%1").arg(root.viewModel.appVersion)
+                text: qsTr("v%1 (%2)")
+                      .arg(root.viewModel.appVersion)
+                      .arg(root.viewModel.releaseChannel)
                 color: theme.textSecondary
                 font.pixelSize: theme.captionSize
             }
@@ -182,7 +196,9 @@ ApplicationWindow {
             }
 
             Label {
-                text: qsTr("アプリバージョン: %1").arg(root.viewModel.appVersion)
+                text: qsTr("アプリバージョン: %1 (%2)")
+                      .arg(root.viewModel.appVersion)
+                      .arg(root.viewModel.releaseChannel)
                 color: "#344054"
             }
 
@@ -202,8 +218,8 @@ ApplicationWindow {
 
             Label {
                 Layout.fillWidth: true
-                text: qsTr("リリース候補です。プロジェクト本体のライセンスと"
-                           + "コード署名は本番公開前に確認してください。")
+                text: qsTr("このv1系はBeta版です。正式リリースへ移行するまで、"
+                           + "GitHub ReleaseはPre-releaseとして配布します。")
                 color: "#7a5710"
                 wrapMode: Text.WordWrap
             }
@@ -265,6 +281,10 @@ ApplicationWindow {
                                                  ? outputComponent
                                                : root.currentPageIndex === 8
                                                  ? settingsComponent
+                                                 : root.currentPageIndex === 9
+                                                   ? questionnaireCreationComponent
+                                                   : root.currentPageIndex === 10
+                                                     ? preconfirmationComponent
                                                  : placeholderComponent
                 }
             }
@@ -316,8 +336,28 @@ ApplicationWindow {
 
         AvailabilityImportPage {
             viewModel: root.phase3
+            onOpenHomeRequested: root.selectPage(0)
+        }
+    }
+
+    Component {
+        id: questionnaireCreationComponent
+
+        QuestionnaireCreationPage {
+            viewModel: root.phase3
             workspace: root.workspace
             onOpenHomeRequested: root.selectPage(0)
+            onOpenSettingsRequested: root.selectPage(8)
+        }
+    }
+
+    Component {
+        id: preconfirmationComponent
+
+        PreconfirmationPage {
+            viewModel: root.scheduleEditor
+            onOpenHomeRequested: root.selectPage(0)
+            onOpenTimetableRequested: root.selectPage(5)
         }
     }
 

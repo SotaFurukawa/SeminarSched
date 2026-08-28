@@ -76,9 +76,11 @@ Rectangle {
                 Repeater {
                     model: [
                         {"index": 8, "prefix": "①"},
-                        {"index": 4, "prefix": "②"},
-                        {"index": 5, "prefix": "③"},
-                        {"index": 7, "prefix": "④"}
+                        {"index": 9, "prefix": "②"},
+                        {"index": 4, "prefix": "③"},
+                        {"index": 10, "prefix": "④"},
+                        {"index": 5, "prefix": "⑤"},
+                        {"index": 7, "prefix": "⑥"}
                     ]
 
                     delegate: SidebarNavButton {

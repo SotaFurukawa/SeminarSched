@@ -17,6 +17,9 @@ Item {
     property string pendingSwitchAction: ""
     property string pendingRecentPath: ""
     property string pendingRestorePath: ""
+    readonly property string generatedProjectTitle: String(newProjectYear.currentText)
+                                                    + String(newProjectSeason.currentText)
+                                                    + qsTr("講習")
 
     UiTheme { id: theme }
 
@@ -28,6 +31,9 @@ Item {
                                                    && Boolean(rowValue(
                                                                   phase3ViewModel.validationSummary,
                                                                   "canOptimize", false))
+    readonly property bool questionnaireCreated: phase3ViewModel
+                                                  && String(phase3ViewModel.lastQuestionnaireScriptDirectory
+                                                            || "").length > 0
     readonly property bool scheduleComplete: outputViewModel
                                               && Number(outputViewModel.assignmentCount || 0) > 0
     readonly property bool outputComplete: outputViewModel
@@ -46,17 +52,23 @@ Item {
     function nextStepNumber() {
         if (!root.basicSetupComplete)
             return 1
-        if (!root.questionnaireComplete)
+        if (!root.questionnaireCreated)
             return 2
-        if (!root.scheduleComplete)
+        if (!root.questionnaireComplete)
             return 3
-        return 4
+        if (!root.scheduleComplete)
+            return 4
+        if (!root.outputComplete)
+            return 6
+        return 6
     }
 
     function stepStatus(step) {
         const complete = step === 1 ? root.basicSetupComplete
-                       : step === 2 ? root.questionnaireComplete
-                       : step === 3 ? root.scheduleComplete
+                       : step === 2 ? root.questionnaireCreated
+                       : step === 3 ? root.questionnaireComplete
+                       : step === 4 ? root.scheduleComplete
+                       : step === 5 ? root.scheduleComplete
                        : root.outputComplete
         if (complete)
             return "complete"
@@ -72,7 +84,8 @@ Item {
     }
 
     function openNewProjectDialog() {
-        newProjectTitle.text = ""
+        newProjectYear.currentIndex = 1
+        newProjectSeason.currentIndex = 1
         newProjectStart.text = ""
         newProjectEnd.text = ""
         newProjectValidation.visible = false
@@ -155,7 +168,7 @@ Item {
                             id: phaseText
 
                             anchors.centerIn: parent
-                            text: qsTr("4ステップで完成")
+                            text: qsTr("6ステップで完成")
                             color: theme.accent
                             font.pixelSize: 11
                             font.weight: Font.DemiBold
@@ -204,16 +217,29 @@ Item {
                                 }
                             }
 
-                            AppButton {
-                                text: qsTr("Excelを開いて編集")
-                                kind: "primary"
-                                onClicked: root.viewModel.openSharedRoster()
-                            }
+                            ColumnLayout {
+                                spacing: 6
 
-                            AppButton {
-                                visible: root.viewModel.hasOpenProject
-                                text: qsTr("この講習へ反映")
-                                onClicked: root.viewModel.applySharedRoster()
+                                RowLayout {
+                                    spacing: 6
+
+                                    AppButton {
+                                        text: qsTr("新しい基本情報を保存…")
+                                        onClicked: sharedRosterTemplateDialog.open()
+                                    }
+
+                                    AppButton {
+                                        text: qsTr("作成済み基本情報を取込む…")
+                                        kind: "primary"
+                                        onClicked: sharedRosterImportDialog.open()
+                                    }
+                                }
+
+                                AppButton {
+                                    Layout.alignment: Qt.AlignRight
+                                    text: qsTr("反映済みExcelを開いて編集")
+                                    onClicked: root.viewModel.openSharedRoster()
+                                }
                             }
                         }
 
@@ -227,7 +253,7 @@ Item {
 
                         Label {
                             Layout.fillWidth: true
-                            text: qsTr("在籍のチェックを外した人は削除せず退籍扱いとなり、Excelでは灰色で表示されます。Excelを保存してから「この講習へ反映」を押してください。")
+                            text: qsTr("在籍のチェックを外した人は削除せず退籍扱いとなり、Excelでは灰色で表示されます。編集後は「作成済み基本情報を取込む」で検証・反映してください。")
                             color: "#52647d"
                             font.pixelSize: 10
                             wrapMode: Text.Wrap
@@ -558,7 +584,7 @@ Item {
                         spacing: 12
 
                         Label {
-                            text: qsTr("時間割完成までの4ステップ")
+                            text: qsTr("時間割完成までの6ステップ")
                             color: "#18212f"
                             font.pixelSize: 17
                             font.weight: Font.DemiBold
@@ -572,20 +598,22 @@ Item {
 
                         InlineMessage {
                             Layout.fillWidth: true
-                            kind: root.nextStepNumber() === 4 && root.scheduleComplete
+                            kind: root.outputComplete
                                   ? "success" : "info"
                             message: root.nextStepNumber() === 1
                                      ? qsTr("次に行うこと：共通名簿を確認し、授業日・コマをまとめて設定します。")
                                      : root.nextStepNumber() === 2
-                                       ? qsTr("次に行うこと：生徒・講師アンケートを取り込み、入力を検証します。")
+                                       ? qsTr("次に行うこと：設定した日時から生徒用・講師用アンケートを作成します。")
                                        : root.nextStepNumber() === 3
-                                         ? qsTr("次に行うこと：入力を確認して自動配置し、時間割を調整します。")
-                                         : qsTr("次に行うこと：全体・生徒別・講師別の時間割を確認して出力します。")
+                                         ? qsTr("次に行うこと：生徒・講師の回答を取り込み、入力を検証します。")
+                                         : root.nextStepNumber() === 4
+                                           ? qsTr("次に行うこと：調整済みの個別枠があれば事前確定し、その後に時間割を作成します。")
+                                           : qsTr("次に行うこと：全体・生徒別・講師別の時間割を確認して出力します。")
                         }
 
                         GridLayout {
                             Layout.fillWidth: true
-                            columns: width >= 900 ? 4 : 2
+                            columns: width >= 900 ? 3 : 2
                             columnSpacing: 10
                             rowSpacing: 10
 
@@ -594,13 +622,19 @@ Item {
                                     {"number": "1", "title": qsTr("授業日を決める"),
                                      "detail": qsTr("講習期間・開校日・コマ"),
                                      "button": qsTr("授業日を設定"), "page": 8},
-                                    {"number": "2", "title": qsTr("アンケートを取込む"),
+                                    {"number": "2", "title": qsTr("アンケートを作る"),
+                                     "detail": qsTr("設定日時から生徒用・講師用を作成"),
+                                     "button": qsTr("アンケート作成"), "page": 9},
+                                    {"number": "3", "title": qsTr("回答を取込む"),
                                      "detail": qsTr("生徒・講師の回答を検証"),
                                      "button": qsTr("アンケート取込み"), "page": 4},
-                                    {"number": "3", "title": qsTr("時間割を配置する"),
+                                    {"number": "4", "title": qsTr("事前確定する"),
+                                     "detail": qsTr("調整済みの生徒・講師・日時を固定"),
+                                     "button": qsTr("固定枠を登録"), "page": 10},
+                                    {"number": "5", "title": qsTr("時間割を配置する"),
                                      "detail": qsTr("集団授業確認・自動配置・編集"),
                                      "button": qsTr("時間割を作成"), "page": 5},
-                                    {"number": "4", "title": qsTr("個人時間割を作る"),
+                                    {"number": "6", "title": qsTr("個人時間割を作る"),
                                      "detail": qsTr("生徒別Excel・PDFを出力"),
                                      "button": qsTr("出力へ進む"), "page": 7}
                                 ]
@@ -796,16 +830,55 @@ Item {
         contentItem: ColumnLayout {
             spacing: 9
 
-            Label {
-                text: qsTr("プロジェクト名 *")
-                color: "#344054"
-                font.pixelSize: 11
-            }
-            TextField {
-                id: newProjectTitle
+            RowLayout {
                 Layout.fillWidth: true
-                placeholderText: qsTr("例：2026年度 夏期講習")
-                Accessible.name: qsTr("プロジェクト名")
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Label {
+                        text: qsTr("年度 *")
+                        color: "#344054"
+                        font.pixelSize: 11
+                    }
+                    ComboBox {
+                        id: newProjectYear
+                        Layout.fillWidth: true
+                        model: {
+                            const current = new Date().getFullYear()
+                            return [String(current - 1), String(current), String(current + 1),
+                                    String(current + 2), String(current + 3)]
+                        }
+                        currentIndex: 1
+                        Accessible.name: qsTr("講習年度")
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Label {
+                        text: qsTr("講習区分 *")
+                        color: "#344054"
+                        font.pixelSize: 11
+                    }
+                    ComboBox {
+                        id: newProjectSeason
+                        Layout.fillWidth: true
+                        model: [qsTr("春期"), qsTr("夏期"), qsTr("冬期")]
+                        currentIndex: 1
+                        Accessible.name: qsTr("講習区分")
+                    }
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("プロジェクト名：%1").arg(root.generatedProjectTitle)
+                color: "#183b59"
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
             }
 
             RowLayout {
@@ -870,7 +943,7 @@ Item {
                 id: newProjectValidation
                 Layout.fillWidth: true
                 visible: false
-                text: qsTr("プロジェクト名、開始日、終了日を入力してください。")
+                text: qsTr("年度・講習区分と、開始日・終了日を確認してください。")
                 color: "#a23b3b"
                 font.pixelSize: 10
                 wrapMode: Text.Wrap
@@ -889,19 +962,36 @@ Item {
             }
             onRejected: newProjectDialog.close()
             onAccepted: {
-                const complete = newProjectTitle.text.trim().length > 0
+                const complete = root.generatedProjectTitle.length > 0
                                  && newProjectStart.text.trim().length > 0
                                  && newProjectEnd.text.trim().length > 0
                 newProjectValidation.visible = !complete
                 if (complete) {
                     if (root.viewModel.createProjectInWorkspace(
-                                newProjectTitle.text.trim(),
+                                root.generatedProjectTitle,
                                 newProjectStart.text.trim(),
                                 newProjectEnd.text.trim()))
                         newProjectDialog.close()
                 }
             }
         }
+    }
+
+    Dialogs.FileDialog {
+        id: sharedRosterTemplateDialog
+        title: qsTr("新しい基本情報テンプレートを保存")
+        fileMode: Dialogs.FileDialog.SaveFile
+        nameFilters: [qsTr("Excelブック (*.xlsx)")]
+        defaultSuffix: "xlsx"
+        onAccepted: root.viewModel.exportSharedRosterTemplate(selectedFile.toString())
+    }
+
+    Dialogs.FileDialog {
+        id: sharedRosterImportDialog
+        title: qsTr("作成済みの基本情報Excelを選択")
+        fileMode: Dialogs.FileDialog.OpenFile
+        nameFilters: [qsTr("Excelブック (*.xlsx)")]
+        onAccepted: root.viewModel.importSharedRoster(selectedFile.toString())
     }
 
     Dialogs.FileDialog {

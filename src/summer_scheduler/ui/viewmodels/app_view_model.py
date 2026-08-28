@@ -20,18 +20,25 @@ class AppViewModel(QObject):
         app_version: str,
         schema_version: str,
         *,
+        release_channel: str = "Beta",
         database_ready: bool = False,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._app_version = app_version
         self._schema_version = schema_version
+        self._release_channel = release_channel
         self._database_ready = database_ready
 
     def _get_app_version(self) -> str:
         return self._app_version
 
     appVersion = Property(str, _get_app_version, constant=True)
+
+    def _get_release_channel(self) -> str:
+        return self._release_channel
+
+    releaseChannel = Property(str, _get_release_channel, constant=True)
 
     def _get_schema_version(self) -> str:
         return self._schema_version

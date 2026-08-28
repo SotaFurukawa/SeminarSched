@@ -490,6 +490,50 @@ def test_unassign_assign_lock_note_and_detailed_edit_are_undoable(
     assert _require_assignment(project_service, graph, graph.request_1_id).is_locked is False
 
 
+def test_preconfirmed_assignment_is_created_locked_with_audit_and_hard_validation(
+    project_service: ProjectService,
+) -> None:
+    graph = _seed_graph(project_service)
+    service = ScheduleEditService(project_service, _app_settings())
+    service.load_board()
+    service.unassign(
+        lesson_request_id=graph.request_1_id,
+        session_index=1,
+        reason="事前確定へ移す準備",
+        confirm_soft_warnings=True,
+    )
+
+    result = service.create_preconfirmed_assignment(
+        lesson_request_id=graph.request_1_id,
+        session_index=1,
+        day=graph.day,
+        time_slot_id=graph.z_slot_id,
+        teacher_id=graph.teacher_2_id,
+        note="保護者と調整済み",
+    )
+
+    saved = _require_assignment(project_service, graph, graph.request_1_id)
+    assert result.action == "assign_unassigned"
+    assert saved.is_locked is True
+    assert saved.is_manual is True
+    assert saved.created_by == "manual"
+    assert saved.note == "保護者と調整済み"
+    with project_service.require_database().session_factory() as session:
+        audit = session.scalar(select(AuditLog).order_by(AuditLog.id.desc()))
+        assert audit is not None
+        assert audit.reason == "事前確定枠として登録"
+        assert '"is_locked":true' in str(audit.after_json).lower()
+
+    with pytest.raises(HardConstraintViolationError):
+        service.create_preconfirmed_assignment(
+            lesson_request_id=graph.request_1_id,
+            session_index=1,
+            day=graph.day,
+            time_slot_id=graph.y_slot_id,
+            teacher_id=graph.teacher_1_id,
+        )
+
+
 def test_unlock_invalidates_locked_candidate_cache_and_allows_preview(
     project_service: ProjectService,
 ) -> None:

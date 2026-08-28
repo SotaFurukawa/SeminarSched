@@ -104,6 +104,17 @@ class ScheduleEditServiceProtocol(Protocol):
         confirm_soft_warnings: bool = False,
     ) -> object: ...
 
+    def create_preconfirmed_assignment(
+        self,
+        *,
+        lesson_request_id: int,
+        session_index: int,
+        day: date,
+        time_slot_id: int,
+        teacher_id: int,
+        note: str = "",
+    ) -> object: ...
+
     def preview_unassign(
         self,
         *,
@@ -407,6 +418,36 @@ class ScheduleEditorViewModel(QObject):
 
     unassignedLessons = Property(list, _get_unassigned_lessons, notify=filterChanged)
 
+    def _get_preconfirmation_candidates(self) -> list[dict[str, object]]:
+        board = self._board
+        if board is None:
+            return []
+        return [
+            {
+                **self._unassigned_dict(row),
+                "label": (f"{row.student_name}／{row.subject_name}／第{row.session_index}回"),
+            }
+            for row in board.unassigned
+        ]
+
+    preconfirmationCandidates = Property(
+        list,
+        _get_preconfirmation_candidates,
+        notify=boardChanged,
+    )
+
+    def _get_preconfirmed_assignments(self) -> list[dict[str, object]]:
+        board = self._board
+        if board is None:
+            return []
+        return [self._card_dict(row) for row in board.cards if row.is_locked and row.is_manual]
+
+    preconfirmedAssignments = Property(
+        list,
+        _get_preconfirmed_assignments,
+        notify=boardChanged,
+    )
+
     def _get_unassigned_count(self) -> int:
         return 0 if self._board is None else self._board.unassigned_count
 
@@ -667,6 +708,41 @@ class ScheduleEditorViewModel(QObject):
             return "red"
         preview = self._preview(target)
         return preview.decision if preview is not None else "red"
+
+    @Slot(int, int, str, int, int, str, result=bool)
+    def createPreconfirmedAssignment(
+        self,
+        lesson_request_id: int,
+        session_index: int,
+        day_value: str,
+        time_slot_id: int,
+        teacher_id: int,
+        note: str,
+    ) -> bool:
+        """未配置の受講1回を、検証済みロック枠として即時保存する。"""
+        target = self._move_target(
+            "preconfirm",
+            lesson_request_id,
+            session_index,
+            day_value,
+            time_slot_id,
+            teacher_id,
+        )
+        if target is None or target.day is None:
+            return False
+        self._begin_save()
+        try:
+            self._service.create_preconfirmed_assignment(
+                lesson_request_id=lesson_request_id,
+                session_index=session_index,
+                day=target.day,
+                time_slot_id=time_slot_id,
+                teacher_id=teacher_id,
+                note=note,
+            )
+        except Exception as exc:
+            return self._action_failed("事前確定枠の登録", exc)
+        return self._action_succeeded("事前確定枠を登録し、再最適化で動かないようロックしました")
 
     @Slot(int, int, str, int, int, result=str)
     def dropMove(

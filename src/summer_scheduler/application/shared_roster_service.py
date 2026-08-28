@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+from shutil import copy2
 
 from sqlalchemy import delete, select
 
@@ -57,23 +59,45 @@ class SharedRosterService:
         write_shared_roster(self.path, data or empty_shared_roster())
         return self.path
 
-    def sync_to_current_project(self) -> SharedRosterSyncResult:
+    def export_new_template(self, destination: Path) -> Path:
+        """既定科目入りの空テンプレートを、共通正本を変えずに保存する。"""
+        target = destination.expanduser().resolve()
+        write_shared_roster(target, empty_shared_roster())
+        return target
+
+    def import_workbook(self, source: Path) -> SharedRosterSyncResult | None:
+        """外部ブックを検証・バックアップして共通正本へ取り込む。"""
+        incoming = source.expanduser().resolve()
+        if incoming == self.path.resolve():
+            return self.sync_to_current_project() if self._projects.current is not None else None
+
+        data = _merge_default_subjects(self._read_with_reserved_ids(incoming))
+        existing = self.path.is_file()
+        backup: Path | None = None
+        if existing:
+            backup_directory = self._projects.workspace_directory / "基本情報バックアップ"
+            backup_directory.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+            backup = backup_directory / f"生徒・講師_基本情報-{stamp}.xlsx"
+            copy2(self.path, backup)
+        try:
+            write_shared_roster(self.path, data)
+            if self._projects.current is not None:
+                return self.sync_to_current_project(write_back=False)
+        except Exception:
+            if backup is not None:
+                copy2(backup, self.path)
+            elif not existing:
+                self.path.unlink(missing_ok=True)
+            raise
+        return None
+
+    def sync_to_current_project(self, *, write_back: bool = True) -> SharedRosterSyncResult:
         """共通名簿を検証し、現在のプロジェクトへ1 transactionで反映する。"""
         source = self.ensure_workbook()
         project = self._projects.require_project()
         database = self._projects.require_database()
-        with database.session_factory() as session:
-            reserved_student_ids = tuple(
-                row.external_id for row in session.scalars(select(Student))
-            )
-            reserved_teacher_ids = tuple(
-                row.external_id for row in session.scalars(select(Teacher))
-            )
-        data = read_shared_roster(
-            source,
-            reserved_student_ids=reserved_student_ids,
-            reserved_teacher_ids=reserved_teacher_ids,
-        )
+        data = self._read_with_reserved_ids(source)
         data = _merge_default_subjects(data)
         with database.session_factory.begin() as session:
             existing_students = {row.external_id: row for row in session.scalars(select(Student))}
@@ -173,13 +197,31 @@ class SharedRosterService:
             )
 
         # 空欄IDへ採番した結果と在籍者優先の並びを共通ファイルへ戻す。
-        write_shared_roster(source, data)
+        if write_back:
+            write_shared_roster(source, data)
         self._projects.refresh_current()
         return SharedRosterSyncResult(
             students=len(data.students),
             teachers=len(data.teachers),
             qualifications=len(data.qualifications),
             regular_lessons=len(data.regular_lessons),
+        )
+
+    def _read_with_reserved_ids(self, source: Path) -> SharedRosterData:
+        if self._projects.current is None:
+            return read_shared_roster(source)
+        database = self._projects.require_database()
+        with database.session_factory() as session:
+            reserved_student_ids = tuple(
+                row.external_id for row in session.scalars(select(Student))
+            )
+            reserved_teacher_ids = tuple(
+                row.external_id for row in session.scalars(select(Teacher))
+            )
+        return read_shared_roster(
+            source,
+            reserved_student_ids=reserved_student_ids,
+            reserved_teacher_ids=reserved_teacher_ids,
         )
 
     def _from_current_project(self) -> SharedRosterData | None:

@@ -277,6 +277,30 @@ class ScheduleEditService:
             confirm_soft_warnings=confirm_soft_warnings,
         )
 
+    def create_preconfirmed_assignment(
+        self,
+        *,
+        lesson_request_id: int,
+        session_index: int,
+        day: date,
+        time_slot_id: int,
+        teacher_id: int,
+        note: str = "",
+    ) -> EditResultDto:
+        """保護者等と合意済みの1枠を、ハード制約検証後にロックして保存する。"""
+        return self._apply_edit(
+            lesson_request_id=lesson_request_id,
+            session_index=session_index,
+            day=day,
+            time_slot_id=time_slot_id,
+            teacher_id=teacher_id,
+            is_locked=True,
+            note=note,
+            change_note=True,
+            reason="事前確定枠として登録",
+            confirm_soft_warnings=True,
+        )
+
     def edit_assignment(
         self,
         *,

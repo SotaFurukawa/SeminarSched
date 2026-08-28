@@ -932,6 +932,27 @@ class WorkspaceViewModel(QObject):
 
         return self._perform(action, "生徒・講師の基本情報を開きました")
 
+    @Slot(str, result=bool)
+    def exportSharedRosterTemplate(self, path_value: str) -> bool:
+        """共通正本を変更せず、入力用の新しい基本情報テンプレートを保存する。"""
+
+        return self._perform(
+            lambda: self._shared_roster.export_new_template(_xlsx_path_from_qml(path_value)),
+            "新しい基本情報テンプレートを保存しました",
+        )
+
+    @Slot(str, result=bool)
+    def importSharedRoster(self, path_value: str) -> bool:
+        """作成済み基本情報を共通正本へ取り込み、開いている講習へ反映する。"""
+
+        def action() -> None:
+            self._shared_roster.import_workbook(_xlsx_path_from_qml(path_value))
+            if self._projects.current is not None:
+                self._refresh_all_collections()
+                self.projectStateChanged.emit()
+
+        return self._perform(action, "基本情報を取り込み、現在の講習へ反映しました")
+
     @Slot(result=bool)
     def applySharedRoster(self) -> bool:
         """保存済みの共通名簿を現在の講習へ反映する。"""

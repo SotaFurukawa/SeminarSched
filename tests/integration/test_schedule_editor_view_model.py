@@ -187,6 +187,37 @@ def test_drag_preview_rejects_red_confirms_yellow_and_applies_green(
     assert "自動保存" in view_model._get_status_message()
 
 
+def test_preconfirmation_models_and_atomic_action_are_exposed(
+    core_app: QCoreApplication,
+) -> None:
+    del core_app
+    service = _FakeScheduleEditService(_small_board())
+    view_model = _view_model(service)
+
+    candidates = view_model._get_preconfirmation_candidates()
+    assert candidates[0]["label"] == "架空 太郎／中学校・英語／第1回"
+    assert view_model._get_preconfirmed_assignments() == []
+    assert view_model.createPreconfirmedAssignment(
+        11,
+        1,
+        DAY.isoformat(),
+        100,
+        1,
+        "保護者と調整済み",
+    )
+    assert service.preconfirmation_calls == [
+        {
+            "lesson_request_id": 11,
+            "session_index": 1,
+            "day": DAY,
+            "time_slot_id": 100,
+            "teacher_id": 1,
+            "note": "保護者と調整済み",
+        }
+    ]
+    assert "ロックしました" in view_model._get_status_message()
+
+
 def test_atomic_detail_lock_unassign_undo_redo_and_checkpoint(
     core_app: QCoreApplication,
 ) -> None:
@@ -331,6 +362,7 @@ class _FakeScheduleEditService:
         self.board = board
         self.apply_calls: list[dict[str, object]] = []
         self.edit_calls: list[dict[str, object]] = []
+        self.preconfirmation_calls: list[dict[str, object]] = []
         self.lock_calls: list[dict[str, object]] = []
         self.unassign_calls: list[dict[str, object]] = []
         self.preview_calls = 0
@@ -421,6 +453,29 @@ class _FakeScheduleEditService:
                 "note": note,
                 "reason": reason,
                 "confirm": confirm_soft_warnings,
+            }
+        )
+        self.board = replace(self.board, can_undo=True, can_redo=False)
+        return _result()
+
+    def create_preconfirmed_assignment(
+        self,
+        *,
+        lesson_request_id: int,
+        session_index: int,
+        day: date,
+        time_slot_id: int,
+        teacher_id: int,
+        note: str = "",
+    ) -> EditResultDto:
+        self.preconfirmation_calls.append(
+            {
+                "lesson_request_id": lesson_request_id,
+                "session_index": session_index,
+                "day": day,
+                "time_slot_id": time_slot_id,
+                "teacher_id": teacher_id,
+                "note": note,
             }
         )
         self.board = replace(self.board, can_undo=True, can_redo=False)

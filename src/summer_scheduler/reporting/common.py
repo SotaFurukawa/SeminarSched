@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from datetime import date, time
 
-from summer_scheduler import __version__
+from summer_scheduler import __release_channel__, __version__
 from summer_scheduler.reporting.data import (
     AssignmentRecord,
     DateRecord,
@@ -92,7 +92,7 @@ def format_day(value: date) -> str:
 
 def updated_text(snapshot: OutputSnapshot) -> str:
     generated = snapshot.project.generated_at.astimezone().strftime("%Y/%m/%d %H:%M")
-    return f"{generated}／アプリ v{__version__}"
+    return f"{generated}／アプリ v{__version__} ({__release_channel__})"
 
 
 __all__ = [

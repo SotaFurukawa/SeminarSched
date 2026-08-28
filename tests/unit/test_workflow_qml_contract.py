@@ -1,16 +1,18 @@
-"""利用者向け4段階フローと自動保存導線のQML契約。"""
+"""利用者向け6段階フローと自動保存導線のQML契約。"""
 
 from pathlib import Path
 
 QML = Path(__file__).resolve().parents[2] / "src" / "summer_scheduler" / "ui" / "qml"
 
 
-def test_home_exposes_four_step_workflow_and_automatic_project_creation() -> None:
+def test_home_exposes_six_step_workflow_and_automatic_project_creation() -> None:
     source = (QML / "ProjectHomePage.qml").read_text(encoding="utf-8")
 
     for label in (
         "授業日を決める",
-        "アンケートを取込む",
+        "アンケートを作る",
+        "回答を取込む",
+        "事前確定する",
         "時間割を配置する",
         "個人時間割を作る",
     ):
@@ -18,6 +20,10 @@ def test_home_exposes_four_step_workflow_and_automatic_project_creation() -> Non
     assert "createProjectInWorkspace" in source
     assert "保存先はアプリが自動管理します" in source
     assert "currentFolder: root.viewModel.projectsDirectoryUrl" in source
+    assert "新しい基本情報を保存" in source
+    assert "作成済み基本情報を取込む" in source
+    assert "反映済みExcelを開いて編集" in source
+    assert 'model: [qsTr("春期"), qsTr("夏期"), qsTr("冬期")]' in source
 
 
 def test_group_lesson_page_supports_calendar_entry() -> None:

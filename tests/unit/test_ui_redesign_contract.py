@@ -28,15 +28,24 @@ def test_shared_visual_components_and_workflow_navigation_exist() -> None:
     sidebar = _qml("Sidebar.qml")
     for route in (
         '{"index": 8, "prefix": "①"}',
-        '{"index": 4, "prefix": "②"}',
-        '{"index": 5, "prefix": "③"}',
-        '{"index": 7, "prefix": "④"}',
+        '{"index": 9, "prefix": "②"}',
+        '{"index": 4, "prefix": "③"}',
+        '{"index": 10, "prefix": "④"}',
+        '{"index": 5, "prefix": "⑤"}',
+        '{"index": 7, "prefix": "⑥"}',
     ):
         assert route in sidebar
 
     home = _qml("ProjectHomePage.qml")
     assert "delegate: StepCard {" in home
-    for title in ("授業日を決める", "アンケートを取込む", "時間割を配置する", "個人時間割を作る"):
+    for title in (
+        "授業日を決める",
+        "アンケートを作る",
+        "回答を取込む",
+        "事前確定する",
+        "時間割を配置する",
+        "個人時間割を作る",
+    ):
         assert title in home
     assert "次に行うこと" in home
 
@@ -45,6 +54,7 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     students = _qml("StudentPage.qml")
     teachers = _qml("TeacherPage.qml")
     questionnaire = _qml("AvailabilityImportPage.qml")
+    questionnaire_creation = _qml("QuestionnaireCreationPage.qml")
 
     for source in (students, teachers):
         assert "Excel一括追加・更新" in source
@@ -65,11 +75,11 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     assert "列名が合わない場合の設定" in questionnaire
     for label in (
         "Googleフォーム作成キット",
-        "3種類のフォームをまとめて作成…",
+        "フォーム作成キットを保存…",
         "開校日 %1日／有効コマ %2件",
-        "画像つき手順を見る",
+        "画像つき手順",
     ):
-        assert label in questionnaire
+        assert label in questionnaire_creation
     assert (
         'Layout.preferredWidth: 110\n                        text: qsTr("生徒回答")'
         in questionnaire
@@ -79,6 +89,11 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
         in questionnaire
     )
     assert "workspace: root.workspace" in _qml("Main.qml")
+    assert "Googleフォーム作成キット" not in questionnaire
+    preconfirmation = _qml("PreconfirmationPage.qml")
+    assert "この1枠を固定" in preconfirmation
+    assert "createPreconfirmedAssignment" in preconfirmation
+    assert "再最適化では動きません" in preconfirmation
     guide = _qml("GoogleFormsGuideDialog.qml")
     for label in (
         "アプリで作成キットを保存",

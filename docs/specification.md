@@ -18,7 +18,7 @@
 
 ## 2. 実装済みのスコープ
 
-Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.3.4`の
+Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.4.0 (Beta)`の
 公開準備版である。Windows成果物は社内利用向けに未署名で配布する方針である。
 
 ### Phase 0：設計
@@ -65,6 +65,7 @@ Phase 1で作った画面シェルと基盤はPhase 2でも維持する。
 ### Phase 2：マスター管理
 
 - `.jukuschedule`プロジェクトの新規作成、開く、最近使用した一覧
+- 新規作成時は年度と春期／夏期／冬期を選び、`2026夏期講習`形式の名称を自動設定する
 - プロジェクト情報の編集、別名保存、複製、バックアップ、クローズ
 - アプリ管理DBと、1ファイル1SQLiteのプロジェクトDBの分離
 - Campus、CourseProject、TimeSlot、OpenDate、Student、Teacher、Subject、
@@ -94,6 +95,11 @@ Phase 6で「出力」を実画面へ置き換えた。
   姓入力時にID候補・在籍・既定値を表示する。チェックを外した入力済み行は灰色にする。
   必須セルは薄い黄色とし、アプリ反映時に正式採番・既定値確定を行う。
   旧列順の共通名簿も互換読込みする
+- 共通名簿の講師対応科目と通常授業は、表示名の選択から人物ID・科目コードを自動表示する。
+  新形式では重複する確認列を設けず、指導可能=`はい`、担当優先度=`3`、1対1必須=`いいえ`
+  を空欄既定値とする。旧8列・12列形式も互換読込みする
+- 基本情報Excelの新規保存、作成済みブック取込み、反映済み正本の編集はホームへ集約し、
+  設定画面とアンケート画面から分離する。取込み前の正本はローカルへバックアップする
 - アプリ生成Googleフォームの生徒・講師回答を2ファイル同時に検証・反映し、原本と
   要確認一覧を含む統合xlsxを`.jukuschedule`へ内包する
 
@@ -186,6 +192,9 @@ end-to-end 117.939982秒（solver報告117.765秒）、status `FEASIBLE`、
 - 授業単位のロック／解除。ロック済みAssignmentの移動・未配置化と、再最適化での
   変更を禁止
 - AssignmentとAuditLogを同じSQLAlchemy transactionへ保存し、失敗時にrollbackする
+- 時間割作成前に、調整済みの生徒・講師・開校日・コマを1session単位で事前確定できる。
+  通常の手動編集と同じハード制約検証を通し、`is_locked=True`かつ手動Assignmentとして
+  AuditLogと同じtransactionへ保存する。1対2では1席を使用し、再最適化で移動しない
   操作後の自動保存
 - 即時保存済みDBをSQLite backup APIで複製する手動保存点と、保存先・個人情報注意の
   日本語表示
@@ -261,7 +270,8 @@ PDFとExcelの共通レイアウト、Qt選定、原子的保存、安全検証�
 
 ### Phase 7：品質保証・バックアップ・Windows配布
 
-- app version `1.3.4`をpackage metadata、Qt application、About、log、帳票へ
+- app version `1.4.0`とrelease channel `Beta`をpackage metadata、Qt application、
+  About、log、帳票へ
   表示し、Alembic schema revisionとは別の版として扱う
 - project open直後と設定間隔ごとの自動backup。既定5分間隔・project別5世代で、
   `%LOCALAPPDATA%\SummerScheduler\backups`へ保存する
