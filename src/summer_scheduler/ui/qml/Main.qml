@@ -356,6 +356,7 @@ ApplicationWindow {
 
         PreconfirmationPage {
             viewModel: root.scheduleEditor
+            groupViewModel: root.phase3
             onOpenHomeRequested: root.selectPage(0)
             onOpenTimetableRequested: root.selectPage(5)
         }

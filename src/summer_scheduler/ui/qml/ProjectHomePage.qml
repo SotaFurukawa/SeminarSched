@@ -23,10 +23,8 @@ Item {
 
     UiTheme { id: theme }
 
-    readonly property bool basicSetupComplete: collectionCount(viewModel.openDates) > 0
-                                                   && collectionCount(viewModel.timeSlots) > 0
-                                                   && collectionCount(viewModel.students) > 0
-                                                   && collectionCount(viewModel.teachers) > 0
+    readonly property bool basicSetupComplete: hasEnabledRow(viewModel.openDates, "isOpen")
+                                               && hasEnabledRow(viewModel.timeSlots, "enabled")
     readonly property bool questionnaireComplete: phase3ViewModel
                                                    && Boolean(rowValue(
                                                                   phase3ViewModel.validationSummary,
@@ -47,6 +45,15 @@ Item {
 
     function collectionCount(rows) {
         return rows && rows.length !== undefined ? rows.length : 0
+    }
+
+    function hasEnabledRow(rows, key) {
+        const source = rows || []
+        for (let index = 0; index < source.length; ++index) {
+            if (Boolean(root.rowValue(source[index], key, false)))
+                return true
+        }
+        return false
     }
 
     function nextStepNumber() {
@@ -131,7 +138,7 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: availableWidth
-        contentHeight: Math.max(availableHeight, homeContent.implicitHeight + 48)
+        contentHeight: homeContent.implicitHeight + 48
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.vertical.policy: ScrollBar.AlwaysOn
 
@@ -627,7 +634,7 @@ Item {
                                        : root.nextStepNumber() === 3
                                          ? qsTr("次に行うこと：生徒・講師の回答を取り込み、入力を検証します。")
                                          : root.nextStepNumber() === 4
-                                           ? qsTr("次に行うこと：調整済みの個別枠があれば事前確定し、その後に時間割を作成します。")
+                                           ? qsTr("次に行うこと：調整済みの個別枠や集団授業があれば事前確定し、その後に時間割を作成します。")
                                            : qsTr("次に行うこと：全体・生徒別・講師別の時間割を確認して出力します。")
                         }
 
@@ -649,7 +656,7 @@ Item {
                                      "detail": qsTr("生徒・講師の回答を検証"),
                                      "button": qsTr("アンケート取込み"), "page": 4},
                                     {"number": "4", "title": qsTr("事前確定する"),
-                                     "detail": qsTr("調整済みの生徒・講師・日時を固定"),
+                                     "detail": qsTr("調整済みの個別指導・集団授業を固定"),
                                      "button": qsTr("固定枠を登録"), "page": 10},
                                     {"number": "5", "title": qsTr("時間割を配置する"),
                                      "detail": qsTr("集団授業確認・自動配置・編集"),

@@ -60,6 +60,7 @@ namespaces = true
 [tool.setuptools.package-data]
 summer_scheduler = [
     "ui/qml/*.qml",
+    "ui/qml/assets/*.png",
     "**/*.qml",
     "resources/*.yaml",
     "resources/*.yml",

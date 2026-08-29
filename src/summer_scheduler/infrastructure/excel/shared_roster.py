@@ -167,7 +167,13 @@ def empty_shared_roster() -> SharedRosterData:
     )
 
 
-def write_shared_roster(path: Path, data: SharedRosterData) -> None:
+def write_shared_roster(
+    path: Path,
+    data: SharedRosterData,
+    *,
+    reserved_student_ids: Iterable[str] = (),
+    reserved_teacher_ids: Iterable[str] = (),
+) -> None:
     """共通名簿を入力規則・参照表示・退籍行の灰色表示付きで保存する。"""
     destination = path.expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -204,7 +210,7 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
         _mark_auto_id_header(student_sheet, "B1", "生徒", "S-0001")
         for excel_row, student in enumerate(student_rows, start=2):
             row = excel_row - 1
-            student_sheet.write_boolean(row, 0, student.active, formats["checkbox"])
+            student_sheet.insert_checkbox(row, 0, student.active, formats["checkbox"])
             student_sheet.write(row, 1, student.external_id, formats["normal"])
             student_sheet.write(row, 2, student.surname, formats["required"])
             student_sheet.write(row, 3, student.given_name, formats["normal"])
@@ -237,7 +243,7 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
         _mark_auto_id_header(teacher_sheet, "B1", "講師", "T-0001")
         for excel_row, teacher in enumerate(teacher_rows, start=2):
             row = excel_row - 1
-            teacher_sheet.write_boolean(row, 0, teacher.active, formats["checkbox"])
+            teacher_sheet.insert_checkbox(row, 0, teacher.active, formats["checkbox"])
             teacher_sheet.write(row, 1, teacher.external_id, formats["normal"])
             teacher_sheet.write(row, 2, teacher.surname, formats["required"])
             teacher_sheet.write(row, 3, teacher.given_name, formats["normal"])
@@ -390,7 +396,12 @@ def write_shared_roster(path: Path, data: SharedRosterData) -> None:
         _add_list(regular_sheet, "H2:H10000", ["はい", "いいえ"], allow_blank=True)
         _finish_rows(regular_sheet, len(data.regular_lessons), len(_REGULAR_HEADERS))
 
-        _create_id_helper_sheet(workbook, data)
+        _create_id_helper_sheet(
+            workbook,
+            data,
+            reserved_student_ids=reserved_student_ids,
+            reserved_teacher_ids=reserved_teacher_ids,
+        )
         workbook.close()
         closed = True
         os.replace(temporary, destination)
@@ -739,10 +750,12 @@ def _xlsx_formats(workbook: Any) -> dict[str, Any]:
 
 
 def _prepare_student_input_rows(sheet: Any, first_blank_row: int, formats: dict[str, Any]) -> None:
-    """姓を入力するとID・在籍・既定値が表示される入力行を用意する。"""
+    """姓を入力するとID・既定値が表示される、手動変更可能な在籍行を用意する。"""
     for excel_row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
         row = excel_row - 1
-        sheet.write_formula(row, 0, f'=C{excel_row}<>""', formats["checkbox"], False)
+        # 数式セルはExcelで直接オン・オフできないため、空行も初期値オンの
+        # ネイティブセルチェックボックスにする。姓が空欄の行は読込み時に無視される。
+        sheet.insert_checkbox(row, 0, True, formats["checkbox"])
         sheet.write_formula(
             row,
             1,
@@ -778,10 +791,10 @@ def _prepare_student_input_rows(sheet: Any, first_blank_row: int, formats: dict[
 
 
 def _prepare_teacher_input_rows(sheet: Any, first_blank_row: int, formats: dict[str, Any]) -> None:
-    """姓を入力するとID・在籍・既定値が表示される入力行を用意する。"""
+    """姓を入力するとID・既定値が表示される、手動変更可能な在籍行を用意する。"""
     for excel_row in range(first_blank_row, _FORMULA_TEMPLATE_MAX_ROW + 1):
         row = excel_row - 1
-        sheet.write_formula(row, 0, f'=C{excel_row}<>""', formats["checkbox"], False)
+        sheet.insert_checkbox(row, 0, True, formats["checkbox"])
         sheet.write_formula(
             row,
             1,
@@ -901,14 +914,28 @@ def _next_id_formula(row: int, prefix: PersonIdPrefix, first_blank_row: int) -> 
     )
 
 
-def _create_id_helper_sheet(workbook: Any, data: SharedRosterData) -> None:
+def _create_id_helper_sheet(
+    workbook: Any,
+    data: SharedRosterData,
+    *,
+    reserved_student_ids: Iterable[str] = (),
+    reserved_teacher_ids: Iterable[str] = (),
+) -> None:
     """数式同士の配列計算に依存せず、一意なID候補を参照できるようにする。"""
     sheet = workbook.add_worksheet(_ID_HELPER_SHEET)
     student_ids = _available_person_ids(
-        (student.external_id for student in data.students), prefix="S"
+        (
+            *(student.external_id for student in data.students),
+            *reserved_student_ids,
+        ),
+        prefix="S",
     )
     teacher_ids = _available_person_ids(
-        (teacher.external_id for teacher in data.teachers), prefix="T"
+        (
+            *(teacher.external_id for teacher in data.teachers),
+            *reserved_teacher_ids,
+        ),
+        prefix="T",
     )
     for row, (student_id, teacher_id) in enumerate(zip(student_ids, teacher_ids, strict=True)):
         sheet.write_string(row, 0, student_id)

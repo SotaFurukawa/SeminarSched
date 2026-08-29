@@ -231,6 +231,7 @@ def test_shared_roster_template_export_and_import_keep_canonical_backup(
     assert canonical.students[0].external_id == "S-0002"
     backups = list((roster_service.path.parent / "基本情報バックアップ").glob("*.xlsx"))
     assert len(backups) == 1
+    assert backups[0].name.startswith("生徒・講師_基本情報(by")
     assert read_shared_roster(backups[0]).students[0].external_id == "S-0001"
 
 
@@ -286,6 +287,8 @@ def test_blank_ids_do_not_reuse_an_id_only_present_in_the_project(
     try:
         assert workbook["生徒"]["B2"].value == "S-0002"
         assert workbook["講師"]["B2"].value == "T-0002"
+        assert workbook["_入力補助"]["A1"].value == "S-0003"
+        assert workbook["_入力補助"]["B1"].value == "T-0003"
     finally:
         workbook.close()
 
@@ -304,7 +307,7 @@ def test_shared_roster_prepares_status_first_defaults_and_required_cells(
         assert students["B1"].value == "生徒ID（自動・入力不要）"
         assert "デフォルトは2" in str(students["G1"].value)
         assert "デフォルトはなし" in str(students["H1"].value)
-        assert students["A2"].value == '=C2<>""'
+        assert students["A2"].value is True
         assert students["B2"].value == (
             '=IF(C2="","",INDEX(\'_入力補助\'!$A$1:$A$999,COUNTIF($C$2:C2,"?*")))'
         )
@@ -321,7 +324,7 @@ def test_shared_roster_prepares_status_first_defaults_and_required_cells(
             for rule in rules
         ]
         assert any(rule.formula == ['AND($C2<>"",$A2=FALSE)'] for rule in student_rules)
-        assert teachers["A2"].value == '=C2<>""'
+        assert teachers["A2"].value is True
         assert teachers["B2"].value == (
             '=IF(C2="","",INDEX(\'_入力補助\'!$B$1:$B$999,COUNTIF($C$2:C2,"?*")))'
         )

@@ -27,6 +27,10 @@ def test_home_exposes_six_step_workflow_and_automatic_project_creation() -> None
     assert "for (let year = 2020; year <= 2070; ++year)" in source
     assert source.count("DateDropdownField {") >= 2
     assert "ScrollBar.vertical.policy: ScrollBar.AlwaysOn" in source
+    assert 'hasEnabledRow(viewModel.openDates, "isOpen")' in source
+    assert 'hasEnabledRow(viewModel.timeSlots, "enabled")' in source
+    assert "collectionCount(viewModel.students) > 0" not in source
+    assert "collectionCount(viewModel.teachers) > 0" not in source
 
 
 def test_group_lesson_page_supports_calendar_entry() -> None:

@@ -117,7 +117,40 @@ Dialog {
             InlineMessage {
                 Layout.fillWidth: true
                 kind: "info"
-                message: qsTr("実際の画面に近い図で、押す場所を赤枠と赤い矢印で示します。Google側の表示は更新により多少異なる場合があります。")
+                message: qsTr("実際の画面と補助図で、押す場所を赤枠と赤い矢印で示します。Google側の表示は更新により多少異なる場合があります。")
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: Math.round(width * 2 / 3) + 52
+                radius: 10
+                color: theme.surface
+                border.color: theme.border
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 8
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("実画面：初回承認からCSVダウンロードまで")
+                        color: theme.textPrimary
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                    }
+
+                    Image {
+                        id: actualGuideImage
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Math.round(width * 2 / 3)
+                        source: "assets/google_forms_authorization_and_csv.png"
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        asynchronous: true
+                        Accessible.name: qsTr("Googleフォーム初回承認とCSVダウンロードの赤枠つき実画面")
+                    }
+                }
             }
 
             Repeater {

@@ -104,10 +104,21 @@ Item {
     SplitView {
         anchors.fill: parent
         orientation: Qt.Horizontal
+        handle: Rectangle {
+            implicitWidth: 16
+            color: "transparent"
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 1
+                height: parent.height - 16
+                color: "#d5dce6"
+            }
+        }
 
         Rectangle {
-            SplitView.preferredWidth: 465
-            SplitView.minimumWidth: 370
+            SplitView.preferredWidth: 430
+            SplitView.minimumWidth: 340
             color: "#f8fafc"
             border.color: "#e2e7ee"
             radius: 8
@@ -244,6 +255,7 @@ Item {
             SplitView.fillWidth: true
             SplitView.minimumWidth: 420
             clip: true
+            leftPadding: 10
             contentWidth: availableWidth
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 

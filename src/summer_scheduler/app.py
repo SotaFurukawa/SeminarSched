@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, QQmlError
 
 from summer_scheduler import __release_channel__, __version__
 from summer_scheduler.application.availability_import_service import (
@@ -61,6 +61,7 @@ def run(argv: Sequence[str] | None = None) -> int:
         application.setApplicationVersion(__version__)
 
         engine = QQmlApplicationEngine()
+        engine.warnings.connect(_log_qml_warnings)
         schema_version = get_head_revision()
         view_model = AppViewModel(
             __version__,
@@ -165,7 +166,10 @@ def run(argv: Sequence[str] | None = None) -> int:
 
         logger.info("メインウィンドウを表示しました")
         if arguments.smoke_test:
-            QTimer.singleShot(100, application.quit)
+            # The preconfirmation page is loaded lazily in the normal UI. Open it
+            # during smoke testing so its individual/group bindings are exercised.
+            engine.rootObjects()[0].setProperty("currentPageIndex", 10)
+            QTimer.singleShot(200, application.quit)
 
         return application.exec()
     except Exception:
@@ -218,3 +222,9 @@ def _qml_entrypoint() -> Path:
     if not path.is_file():
         raise ApplicationStartError(f"QMLファイルが見つかりません: {path.name}")
     return path
+
+
+def _log_qml_warnings(warnings: list[QQmlError]) -> None:
+    """QMLの実行時診断をローカルログへ残し、起動失敗を調査可能にする。"""
+    for warning in warnings:
+        logger.error("QML: %s", warning.toString())

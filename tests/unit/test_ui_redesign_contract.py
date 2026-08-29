@@ -92,9 +92,16 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     assert "workspace: root.workspace" in _qml("Main.qml")
     assert "Googleフォーム作成キット" not in questionnaire
     preconfirmation = _qml("PreconfirmationPage.qml")
-    assert "この1枠を固定" in preconfirmation
+    assert "個別指導" in preconfirmation
+    assert "集団授業" in preconfirmation
+    assert "individualGrades" in preconfirmation
+    assert "individualStudents" in preconfirmation
+    assert "individualSubjects" in preconfirmation
+    assert "この個別枠を固定" in preconfirmation
+    assert "この集団授業を固定" in preconfirmation
     assert "createPreconfirmedAssignment" in preconfirmation
-    assert "再最適化では動きません" in preconfirmation
+    assert "createCalendarGroupLesson" in preconfirmation
+    assert "groupViewModel: root.phase3" in _qml("Main.qml")
     guide = _qml("GoogleFormsGuideDialog.qml")
     for label in (
         "アプリで作成キットを保存",
@@ -106,6 +113,8 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
         assert label in guide
     assert "Google Apps Scriptの「デプロイ」は不要" in guide
     assert "赤枠と赤い矢印" in guide
+    assert "assets/google_forms_authorization_and_csv.png" in guide
+    assert "実画面：初回承認からCSVダウンロードまで" in guide
     assert "権限を確認" in guide
     assert "カンマ区切り形式（.csv）" in guide
 
@@ -116,6 +125,7 @@ def test_date_dropdowns_and_settings_tabs_have_explicit_visual_state() -> None:
     questionnaire = _qml("QuestionnaireCreationPage.qml")
     settings = _qml("SettingsPage.qml")
     slots = _qml("TimeSlotSettingsTab.qml")
+    subjects = _qml("SubjectSettingsTab.qml")
 
     assert "property int fromYear: 2020" in date_field
     assert "property int toYear: 2070" in date_field
@@ -126,6 +136,8 @@ def test_date_dropdowns_and_settings_tabs_have_explicit_visual_state() -> None:
     assert 'color: tabButton.checked ? "#0f6cbd"' in settings
     assert "implicitWidth: 16" in slots
     assert "leftPadding: 10" in slots
+    assert "implicitWidth: 16" in subjects
+    assert "leftPadding: 10" in subjects
 
 
 def test_calendar_timetable_issues_and_output_keep_operational_routes() -> None:

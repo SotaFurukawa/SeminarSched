@@ -78,10 +78,16 @@ class SharedRosterService:
             backup_directory = self._projects.workspace_directory / "基本情報バックアップ"
             backup_directory.mkdir(parents=True, exist_ok=True)
             stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-            backup = backup_directory / f"生徒・講師_基本情報-{stamp}.xlsx"
+            backup = backup_directory / f"生徒・講師_基本情報(by{stamp}).xlsx"
             copy2(self.path, backup)
         try:
-            write_shared_roster(self.path, data)
+            reserved_students, reserved_teachers = self._reserved_external_ids()
+            write_shared_roster(
+                self.path,
+                data,
+                reserved_student_ids=reserved_students,
+                reserved_teacher_ids=reserved_teachers,
+            )
             if self._projects.current is not None:
                 return self.sync_to_current_project(write_back=False)
         except Exception:
@@ -97,7 +103,12 @@ class SharedRosterService:
         source = self.ensure_workbook()
         project = self._projects.require_project()
         database = self._projects.require_database()
-        data = self._read_with_reserved_ids(source)
+        reserved_students, reserved_teachers = self._reserved_external_ids()
+        data = read_shared_roster(
+            source,
+            reserved_student_ids=reserved_students,
+            reserved_teacher_ids=reserved_teachers,
+        )
         data = _merge_default_subjects(data)
         with database.session_factory.begin() as session:
             existing_students = {row.external_id: row for row in session.scalars(select(Student))}
@@ -198,7 +209,12 @@ class SharedRosterService:
 
         # 空欄IDへ採番した結果と在籍者優先の並びを共通ファイルへ戻す。
         if write_back:
-            write_shared_roster(source, data)
+            write_shared_roster(
+                source,
+                data,
+                reserved_student_ids=reserved_students,
+                reserved_teacher_ids=reserved_teachers,
+            )
         self._projects.refresh_current()
         return SharedRosterSyncResult(
             students=len(data.students),
@@ -208,8 +224,17 @@ class SharedRosterService:
         )
 
     def _read_with_reserved_ids(self, source: Path) -> SharedRosterData:
+        reserved_student_ids, reserved_teacher_ids = self._reserved_external_ids()
+        return read_shared_roster(
+            source,
+            reserved_student_ids=reserved_student_ids,
+            reserved_teacher_ids=reserved_teacher_ids,
+        )
+
+    def _reserved_external_ids(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """現在DBに残る退籍者を含め、再利用してはいけない人物IDを返す。"""
         if self._projects.current is None:
-            return read_shared_roster(source)
+            return (), ()
         database = self._projects.require_database()
         with database.session_factory() as session:
             reserved_student_ids = tuple(
@@ -218,11 +243,7 @@ class SharedRosterService:
             reserved_teacher_ids = tuple(
                 row.external_id for row in session.scalars(select(Teacher))
             )
-        return read_shared_roster(
-            source,
-            reserved_student_ids=reserved_student_ids,
-            reserved_teacher_ids=reserved_teacher_ids,
-        )
+        return reserved_student_ids, reserved_teacher_ids
 
     def _from_current_project(self) -> SharedRosterData | None:
         current = self._projects.current

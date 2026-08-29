@@ -192,10 +192,14 @@ end-to-end 117.939982秒（solver報告117.765秒）、status `FEASIBLE`、
 - 授業単位のロック／解除。ロック済みAssignmentの移動・未配置化と、再最適化での
   変更を禁止
 - AssignmentとAuditLogを同じSQLAlchemy transactionへ保存し、失敗時にrollbackする
-- 時間割作成前に、調整済みの生徒・講師・開校日・コマを1session単位で事前確定できる。
+- 時間割作成前に、学年、生徒、受講予定科目、講師、開校日、コマを順に選び、調整済みの
+  個別指導を1session単位で事前確定できる。
   通常の手動編集と同じハード制約検証を通し、`is_locked=True`かつ手動Assignmentとして
   AuditLogと同じtransactionへ保存する。1対2では1席を使用し、再最適化で移動しない
   操作後の自動保存
+- 事前確定で集団授業を選んだ場合は、学年、科目、担当講師、開校日、コマを指定して
+  GroupLessonとして保存する。同じ担当講師・時間帯への個別指導配置を禁止する既存の
+  集団授業ハード制約をそのまま適用する
 - 即時保存済みDBをSQLite backup APIで複製する手動保存点と、保存先・個人情報注意の
   日本語表示
 - fingerprint付きプロセス内command stackによるUndo / Redo。元操作と逆操作を
