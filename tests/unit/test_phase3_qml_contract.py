@@ -27,22 +27,18 @@ def test_availability_import_page_exposes_complete_safe_workflow() -> None:
     source = _qml_source("AvailabilityImportPage.qml")
 
     required_calls = {
-        "setImportKind(",
-        "inspectAvailabilitySource(",
-        "selectSourceSheet(",
-        "setSourceEncoding(",
-        "setColumnMapping(",
-        "validateAvailabilityImport()",
-        "applyAvailabilityImport(includeDeletes.checked)",
-        "clearImport()",
-        "exportStudentTemplate(",
-        "exportTeacherTemplate(",
+        "setCombinedStudentSource(",
+        "setCombinedTeacherSource(",
+        "validateCombinedSurvey()",
+        "setCombinedStudentTrialResolution(",
+        "applyCombinedSurvey()",
+        "exportCombinedSurvey(",
     }
     assert all(call in source for call in required_calls)
-    assert "列マッピング" in source
-    assert "先頭行プレビュー" in source
-    assert "削除候補も反映" in source
-    assert "enabled: root.viewModel.canApplyImport" in source
+    assert "生徒・講師回答をまとめて取り込む" in source
+    assert "2ファイルを検証" in source
+    assert "カンマ区切り形式（.csv）" in source
+    assert "enabled: root.viewModel.canApplyCombinedSurvey" in source
     assert "Dialogs.MessageDialog" in source
 
 

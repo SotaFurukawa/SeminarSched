@@ -84,12 +84,26 @@ Item {
     }
 
     function openNewProjectDialog() {
-        newProjectYear.currentIndex = 1
+        const currentYear = new Date().getFullYear()
+        newProjectYear.currentIndex = Math.max(0, Math.min(50, currentYear - 2020))
         newProjectSeason.currentIndex = 1
-        newProjectStart.text = ""
-        newProjectEnd.text = ""
+        root.applyDefaultProjectDates()
         newProjectValidation.visible = false
         newProjectDialog.open()
+    }
+
+    function applyDefaultProjectDates() {
+        const year = Number(newProjectYear.currentText || new Date().getFullYear())
+        if (newProjectSeason.currentIndex === 0) {
+            newProjectStart.setDate(year, 3, 20)
+            newProjectEnd.setDate(year, 4, 7)
+        } else if (newProjectSeason.currentIndex === 2) {
+            newProjectStart.setDate(year, 12, 20)
+            newProjectEnd.setDate(year, 12, 31)
+        } else {
+            newProjectStart.setDate(year, 7, 20)
+            newProjectEnd.setDate(year, 8, 31)
+        }
     }
 
     function requestProjectSwitch(action, path) {
@@ -117,12 +131,13 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: availableWidth
+        contentHeight: Math.max(availableHeight, homeContent.implicitHeight + 48)
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+        ScrollBar.vertical.policy: ScrollBar.AlwaysOn
 
         Item {
             width: homeScroll.availableWidth
-            height: Math.max(homeScroll.availableHeight, homeContent.implicitHeight + 48)
+            height: homeScroll.contentHeight
 
             ColumnLayout {
                 id: homeContent
@@ -218,27 +233,32 @@ Item {
                             }
 
                             ColumnLayout {
-                                spacing: 6
+                                Layout.preferredWidth: 440
+                                spacing: 7
+
+                                AppButton {
+                                    Layout.fillWidth: true
+                                    implicitHeight: 48
+                                    text: qsTr("反映済みの基本情報を開いて編集")
+                                    kind: "primary"
+                                    onClicked: root.viewModel.openSharedRoster()
+                                }
 
                                 RowLayout {
-                                    spacing: 6
+                                    Layout.fillWidth: true
+                                    spacing: 7
 
                                     AppButton {
-                                        text: qsTr("新しい基本情報を保存…")
+                                        Layout.fillWidth: true
+                                        text: qsTr("新規で基本情報を作成…")
                                         onClicked: sharedRosterTemplateDialog.open()
                                     }
 
                                     AppButton {
-                                        text: qsTr("作成済み基本情報を取込む…")
-                                        kind: "primary"
+                                        Layout.fillWidth: true
+                                        text: qsTr("作成した基本情報を反映…")
                                         onClicked: sharedRosterImportDialog.open()
                                     }
-                                }
-
-                                AppButton {
-                                    Layout.alignment: Qt.AlignRight
-                                    text: qsTr("反映済みExcelを開いて編集")
-                                    onClicked: root.viewModel.openSharedRoster()
                                 }
                             }
                         }
@@ -253,7 +273,7 @@ Item {
 
                         Label {
                             Layout.fillWidth: true
-                            text: qsTr("在籍のチェックを外した人は削除せず退籍扱いとなり、Excelでは灰色で表示されます。編集後は「作成済み基本情報を取込む」で検証・反映してください。")
+                            text: qsTr("在籍のチェックを外した人は削除せず退籍扱いとなり、Excelでは灰色で表示されます。編集後は「作成した基本情報を反映」で検証・反映してください。")
                             color: "#52647d"
                             font.pixelSize: 10
                             wrapMode: Text.Wrap
@@ -822,7 +842,7 @@ Item {
         id: newProjectDialog
 
         anchors.centerIn: Overlay.overlay
-        width: Math.min(560, root.width - 48)
+        width: Math.min(760, root.width - 48)
         modal: true
         title: qsTr("新規プロジェクト")
         closePolicy: Popup.CloseOnEscape
@@ -846,12 +866,15 @@ Item {
                         id: newProjectYear
                         Layout.fillWidth: true
                         model: {
-                            const current = new Date().getFullYear()
-                            return [String(current - 1), String(current), String(current + 1),
-                                    String(current + 2), String(current + 3)]
+                            const years = []
+                            for (let year = 2020; year <= 2070; ++year)
+                                years.push(String(year))
+                            return years
                         }
-                        currentIndex: 1
+                        currentIndex: Math.max(0, Math.min(50,
+                                                           new Date().getFullYear() - 2020))
                         Accessible.name: qsTr("講習年度")
+                        onActivated: root.applyDefaultProjectDates()
                     }
                 }
 
@@ -869,6 +892,7 @@ Item {
                         model: [qsTr("春期"), qsTr("夏期"), qsTr("冬期")]
                         currentIndex: 1
                         Accessible.name: qsTr("講習区分")
+                        onActivated: root.applyDefaultProjectDates()
                     }
                 }
             }
@@ -893,11 +917,12 @@ Item {
                         color: "#344054"
                         font.pixelSize: 11
                     }
-                    TextField {
+                    DateDropdownField {
                         id: newProjectStart
                         Layout.fillWidth: true
-                        placeholderText: "2026-07-20"
-                        Accessible.name: qsTr("講習開始日")
+                        fromYear: 2020
+                        toYear: 2070
+                        accessibleName: qsTr("講習開始日")
                     }
                 }
 
@@ -909,11 +934,12 @@ Item {
                         color: "#344054"
                         font.pixelSize: 11
                     }
-                    TextField {
+                    DateDropdownField {
                         id: newProjectEnd
                         Layout.fillWidth: true
-                        placeholderText: "2026-08-31"
-                        Accessible.name: qsTr("講習終了日")
+                        fromYear: 2020
+                        toYear: 2070
+                        accessibleName: qsTr("講習終了日")
                     }
                 }
             }
@@ -963,14 +989,13 @@ Item {
             onRejected: newProjectDialog.close()
             onAccepted: {
                 const complete = root.generatedProjectTitle.length > 0
-                                 && newProjectStart.text.trim().length > 0
-                                 && newProjectEnd.text.trim().length > 0
+                                 && newProjectStart.dateText <= newProjectEnd.dateText
                 newProjectValidation.visible = !complete
                 if (complete) {
                     if (root.viewModel.createProjectInWorkspace(
                                 root.generatedProjectTitle,
-                                newProjectStart.text.trim(),
-                                newProjectEnd.text.trim()))
+                                newProjectStart.dateText,
+                                newProjectEnd.dateText))
                         newProjectDialog.close()
                 }
             }

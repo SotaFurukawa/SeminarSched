@@ -92,7 +92,7 @@ def test_generated_google_forms_answers_are_combined_and_stored(
                 "在籍生",
                 "中学校・数学",
                 "3",
-                "Z 15:40～17:00",
+                "Z, A, B, C",
                 "連続希望",
             ),
         ),
@@ -119,17 +119,28 @@ def test_generated_google_forms_answers_are_combined_and_stored(
         request = session.scalar(select(LessonRequest))
         student = session.scalar(select(Student).where(Student.external_id == "S001"))
         teacher = session.scalar(select(Teacher).where(Teacher.external_id == "T001"))
-        z_slot = session.scalar(select(TimeSlot).where(TimeSlot.code == "Z"))
+        unavailable_slots = {
+            code: session.scalar(select(TimeSlot).where(TimeSlot.code == code))
+            for code in ("Z", "A", "B", "C")
+        }
         c_slot = session.scalar(select(TimeSlot).where(TimeSlot.code == "C"))
         snapshots = list(session.scalars(select(ImportSourceSnapshot)))
         assert student is not None and teacher is not None
-        assert z_slot is not None and c_slot is not None
-        student_z = session.get(StudentAvailability, (1, student.id, _DAY, z_slot.id))
+        assert all(slot is not None for slot in unavailable_slots.values())
+        assert c_slot is not None
+        student_unavailable = {
+            code: session.get(StudentAvailability, (1, student.id, _DAY, slot.id))
+            for code, slot in unavailable_slots.items()
+            if slot is not None
+        }
         teacher_c = session.get(TeacherAvailability, (1, teacher.id, _DAY, c_slot.id))
     assert request is not None
     assert request.required_sessions == 3
     assert request.regular_teacher_priority == 4
-    assert student_z is not None and student_z.availability_level == 0
+    assert set(student_unavailable) == {"Z", "A", "B", "C"}
+    assert all(
+        row is not None and row.availability_level == 0 for row in student_unavailable.values()
+    )
     assert teacher_c is not None and teacher_c.availability_level == 0
     assert {row.import_type for row in snapshots} == {
         "student_availability",

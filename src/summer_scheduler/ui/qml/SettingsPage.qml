@@ -8,6 +8,30 @@ Item {
     required property var viewModel
     signal openHomeRequested
 
+    component SettingsTabButton: TabButton {
+        id: tabButton
+
+        implicitHeight: 42
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+
+        background: Rectangle {
+            radius: 7
+            color: tabButton.checked ? "#0f6cbd"
+                                     : tabButton.hovered ? "#f4f7fb" : "#ffffff"
+            border.width: 1
+            border.color: tabButton.checked ? "#0f6cbd" : "#c5ccd8"
+        }
+
+        contentItem: Text {
+            text: tabButton.text
+            color: tabButton.checked ? "#ffffff" : "#344054"
+            font: tabButton.font
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 20
@@ -98,17 +122,23 @@ Item {
                     id: settingsTabs
 
                     Layout.fillWidth: true
+                    spacing: 8
+                    background: Item {}
 
-                    TabButton {
+                    SettingsTabButton {
+                        width: (settingsTabs.width - settingsTabs.spacing * 3) / 4
                         text: qsTr("プロジェクト")
                     }
-                    TabButton {
+                    SettingsTabButton {
+                        width: (settingsTabs.width - settingsTabs.spacing * 3) / 4
                         text: qsTr("コマ設定")
                     }
-                    TabButton {
+                    SettingsTabButton {
+                        width: (settingsTabs.width - settingsTabs.spacing * 3) / 4
                         text: qsTr("開校日・休校日")
                     }
-                    TabButton {
+                    SettingsTabButton {
+                        width: (settingsTabs.width - settingsTabs.spacing * 3) / 4
                         text: qsTr("科目")
                     }
                 }

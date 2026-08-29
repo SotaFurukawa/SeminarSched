@@ -764,7 +764,10 @@ def _unavailable(
     for header, day in date_headers.items():
         cell = _text(mapping.get(header))
         for slot in slots:
-            if re.search(rf"(?:^|[,、;\s]){re.escape(slot.code)}(?:\s|$)", cell):
+            if re.search(
+                rf"(?:^|[,、;\s]){re.escape(slot.code)}(?:$|[,、;\s])",
+                cell,
+            ):
                 result.add((day, slot.code))
     return frozenset(result)
 

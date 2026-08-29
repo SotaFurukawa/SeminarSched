@@ -17,6 +17,7 @@ def test_shared_visual_components_and_workflow_navigation_exist() -> None:
         "AppButton.qml",
         "StatusBadge.qml",
         "GoogleFormsGuideDialog.qml",
+        "DateDropdownField.qml",
         "InlineMessage.qml",
         "SectionHeader.qml",
         "EmptyState.qml",
@@ -104,6 +105,27 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     ):
         assert label in guide
     assert "Google Apps Scriptの「デプロイ」は不要" in guide
+    assert "赤枠と赤い矢印" in guide
+    assert "権限を確認" in guide
+    assert "カンマ区切り形式（.csv）" in guide
+
+
+def test_date_dropdowns_and_settings_tabs_have_explicit_visual_state() -> None:
+    date_field = _qml("DateDropdownField.qml")
+    home = _qml("ProjectHomePage.qml")
+    questionnaire = _qml("QuestionnaireCreationPage.qml")
+    settings = _qml("SettingsPage.qml")
+    slots = _qml("TimeSlotSettingsTab.qml")
+
+    assert "property int fromYear: 2020" in date_field
+    assert "property int toYear: 2070" in date_field
+    assert "readonly property string dateText" in date_field
+    assert home.count("DateDropdownField {") >= 2
+    assert "questionnaireDeadline.dateText" in questionnaire
+    assert "component SettingsTabButton: TabButton" in settings
+    assert 'color: tabButton.checked ? "#0f6cbd"' in settings
+    assert "implicitWidth: 16" in slots
+    assert "leftPadding: 10" in slots
 
 
 def test_calendar_timetable_issues_and_output_keep_operational_routes() -> None:

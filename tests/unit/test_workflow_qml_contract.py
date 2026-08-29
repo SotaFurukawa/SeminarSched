@@ -20,10 +20,13 @@ def test_home_exposes_six_step_workflow_and_automatic_project_creation() -> None
     assert "createProjectInWorkspace" in source
     assert "保存先はアプリが自動管理します" in source
     assert "currentFolder: root.viewModel.projectsDirectoryUrl" in source
-    assert "新しい基本情報を保存" in source
-    assert "作成済み基本情報を取込む" in source
-    assert "反映済みExcelを開いて編集" in source
+    assert "新規で基本情報を作成" in source
+    assert "作成した基本情報を反映" in source
+    assert "反映済みの基本情報を開いて編集" in source
     assert 'model: [qsTr("春期"), qsTr("夏期"), qsTr("冬期")]' in source
+    assert "for (let year = 2020; year <= 2070; ++year)" in source
+    assert source.count("DateDropdownField {") >= 2
+    assert "ScrollBar.vertical.policy: ScrollBar.AlwaysOn" in source
 
 
 def test_group_lesson_page_supports_calendar_entry() -> None:
@@ -42,3 +45,6 @@ def test_availability_page_explains_embedded_source_replacement() -> None:
     assert "storedSourceName" in source
     assert ".jukuschedule内に保管" in source
     assert "次回反映時に差し替えます" in source
+    assert "おすすめ：" not in source
+    assert "カンマ区切り形式（.csv）" in source
+    assert "Z・A・B・Cなど複数のチェックが1セル" in source

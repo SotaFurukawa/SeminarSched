@@ -12,6 +12,7 @@ Item {
     required property var workspace
     signal openHomeRequested
     signal openSettingsRequested
+    property string deadlineProjectKey: ""
 
     UiTheme { id: theme }
 
@@ -40,6 +41,34 @@ Item {
         }
         return count
     }
+
+    function initializeDeadline() {
+        const startText = String(root.workspace.currentStartDate || "")
+        const projectKey = String(root.workspace.currentProjectTitle || "") + "|" + startText
+        if (!startText || projectKey === root.deadlineProjectKey)
+            return
+        const match = startText.match(/^(\d{4})-(\d{2})-(\d{2})/)
+        if (!match)
+            return
+        const value = new Date(Number(match[1]), Number(match[2]) - 1,
+                               Number(match[3]))
+        value.setDate(value.getDate() - 14)
+        questionnaireDeadline.setDate(value.getFullYear(), value.getMonth() + 1,
+                                      value.getDate())
+        root.deadlineProjectKey = projectKey
+    }
+
+    onVisibleChanged: {
+        if (visible)
+            initializeDeadline()
+    }
+
+    Connections {
+        target: root.workspace
+        function onProjectStateChanged() { root.initializeDeadline() }
+    }
+
+    Component.onCompleted: initializeDeadline()
 
     readonly property int configuredOpenDateCount: countOpenDates()
     readonly property int configuredTimeSlotCount: countEnabledTimeSlots()
@@ -167,10 +196,12 @@ Item {
                         ColumnLayout {
                             Layout.fillWidth: true
                             Label { text: qsTr("回答締切（必須）"); color: "#344054" }
-                            TextField {
+                            DateDropdownField {
                                 id: questionnaireDeadline
                                 Layout.fillWidth: true
-                                placeholderText: qsTr("例：2026年6月25日（木）")
+                                fromYear: 2020
+                                toYear: 2070
+                                accessibleName: qsTr("アンケート回答締切")
                             }
                         }
 
@@ -216,10 +247,52 @@ Item {
                                      && root.configuredTimeSlotCount > 0
                                      && studentFormTitle.text.trim().length > 0
                                      && teacherFormTitle.text.trim().length > 0
-                                     && questionnaireDeadline.text.trim().length > 0
                                      && questionnaireContact.text.trim().length > 0
                             onClicked: questionnaireFolderDialog.open()
                         }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: quickGuideContent.implicitHeight + 26
+                radius: 9
+                color: "#ffffff"
+                border.color: "#cfd9e8"
+
+                RowLayout {
+                    id: quickGuideContent
+
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.margins: 13
+                    spacing: 12
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 3
+
+                        Label {
+                            text: qsTr("保存後の手順")
+                            color: "#183b59"
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("1. script.google.comで新しいプロジェクトを作る　→　2. 保存した.gsをメモ帳で開いてCode.gsへ貼る　→　3. 作成関数を選び「実行」する")
+                            color: "#52647d"
+                            font.pixelSize: 10
+                            wrapMode: Text.Wrap
+                        }
+                    }
+
+                    AppButton {
+                        text: qsTr("赤い案内つき手順を見る")
+                        kind: "primary"
+                        onClicked: guideDialog.open()
                     }
                 }
             }
@@ -259,7 +332,7 @@ Item {
                         selectedFolder.toString(),
                         studentFormTitle.text,
                         teacherFormTitle.text,
-                        questionnaireDeadline.text,
+                        questionnaireDeadline.dateText,
                         questionnaireContact.text)
     }
 }

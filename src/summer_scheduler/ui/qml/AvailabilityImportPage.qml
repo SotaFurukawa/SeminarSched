@@ -23,7 +23,8 @@ Item {
     readonly property bool justApplied: String(viewModel.statusMessage || "")
                                         .indexOf("アンケートを反映しました") >= 0
     readonly property int currentImportStep: justApplied ? 2
-                                             : Boolean(viewModel.sourcePath) ? 1 : 0
+                                             : Boolean(viewModel.combinedStudentPath)
+                                               || Boolean(viewModel.combinedTeacherPath) ? 1 : 0
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -148,21 +149,6 @@ Item {
                 }
             }
 
-            AppButton {
-                text: root.viewModel.importKind === "teacher"
-                      ? qsTr("講師テンプレートを保存…")
-                      : qsTr("生徒テンプレートを保存…")
-                onClicked: templateDialog.open()
-            }
-
-            AppButton {
-                text: qsTr("取込みをクリア")
-                enabled: Boolean(root.viewModel.sourcePath)
-                onClicked: {
-                    includeDeletes.checked = false
-                    root.viewModel.clearImport()
-                }
-            }
         }
 
         RowLayout {
@@ -194,6 +180,47 @@ Item {
             visible: root.justApplied
             kind: "success"
             message: qsTr("回答をプロジェクトへ反映し、原本を.jukuschedule内に保管しました。再取込み時は新しい原本へ差し替えます。")
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: csvGuideContent.implicitHeight + 20
+            radius: 8
+            color: "#fffaf0"
+            border.color: "#e4c56d"
+
+            RowLayout {
+                id: csvGuideContent
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: 10
+                spacing: 10
+
+                Rectangle {
+                    Layout.preferredWidth: 30
+                    Layout.preferredHeight: 30
+                    radius: 15
+                    color: "#b42318"
+
+                    Label {
+                        anchors.centerIn: parent
+                        text: "↓"
+                        color: "#ffffff"
+                        font.pixelSize: 16
+                        font.weight: Font.Bold
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("回答スプレッドシートで「ファイル」→「ダウンロード」→「カンマ区切り形式（.csv）」を選びます。Z・A・B・Cなど複数のチェックが1セルにまとまっていても、そのまま選択してください。")
+                    color: "#5f4710"
+                    font.pixelSize: 10
+                    wrapMode: Text.Wrap
+                }
+            }
         }
 
         Rectangle {
@@ -246,14 +273,14 @@ Item {
                         Layout.fillWidth: true
                         spacing: 1
                         Label {
-                            text: qsTr("おすすめ：生徒・講師回答をまとめて取り込む")
+                            text: qsTr("生徒・講師回答をまとめて取り込む")
                             color: "#183b59"
                             font.pixelSize: 14
                             font.weight: Font.DemiBold
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: qsTr("アプリから作成したGoogleフォームのCSV／xlsxを2つ選ぶだけで、氏名照合・受講希望・不可時間をまとめて検証します。")
+                            text: qsTr("Googleフォームからダウンロードした生徒回答と講師回答を選び、氏名照合・受講希望・不可時間をまとめて検証します。")
                             color: "#52647d"
                             font.pixelSize: 9
                             wrapMode: Text.Wrap
@@ -261,7 +288,7 @@ Item {
                     }
 
                     AppButton {
-                        text: qsTr("まとめて検証")
+                        text: qsTr("2ファイルを検証")
                         kind: "primary"
                         enabled: root.viewModel.canValidateCombinedSurvey
                         onClicked: root.viewModel.validateCombinedSurvey()
@@ -414,6 +441,7 @@ Item {
         }
 
         Rectangle {
+            visible: false
             Layout.fillWidth: true
             implicitHeight: sourceControls.implicitHeight + 18
             radius: 8
@@ -775,6 +803,7 @@ Item {
         }
 
         RowLayout {
+            visible: false
             Layout.fillWidth: true
             spacing: 6
 

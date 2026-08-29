@@ -18,7 +18,7 @@
 
 ## 2. 実装済みのスコープ
 
-Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.4.0 (Beta)`の
+Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.4.1 (Beta)`の
 公開準備版である。Windows成果物は社内利用向けに未署名で配布する方針である。
 
 ### Phase 0：設計
@@ -270,7 +270,7 @@ PDFとExcelの共通レイアウト、Qt選定、原子的保存、安全検証�
 
 ### Phase 7：品質保証・バックアップ・Windows配布
 
-- app version `1.4.0`とrelease channel `Beta`をpackage metadata、Qt application、
+- app version `1.4.1`とrelease channel `Beta`をpackage metadata、Qt application、
   About、log、帳票へ
   表示し、Alembic schema revisionとは別の版として扱う
 - project open直後と設定間隔ごとの自動backup。既定5分間隔・project別5世代で、
