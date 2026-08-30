@@ -1,6 +1,6 @@
 # Googleフォーム アンケート作成・取込みガイド
 
-対象: SummerCourseScheduler `1.4.1 (Beta)`
+対象: SummerCourseScheduler `1.4.2 (Beta)`
 
 この文書は、生徒・保護者と講師から希望日時および講師の指導可能科目を集める
 Googleフォームの作り方と、回答を確認・取り込むまでの手順をまとめたものです。
