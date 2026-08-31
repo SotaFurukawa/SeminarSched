@@ -56,7 +56,9 @@ def run(argv: Sequence[str] | None = None) -> int:
     try:
         application = QGuiApplication(qt_arguments)
         application.setApplicationName("summer-scheduler")
-        application.setApplicationDisplayName(runtime.settings.application_name)
+        application.setApplicationDisplayName(
+            f"{runtime.settings.application_name} v{__version__} ({__release_channel__})"
+        )
         application.setOrganizationName(runtime.settings.organization_name)
         application.setApplicationVersion(__version__)
 

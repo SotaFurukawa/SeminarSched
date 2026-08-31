@@ -11,92 +11,104 @@ Dialog {
         {
             "number": "1",
             "title": qsTr("アプリで作成キットを保存"),
-            "description": qsTr("アンケート作成画面でフォーム名と回答締切を確認し、保存先を選びます。生徒用・講師用の.gsと手順書が同じフォルダーへ保存されます。"),
-            "screen": qsTr("SummerCourseScheduler"),
-            "rows": [qsTr("開校日・コマを確認"), qsTr("回答締切を選択"), qsTr("フォーム作成キットを保存…")],
-            "target": 2,
-            "note": qsTr("保存後に「保存先を開く」を押すと、.gsが入ったフォルダーをすぐ開けます。")
+            "description": qsTr("生徒用・講師用のフォーム名、回答締切、問い合わせ先を確認し、「フォーム作成キットを保存…」を押して保存先を選びます。"),
+            "images": [
+                {"source": "assets/google_forms_guide/01_save_kit.png", "accessible": qsTr("フォーム作成キットを保存する画面"), "height": 220}
+            ],
+            "note": qsTr("開校日と有効コマが未設定の場合は保存できません。先に①設定で授業日とコマを確定してください。")
         },
         {
             "number": "2",
-            "title": qsTr("Apps Scriptを3つ用意"),
-            "description": qsTr("ブラウザーで script.google.com を開き、左上の「新しいプロジェクト」を押します。.gsごとに別のプロジェクトを1つずつ作ります。"),
-            "screen": qsTr("Google Apps Script"),
-            "rows": [qsTr("＋ 新しいプロジェクト"), qsTr("自分のプロジェクト"), qsTr("無題のプロジェクト")],
-            "target": 0,
-            "note": qsTr("Google Apps Scriptの「デプロイ」は不要です。生徒用・講師勤務日時用・講師指導可能科目用の3プロジェクトを作ります。")
+            "title": qsTr("保存先を開く"),
+            "description": qsTr("保存が完了すると「保存先を開く」ボタンが表示されます。押すと、作成された3つの.gsと手順書が入ったフォルダーを開けます。"),
+            "images": [
+                {"source": "assets/google_forms_guide/02_open_saved_folder.png", "accessible": qsTr("保存先を開くボタンが表示された画面"), "height": 220}
+            ],
+            "note": qsTr("生徒用は create_student_questionnaire.gs、講師勤務日時用は create_teacher_questionnaire.gs、講師指導可能科目用は create_teacher_subject_questionnaire.gs です。")
         },
         {
             "number": "3",
-            "title": qsTr("Code.gsへ全内容を貼り付け"),
-            "description": qsTr("保存フォルダーの.gsを右クリックし、「プログラムから開く」→「メモ帳」で開いて全内容をコピーします。Apps ScriptのCode.gsにある初期コードをすべて削除し、貼り付けて保存します。"),
-            "screen": qsTr("コードエディタ — Code.gs"),
-            "rows": [qsTr("function myFunction() { … } を削除"), qsTr(".gsの全内容を貼り付け"), qsTr("Ctrl + S で保存")],
-            "target": 1,
-            "note": qsTr("ファイル名だけでなく、先頭から最後まで全内容をコピーしてください。画面上部の雲マークが保存済みになれば完了です。")
+            "title": qsTr("create_student_questionnaire.gsをメモ帳で開く"),
+            "description": qsTr("create_student_questionnaire.gsを右クリックし、「プログラムから開く」から「メモ帳」を選びます。メモ帳に表示された内容を先頭から最後まで選択してコピーします。"),
+            "images": [
+                {"source": "assets/google_forms_guide/03_open_with_menu.png", "accessible": qsTr("gsファイルのプログラムから開くメニュー"), "height": 340},
+                {"source": "assets/google_forms_guide/03_choose_notepad.png", "accessible": qsTr("gsファイルをメモ帳で開く選択画面"), "height": 340}
+            ],
+            "note": qsTr("ファイル名ではなく、メモ帳に表示されたコードの全内容をコピーします。")
         },
         {
             "number": "4",
-            "title": qsTr("作成関数を選んで実行"),
-            "description": qsTr("上部の関数一覧で作成関数を選び、左側の「実行」を押します。"),
-            "screen": qsTr("Apps Script ツールバー"),
-            "rows": [qsTr("▶ 実行"), qsTr("createStudentQuestionnaire ▼"), qsTr("実行ログ")],
-            "target": 0,
-            "note": qsTr("生徒用は createStudentQuestionnaire、講師勤務日時用は createTeacherQuestionnaire、指導可能科目用は createTeacherSubjectQuestionnaire を選びます。")
+            "title": qsTr("Apps Scriptで新しいプロジェクトを作る"),
+            "description": qsTr("https://script.google.com/home を開き、「新しいプロジェクト」を押します。Code.gsに最初から入っている function myFunction() のコードをすべて削除します。"),
+            "images": [
+                {"source": "assets/google_forms_guide/04_apps_script_home.png", "accessible": qsTr("Google Apps Scriptの新しいプロジェクトボタン"), "height": 330},
+                {"source": "assets/google_forms_guide/04_blank_code_gs.png", "accessible": qsTr("初期コードが表示されたCode.gs"), "height": 330}
+            ],
+            "note": qsTr("生徒用・講師勤務日時用・講師指導可能科目用は、それぞれ別のApps Scriptプロジェクトで作成します。")
         },
         {
             "number": "5",
-            "title": qsTr("初回だけ権限を確認"),
-            "description": qsTr("「承認が必要です」と表示されたら「権限を確認」を押し、使用するGoogleアカウントを選びます。"),
-            "screen": qsTr("承認が必要です"),
-            "rows": [qsTr("キャンセル"), qsTr("権限を確認"), qsTr("Googleアカウントを選択")],
-            "target": 1,
-            "note": qsTr("この処理は自分のGoogleドライブ内にフォームと回答スプレッドシートを作るため、フォームとスプレッドシートの権限を求めます。")
+            "title": qsTr("メモ帳の内容をコピー＆ペースト"),
+            "description": qsTr("空にしたCode.gsへ、メモ帳からコピーした.gsの全内容を貼り付けます。日付・コマ・フォーム名などは、アプリで設定した内容がコード内へ反映されています。"),
+            "images": [
+                {"source": "assets/google_forms_guide/05_paste_script.png", "accessible": qsTr("作成スクリプトをCode.gsへ貼り付けた画面"), "height": 360}
+            ],
+            "note": qsTr("貼り付けた後に先頭や末尾が欠けていないことを確認してください。")
         },
         {
             "number": "6",
-            "title": qsTr("Googleの警告画面を進む"),
-            "description": qsTr("自分で作成した未公開スクリプトのため「このアプリはGoogleで確認されていません」と表示される場合があります。「詳細」を押してから「無題のプロジェクト（安全ではないページ）に移動」を押します。"),
-            "screen": qsTr("このアプリはGoogleで確認されていません"),
-            "rows": [qsTr("詳細"), qsTr("安全なページに戻る"), qsTr("無題のプロジェクト（安全ではないページ）に移動")],
-            "target": 0,
-            "note": qsTr("自分でアプリから保存して貼り付けたコードであることを確認してから進んでください。第三者から受け取った不明なコードでは実行しません。")
+            "title": qsTr("保存して作成関数を実行"),
+            "description": qsTr("Ctrl＋Sまたはフロッピーディスクのボタンで保存します。関数が createStudentQuestionnaire になっていることを確認し、「実行」を押します。"),
+            "images": [
+                {"source": "assets/google_forms_guide/06_select_function.png", "accessible": qsTr("createStudentQuestionnaireを選択して実行する画面"), "height": 360}
+            ],
+            "note": qsTr("講師勤務日時用は createTeacherQuestionnaire、講師指導可能科目用は createTeacherSubjectQuestionnaire を選びます。Google Apps Scriptの「デプロイ」は不要です。")
         },
         {
             "number": "7",
-            "title": qsTr("必要なアクセスを許可"),
-            "description": qsTr("権限一覧で「すべて選択」にチェックを入れ、内容を確認して「続行」を押します。"),
-            "screen": qsTr("アクセスできる情報を選択"),
-            "rows": [qsTr("□ すべて選択"), qsTr("□ スプレッドシート"), qsTr("□ Googleフォーム　　続行")],
-            "target": 0,
-            "note": qsTr("許可はGoogleアカウントから後で取り消せます。アプリからGoogleへ個人情報を自動送信する処理はありません。")
+            "title": qsTr("権限を確認"),
+            "description": qsTr("初回実行時に「承認が必要です」と表示されたら、「権限を確認」を押して使用するGoogleアカウントを選択します。"),
+            "images": [
+                {"source": "assets/google_forms_guide/07_confirm_permissions.png", "accessible": qsTr("承認が必要ですダイアログの権限を確認ボタン"), "height": 260}
+            ],
+            "note": qsTr("自分でアプリから保存したコードを貼り付けたことを確認してから進んでください。第三者から受け取った不明なコードは実行しません。")
         },
         {
             "number": "8",
-            "title": qsTr("実行ログのURLを確認"),
-            "description": qsTr("実行が完了すると、実行ログに質問ページ・編集ページ・回答確認ページのURLが表示されます。"),
-            "screen": qsTr("実行ログ"),
-            "rows": [qsTr("回答用URL：生徒・講師へ配布"), qsTr("フォーム編集URL：担当者用"), qsTr("回答原本URL：担当者だけで管理")],
-            "target": 0,
-            "note": qsTr("配布前に回答用URLを自分で開き、日付・コマ・科目をテスト回答して確認してください。回答原本は一般公開しません。")
+            "title": qsTr("詳細を表示し、安全ではないページへ移動"),
+            "description": qsTr("「このアプリはGoogleで確認されていません」と表示された場合は「詳細」を押し、続いて「無題のプロジェクト（安全ではないページ）に移動」を押します。"),
+            "images": [
+                {"source": "assets/google_forms_guide/08_google_warning.png", "accessible": qsTr("Googleの未確認アプリ警告で詳細を押す画面"), "height": 440},
+                {"source": "assets/google_forms_guide/08_continue_unsafe.png", "accessible": qsTr("安全ではないページに移動するリンクが表示された画面"), "height": 440}
+            ],
+            "note": qsTr("これは自分のGoogleアカウント内で作成した未公開スクリプトに対する警告です。コードの出所を確認できない場合は進まないでください。")
         },
         {
             "number": "9",
-            "title": qsTr("回答をCSVでダウンロード"),
-            "description": qsTr("回答スプレッドシートを開き、「ファイル」→「ダウンロード」→「カンマ区切り形式（.csv）」を選びます。そのCSVをアプリの③アンケート取込みで選択します。"),
-            "screen": qsTr("Google スプレッドシート"),
-            "rows": [qsTr("ファイル"), qsTr("ダウンロード"), qsTr("カンマ区切り形式（.csv）")],
-            "target": 2,
-            "note": qsTr("Z・A・B・Cの複数回答が同じセルに入るのは正常です。アプリが区切って各コマの不可情報として読み取ります。")
+            "title": qsTr("すべて選択して続行"),
+            "description": qsTr("アクセス権限の画面で「すべて選択」にチェックを入れ、フォームとスプレッドシートの権限内容を確認して「続行」を押します。"),
+            "images": [
+                {"source": "assets/google_forms_guide/09_select_all_continue.png", "accessible": qsTr("Googleのアクセス権限ですべて選択して続行する画面"), "height": 430}
+            ],
+            "note": qsTr("フォームと回答先スプレッドシートを自分のGoogleドライブへ作成するために必要な権限です。")
+        },
+        {
+            "number": "10",
+            "title": qsTr("実行ログのリンクからアンケートを開く"),
+            "description": qsTr("実行が完了すると、実行ログにフォーム編集URL・回答URL・回答原本URLが表示されます。回答URLを開けばアンケートへ回答でき、生徒や講師へ案内できます。"),
+            "images": [
+                {"source": "assets/google_forms_guide/10_result_links.png", "accessible": qsTr("フォーム編集URLと回答URLと回答原本URLが表示された実行ログ"), "height": 480}
+            ],
+            "note": qsTr("配布前に回答URLを自分で開いてテストしてください。フォーム編集URLと回答原本URLは担当者だけで管理します。")
         }
     ]
 
     parent: Overlay.overlay
     anchors.centerIn: parent
-    width: Math.min(1000, parent.width - 40)
-    height: Math.min(740, parent.height - 40)
+    width: Math.min(1120, parent.width - 40)
+    height: Math.min(780, parent.height - 40)
     modal: true
-    title: qsTr("赤い案内つき：Googleフォームの作り方")
+    title: qsTr("Googleフォーム作成手順（画像つき）")
     standardButtons: Dialog.Close
     closePolicy: Popup.CloseOnEscape
 
@@ -117,40 +129,7 @@ Dialog {
             InlineMessage {
                 Layout.fillWidth: true
                 kind: "info"
-                message: qsTr("実際の画面と補助図で、押す場所を赤枠と赤い矢印で示します。Google側の表示は更新により多少異なる場合があります。")
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: Math.round(width * 2 / 3) + 52
-                radius: 10
-                color: theme.surface
-                border.color: theme.border
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 8
-
-                    Label {
-                        Layout.fillWidth: true
-                        text: qsTr("実画面：初回承認からCSVダウンロードまで")
-                        color: theme.textPrimary
-                        font.pixelSize: 14
-                        font.weight: Font.DemiBold
-                    }
-
-                    Image {
-                        id: actualGuideImage
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: Math.round(width * 2 / 3)
-                        source: "assets/google_forms_authorization_and_csv.png"
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                        asynchronous: true
-                        Accessible.name: qsTr("Googleフォーム初回承認とCSVダウンロードの赤枠つき実画面")
-                    }
-                }
+                message: qsTr("上から1～10の順に進めてください。説明と実際の画面を同じ場所にまとめています。Google側の表示は更新により多少異なる場合があります。")
             }
 
             Repeater {
@@ -162,175 +141,108 @@ Dialog {
                     required property var modelData
 
                     Layout.fillWidth: true
-                    implicitHeight: Math.max(mockScreen.implicitHeight,
-                                             explanation.implicitHeight) + 24
+                    implicitHeight: guideContent.implicitHeight + 24
                     radius: 10
                     color: theme.surface
                     border.color: theme.border
 
-                    RowLayout {
-                        anchors.fill: parent
+                    ColumnLayout {
+                        id: guideContent
+
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
                         anchors.margins: 12
-                        spacing: 16
+                        spacing: 10
 
-                        Rectangle {
-                            id: mockScreen
-
-                            Layout.preferredWidth: Math.min(420,
-                                                            Math.max(320,
-                                                                     guideCard.width * 0.46))
-                            implicitHeight: 192
-                            radius: 8
-                            color: "#f8fafc"
-                            border.color: "#aeb8c7"
-                            clip: true
-
-                            ColumnLayout {
-                                anchors.fill: parent
-                                spacing: 0
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 38
-                                    color: "#e7ebf1"
-
-                                    Label {
-                                        anchors.centerIn: parent
-                                        width: parent.width - 20
-                                        text: guideCard.modelData.screen
-                                        color: "#475467"
-                                        font.pixelSize: 11
-                                        font.weight: Font.DemiBold
-                                        horizontalAlignment: Text.AlignHCenter
-                                        elide: Text.ElideRight
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    Layout.margins: 12
-                                    spacing: 8
-
-                                    Repeater {
-                                        model: guideCard.modelData.rows
-
-                                        delegate: Rectangle {
-                                            id: mockRow
-
-                                            required property int index
-                                            required property var modelData
-
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 38
-                                            radius: 5
-                                            color: index === Number(guideCard.modelData.target)
-                                                   ? "#fff1f0" : "#ffffff"
-                                            border.width: index === Number(guideCard.modelData.target) ? 3 : 1
-                                            border.color: index === Number(guideCard.modelData.target)
-                                                          ? "#d92d20" : "#cdd5df"
-
-                                            RowLayout {
-                                                anchors.fill: parent
-                                                anchors.leftMargin: 9
-                                                anchors.rightMargin: 9
-                                                spacing: 8
-
-                                                Rectangle {
-                                                    Layout.preferredWidth: 22
-                                                    Layout.preferredHeight: 22
-                                                    radius: 11
-                                                    color: mockRow.index === Number(guideCard.modelData.target)
-                                                           ? "#d92d20" : "#98a2b3"
-
-                                                    Label {
-                                                        anchors.centerIn: parent
-                                                        text: mockRow.index === Number(guideCard.modelData.target)
-                                                              ? "→" : ""
-                                                        color: "#ffffff"
-                                                        font.pixelSize: 13
-                                                        font.weight: Font.Bold
-                                                    }
-                                                }
-
-                                                Label {
-                                                    Layout.fillWidth: true
-                                                    text: String(mockRow.modelData)
-                                                    color: mockRow.index === Number(guideCard.modelData.target)
-                                                           ? "#9b231b" : "#344054"
-                                                    font.pixelSize: 10
-                                                    font.weight: mockRow.index === Number(guideCard.modelData.target)
-                                                                 ? Font.DemiBold : Font.Normal
-                                                    elide: Text.ElideRight
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        ColumnLayout {
-                            id: explanation
-
+                        RowLayout {
                             Layout.fillWidth: true
-                            spacing: 8
+                            spacing: 9
 
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 9
-
-                                Rectangle {
-                                    Layout.preferredWidth: 32
-                                    Layout.preferredHeight: 32
-                                    radius: 16
-                                    color: theme.accent
-
-                                    Label {
-                                        anchors.centerIn: parent
-                                        text: guideCard.modelData.number
-                                        color: "#ffffff"
-                                        font.pixelSize: 13
-                                        font.weight: Font.Bold
-                                    }
-                                }
+                            Rectangle {
+                                Layout.preferredWidth: 34
+                                Layout.preferredHeight: 34
+                                radius: 17
+                                color: theme.accent
 
                                 Label {
-                                    Layout.fillWidth: true
-                                    text: guideCard.modelData.title
-                                    color: theme.textPrimary
-                                    font.pixelSize: 15
-                                    font.weight: Font.DemiBold
-                                    wrapMode: Text.WordWrap
+                                    anchors.centerIn: parent
+                                    text: guideCard.modelData.number
+                                    color: "#ffffff"
+                                    font.pixelSize: 13
+                                    font.weight: Font.Bold
                                 }
                             }
 
                             Label {
                                 Layout.fillWidth: true
-                                text: guideCard.modelData.description
-                                color: theme.textSecondary
-                                font.pixelSize: 11
+                                text: guideCard.modelData.title
+                                color: theme.textPrimary
+                                font.pixelSize: 16
+                                font.weight: Font.DemiBold
                                 wrapMode: Text.WordWrap
                             }
+                        }
 
-                            Rectangle {
-                                Layout.fillWidth: true
-                                implicitHeight: noteText.implicitHeight + 18
-                                radius: 6
-                                color: "#fff8e7"
-                                border.color: "#e2bc62"
+                        Label {
+                            Layout.fillWidth: true
+                            text: guideCard.modelData.description
+                            color: theme.textSecondary
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                        }
 
-                                Label {
-                                    id: noteText
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.margins: 9
-                                    text: qsTr("補足：%1").arg(guideCard.modelData.note)
-                                    color: "#6b4f13"
-                                    font.pixelSize: 10
-                                    wrapMode: Text.WordWrap
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: guideCard.modelData.images.length > 1 ? 2 : 1
+                            columnSpacing: 10
+                            rowSpacing: 10
+
+                            Repeater {
+                                model: guideCard.modelData.images
+
+                                delegate: Rectangle {
+                                    id: screenshotFrame
+
+                                    required property var modelData
+
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: Number(modelData.height)
+                                    radius: 7
+                                    color: "#f7f9fc"
+                                    border.color: "#cfd9e8"
+                                    clip: true
+
+                                    Image {
+                                        anchors.fill: parent
+                                        anchors.margins: 6
+                                        source: screenshotFrame.modelData.source
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                        asynchronous: true
+                                        Accessible.name: screenshotFrame.modelData.accessible
+                                    }
                                 }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: noteText.implicitHeight + 18
+                            radius: 6
+                            color: "#fff8e7"
+                            border.color: "#e2bc62"
+
+                            Label {
+                                id: noteText
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.margins: 9
+                                text: qsTr("補足：%1").arg(guideCard.modelData.note)
+                                color: "#6b4f13"
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
                             }
                         }
                     }

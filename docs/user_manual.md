@@ -43,7 +43,7 @@ Excelでは`TRUE`／`FALSE`と表示されますが、アプリは同じ在籍�
 生徒画面の「在籍中」を外すと卒業・退会扱いとなり、一覧の末尾へ移動して灰色表示されます。
 講師も同様に、在籍中を外すと退職・休止として末尾へ表示されます。
 
-対象: `1.4.2 (Beta)`
+対象: `1.4.3 (Beta)`
 最終更新: 2026-08-29
 
 初めて利用する場合は、先に
@@ -89,8 +89,8 @@ Releaseページ以外から受け取った実行ファイルを安易に実行�
 公開版では`SHA256SUMS.txt`とダウンロードしたファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Portable-1.4.2.zip -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Setup-1.4.2.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.4.3.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.4.3.exe -Algorithm SHA256
 ```
 
 表示されたhashがReleaseページの値と1文字でも異なる場合は使用しません。
@@ -155,7 +155,7 @@ app管理DBは最近使ったproject等を保持し、生徒・講師・授業�
 1. 「ホーム」を開きます。
 2. 「新規project」を選びます。
 3. 年度と「春期／夏期／冬期」をプルダウンで選びます。
-4. 講習開始日・終了日を入力し、作成します。project名は、例えば
+4. 講習開始日・終了日を2020～2070年の年・月・日プルダウンで選び、作成します。project名は、例えば
    `2026夏期講習`のように自動設定されます。
 
 保存先と内部校舎名はアプリが自動管理するため、新規作成時の指定は不要です。
@@ -183,7 +183,7 @@ appのbackup機能で同期先へ複製する運用を推奨します。
 - 年度
 - 講習区分（春期／夏期／冬期）
 - 自動設定されるproject名
-- 講習開始日・終了日
+- 講習開始日・終了日（2020～2070年の年・月・日プルダウン）
 
 期間を変更する場合、既存の開校日、availability、集団授業、Assignmentが範囲外に
 ならないか確認します。入力検証のerrorを残したまま最適化は開始できません。
@@ -316,20 +316,25 @@ sheetは次の5枚です。
 開校日数と有効コマ数を確認し、生徒用・講師勤務日時用のフォーム名、
 回答締切を年・月・日のプルダウンで選び、問い合わせ先を入力します。
 
-初めて作成する場合は「赤い案内つき手順を見る」を選ぶと、Google Apps Scriptでの操作を
-回答CSVの保存まで9段階の画面イメージで確認できます。この案内はオフラインで表示され、Google側の画面が
-更新された場合はボタン名や配置が多少異なることがあります。
+初めて作成する場合は「画像で見る作成手順」を選ぶと、次の10段階を実際の画面と同じ
+場所で確認できます。この案内はオフラインで表示され、Google側の画面が更新された場合は
+ボタン名や配置が多少異なることがあります。
 
-1. 「フォーム作成キットを保存」を選びます。
-2. 保存先フォルダーを選びます。
-3. 作成された`Googleフォーム作成手順.txt`を開きます。
-4. `create_student_questionnaire.gs`、`create_teacher_questionnaire.gs`、
-   `create_teacher_subject_questionnaire.gs`を、それぞれ別のGoogle Apps Script
-   プロジェクトの`Code.gs`へ貼り付けます。
-5. 生徒用は`createStudentQuestionnaire`、講師勤務日時用は`createTeacherQuestionnaire`、
-   指導可能科目用は`createTeacherSubjectQuestionnaire`を実行します。
-6. 初回のGoogle権限確認を許可し、実行ログに表示されたフォーム編集URL、回答用URL、
-   回答原本URLを確認します。Apps Scriptの「デプロイ」は不要です。
+1. 「フォーム作成キットを保存…」からキットを保存します。
+2. 「保存先を開く」で出力フォルダーを開きます。
+3. `create_student_questionnaire.gs`をメモ帳で開き、全内容をコピーします。
+4. `https://script.google.com/home`から新しいプロジェクトを作り、初期コードを削除します。
+5. メモ帳からコピーした内容を`Code.gs`へ貼り付けます。
+6. Ctrl+Sまたは保存ボタンで保存し、`createStudentQuestionnaire`を選んで実行します。
+7. 初回の「承認が必要です」で「権限を確認」を押します。
+8. Googleの警告では「詳細」を表示し、自分で保存したコードであることを確認してから
+   「無題のプロジェクト（安全ではないページ）に移動」を押します。
+9. 「すべて選択」にチェックを入れ、権限内容を確認して「続行」を押します。
+10. 実行ログの回答URLからフォームを開きます。フォーム編集URLと回答原本URLは担当者だけで
+    管理します。Apps Scriptの「デプロイ」は不要です。
+
+講師勤務日時用と講師指導可能科目用も別々のApps Scriptプロジェクトで同じ手順を行い、
+それぞれ`createTeacherQuestionnaire`と`createTeacherSubjectQuestionnaire`を実行します。
 
 出力には、現在のプロジェクトで開校にした日、有効な時間帯、有効な科目が反映されます。
 変更が必要な場合は①へ戻って設定し直し、新しいキットを出力してください。アプリはGoogleへ
@@ -651,7 +656,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 
 ## 20. 現在の既知の制限
 
-- `1.4.2`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
+- `1.4.3`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
   すべてBeta版（Pre-release）です。成果物は
   方針どおり未署名です。
 - clean Windows、実installer / portable、SmartScreen、install / uninstallの受入結果は

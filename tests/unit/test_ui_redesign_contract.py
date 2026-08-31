@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 QML_ROOT = Path("src/summer_scheduler/ui/qml")
+GUIDE_ASSET_ROOT = QML_ROOT / "assets" / "google_forms_guide"
 
 
 def _qml(name: str) -> str:
@@ -78,7 +79,7 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
         "Googleフォーム作成キット",
         "フォーム作成キットを保存…",
         "開校日 %1日／有効コマ %2件",
-        "画像つき手順",
+        "画像で見る作成手順",
     ):
         assert label in questionnaire_creation
     assert (
@@ -105,18 +106,40 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     guide = _qml("GoogleFormsGuideDialog.qml")
     for label in (
         "アプリで作成キットを保存",
-        "Apps Scriptを3つ用意",
-        "Code.gsへ全内容を貼り付け",
-        "作成関数を選んで実行",
-        "実行ログのURLを確認",
+        "保存先を開く",
+        "create_student_questionnaire.gsをメモ帳で開く",
+        "Apps Scriptで新しいプロジェクトを作る",
+        "メモ帳の内容をコピー＆ペースト",
+        "保存して作成関数を実行",
+        "権限を確認",
+        "詳細を表示し、安全ではないページへ移動",
+        "すべて選択して続行",
+        "実行ログのリンクからアンケートを開く",
     ):
         assert label in guide
     assert "Google Apps Scriptの「デプロイ」は不要" in guide
-    assert "赤枠と赤い矢印" in guide
-    assert "assets/google_forms_authorization_and_csv.png" in guide
-    assert "実画面：初回承認からCSVダウンロードまで" in guide
-    assert "権限を確認" in guide
-    assert "カンマ区切り形式（.csv）" in guide
+    assert "赤い案内" not in guide
+    assert "mockScreen" not in guide
+    assert "assets/google_forms_authorization_and_csv.png" not in guide
+    assert "保存後の手順" not in questionnaire_creation
+    expected_assets = {
+        "01_save_kit.png",
+        "02_open_saved_folder.png",
+        "03_open_with_menu.png",
+        "03_choose_notepad.png",
+        "04_apps_script_home.png",
+        "04_blank_code_gs.png",
+        "05_paste_script.png",
+        "06_select_function.png",
+        "07_confirm_permissions.png",
+        "08_google_warning.png",
+        "08_continue_unsafe.png",
+        "09_select_all_continue.png",
+        "10_result_links.png",
+    }
+    assert expected_assets == {path.name for path in GUIDE_ASSET_ROOT.glob("*.png")}
+    for asset in expected_assets:
+        assert f"assets/google_forms_guide/{asset}" in guide
 
 
 def test_date_dropdowns_and_settings_tabs_have_explicit_visual_state() -> None:
@@ -124,6 +147,7 @@ def test_date_dropdowns_and_settings_tabs_have_explicit_visual_state() -> None:
     home = _qml("ProjectHomePage.qml")
     questionnaire = _qml("QuestionnaireCreationPage.qml")
     settings = _qml("SettingsPage.qml")
+    project_settings = _qml("ProjectSettingsTab.qml")
     slots = _qml("TimeSlotSettingsTab.qml")
     subjects = _qml("SubjectSettingsTab.qml")
 
@@ -131,6 +155,15 @@ def test_date_dropdowns_and_settings_tabs_have_explicit_visual_state() -> None:
     assert "property int toYear: 2070" in date_field
     assert "readonly property string dateText" in date_field
     assert home.count("DateDropdownField {") >= 2
+    assert project_settings.count("DateDropdownField {") == 2
+    assert "startDate.setDateString" in project_settings
+    assert "endDate.setDateString" in project_settings
+    assert "startDate.dateText" in project_settings
+    assert "endDate.dateText" in project_settings
+    assert "for (let year = 2020; year <= 2070; ++year)" in project_settings
+    assert "TextField {\n                            id: startDate" not in project_settings
+    assert "TextField {\n                            id: endDate" not in project_settings
+    assert "signal dateEdited" in date_field
     assert "questionnaireDeadline.dateText" in questionnaire
     assert "component SettingsTabButton: TabButton" in settings
     assert 'color: tabButton.checked ? "#0f6cbd"' in settings

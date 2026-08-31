@@ -273,25 +273,30 @@ def _instructions(project_title: str, open_date_count: int, time_slot_count: int
 このフォルダーには、①で設定した開校日{open_date_count}日・有効コマ{time_slot_count}件を
 反映した生徒用／講師勤務日時用／講師指導可能科目用Google Apps Scriptが入っています。
 
-【生徒用】
-1. https://script.google.com/ で「新しいプロジェクト」を作ります。
-2. Code.gsの内容をすべて削除します。
-3. create_student_questionnaire.gsをメモ帳等で開き、全内容を貼り付けます。
-4. 保存後、関数createStudentQuestionnaireを選択して「実行」を押します。
-5. 初回の権限確認を許可し、実行ログのフォーム編集URLを開きます。
+【生徒用：上から順に進めます】
+1. アプリの「フォーム作成キットを保存…」から作成キットを保存します。
+2. 保存後に表示される「保存先を開く」を押します。
+3. create_student_questionnaire.gsを右クリックし、「プログラムから開く」から
+   「メモ帳」を選び、表示されたコードを先頭から最後までコピーします。
+4. https://script.google.com/home を開き、「新しいプロジェクト」を作ります。
+   Code.gsに最初から入っているコードはすべて削除します。
+5. メモ帳からコピーしたコードをCode.gsへ貼り付けます。
+6. Ctrl+Sまたはフロッピーディスクのボタンで保存し、関数が
+   createStudentQuestionnaireであることを確認して「実行」を押します。
+7. 「承認が必要です」と表示されたら「権限を確認」を押します。
+8. 「このアプリはGoogleで確認されていません」と表示された場合は「詳細」を押し、
+   「無題のプロジェクト（安全ではないページ）に移動」を押します。
+9. 権限画面で「すべて選択」にチェックを入れ、内容を確認して「続行」を押します。
+10. 実行ログの回答URLからアンケートを開きます。フォーム編集URLと回答原本URLは
+    担当者だけで管理し、回答URLだけを生徒へ案内します。
 
-【講師用】
-1. 生徒用とは別のApps Scriptプロジェクトを新しく作ります。
-2. create_teacher_questionnaire.gsの全内容をCode.gsへ貼り付けます。
-3. 保存後、関数createTeacherQuestionnaireを選択して「実行」を押します。
-4. 実行ログのフォーム編集URLを開きます。
-
-【講師・指導可能科目用】
-1. 上記2つとは別のApps Scriptプロジェクトを新しく作ります。
-2. create_teacher_subject_questionnaire.gsの全内容をCode.gsへ貼り付けます。
-3. 保存後、関数createTeacherSubjectQuestionnaireを選択して「実行」を押します。
-4. 実行ログのフォーム編集URLを開き、26科目と説明文を確認します。
-5. 回答用URLを講師へ案内します。講師のメールアドレスは収集しません。
+【講師用・講師指導可能科目用】
+上記と同じ1～10の手順を、別々のApps Scriptプロジェクトで繰り返します。
+- 講師勤務日時用：create_teacher_questionnaire.gs／createTeacherQuestionnaire
+- 講師指導可能科目用：create_teacher_subject_questionnaire.gs／
+  createTeacherSubjectQuestionnaire
+講師指導可能科目用は、完成後に26科目と説明文を確認します。
+講師のメールアドレスは収集しません。
 
 Google Apps Scriptの「デプロイ」は不要です。配布前に、タイトル、締切、質問、開校日、
 コマ、回答先スプレッドシートの共有範囲を必ず確認してください。

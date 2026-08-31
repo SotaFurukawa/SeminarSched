@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.4.2 (Beta)** です。v1系はすべてBeta版としてGitHubの
+現在のアプリ版は **v1.4.3 (Beta)** です。v1系はすべてBeta版としてGitHubの
 Pre-releaseで配布し、正式リリースを明示的に決定するまではv1系を継続します。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
@@ -74,15 +74,15 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.4.2.exe`
-- `SummerCourseScheduler-Portable-1.4.2.zip`
+- `SummerCourseScheduler-Setup-1.4.3.exe`
+- `SummerCourseScheduler-Portable-1.4.3.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.4.2.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.4.2.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.4.3.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.4.3.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -158,7 +158,8 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 - ホームから編集できる、講習に依存しない`生徒・講師_基本情報.xlsx`
 - 在籍／退籍、姓・名、学年、指導可能科目、通常授業担当の講習間共通管理
 - 生徒・講師Googleフォーム回答2ファイルの一括照合・取込み・統合xlsx内包
-- 年度と春期／夏期／冬期からのプロジェクト名自動設定、講習期間の編集
+- 年度と春期／夏期／冬期からのプロジェクト名自動設定、2020～2070年の
+  年・月・日プルダウンによる講習期間の編集
 - Y / Z / A / B / Cの初期コマと、コマ名・時刻・順序・使用可否の編集
 - 講習期間内の開校日・休校日・備考と一括設定
 - 小学校7科目、中学校5科目、高校14区分の初期科目
@@ -311,7 +312,9 @@ python -m summer_scheduler --config .\config.example.yaml
 
 ## プロジェクトの基本操作
 
-1. 「ホーム」の「新規プロジェクト」から、年度と春期／夏期／冬期を選び、開始日、終了日を入力します。
+1. 「ホーム」の「新規プロジェクト」から、年度と春期／夏期／冬期を選び、開始日、終了日を
+   年・月・日のプルダウンで選択します。①設定の「プロジェクト」から期間を変更する場合も
+   同じ選択方式です。
    プロジェクト名は、例えば`2026夏期講習`のように自動設定されます。
    保存先はアプリの標準プロジェクトフォルダーへ自動的に決まります。
 2. 作成直後に既定の5コマ、26科目、期間内の開校日が登録されます。
@@ -569,11 +572,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.4.2
+  -Version 1.4.3
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.4.2.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.4.3.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -585,13 +588,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.4.2 `
+  -Version 1.4.3 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.4.2.zip `
-  dist\SummerCourseScheduler-Setup-1.4.2.exe
+  dist\SummerCourseScheduler-Portable-1.4.3.zip `
+  dist\SummerCourseScheduler-Setup-1.4.3.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

@@ -21,6 +21,9 @@ ApplicationWindow {
     // qmllint enable unqualified
     property int currentPageIndex: 0
     readonly property var activePage: navigationModel.get(currentPageIndex)
+    readonly property string applicationDisplayName: qsTr("夏期講習時間割作成 v%1 (%2)")
+                                                     .arg(root.viewModel.appVersion)
+                                                     .arg(root.viewModel.releaseChannel)
 
     visible: true
     width: 1366
@@ -28,8 +31,9 @@ ApplicationWindow {
     minimumWidth: 1040
     minimumHeight: 640
     title: workspace.hasOpenProject && workspace.currentProjectTitle
-           ? qsTr("%1 - 夏期講習時間割作成").arg(workspace.currentProjectTitle)
-           : qsTr("夏期講習時間割作成")
+           ? qsTr("%1 - %2").arg(workspace.currentProjectTitle)
+                             .arg(root.applicationDisplayName)
+           : root.applicationDisplayName
     color: theme.appBackground
 
     function selectPage(index) {
@@ -127,7 +131,7 @@ ApplicationWindow {
                 Label {
                     text: root.workspace.hasOpenProject
                           ? root.workspace.currentProjectTitle
-                          : qsTr("夏期講習時間割作成")
+                          : root.applicationDisplayName
                     color: theme.textPrimary
                     font.pixelSize: 19
                     font.weight: Font.DemiBold
@@ -189,7 +193,9 @@ ApplicationWindow {
             spacing: 10
 
             Label {
-                text: qsTr("夏期講習 時間割作成")
+                text: qsTr("夏期講習 時間割作成 v%1 (%2)")
+                      .arg(root.viewModel.appVersion)
+                      .arg(root.viewModel.releaseChannel)
                 color: "#18212f"
                 font.pixelSize: 20
                 font.weight: Font.DemiBold

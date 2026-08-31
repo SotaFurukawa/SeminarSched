@@ -126,6 +126,20 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
     assert "create_teacher_subject_questionnaire.gs" in instructions
     assert "createTeacherSubjectQuestionnaire" in instructions
     assert "講師のメールアドレスは収集しません" in instructions
+    ordered_steps = (
+        "1. アプリの「フォーム作成キットを保存…」",
+        "2. 保存後に表示される「保存先を開く」",
+        "3. create_student_questionnaire.gsを右クリック",
+        "4. https://script.google.com/home",
+        "5. メモ帳からコピーしたコードをCode.gsへ貼り付け",
+        "6. Ctrl+Sまたはフロッピーディスクのボタンで保存",
+        "7. 「承認が必要です」と表示されたら「権限を確認」",
+        "8. 「このアプリはGoogleで確認されていません」",
+        "9. 権限画面で「すべて選択」",
+        "10. 実行ログの回答URLからアンケートを開きます",
+    )
+    positions = [instructions.index(step) for step in ordered_steps]
+    assert positions == sorted(positions)
 
 
 def test_export_uses_a_new_directory_instead_of_overwriting(

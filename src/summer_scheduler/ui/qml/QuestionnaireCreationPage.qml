@@ -237,7 +237,7 @@ Item {
                             onClicked: root.viewModel.openQuestionnaireScriptDirectory()
                         }
                         AppButton {
-                            text: qsTr("画像つき手順")
+                            text: qsTr("画像で見る作成手順")
                             onClicked: guideDialog.open()
                         }
                         AppButton {
@@ -250,49 +250,6 @@ Item {
                                      && questionnaireContact.text.trim().length > 0
                             onClicked: questionnaireFolderDialog.open()
                         }
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: quickGuideContent.implicitHeight + 26
-                radius: 9
-                color: "#ffffff"
-                border.color: "#cfd9e8"
-
-                RowLayout {
-                    id: quickGuideContent
-
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.margins: 13
-                    spacing: 12
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 3
-
-                        Label {
-                            text: qsTr("保存後の手順")
-                            color: "#183b59"
-                            font.pixelSize: 13
-                            font.weight: Font.DemiBold
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: qsTr("1. script.google.comで新しいプロジェクトを作る　→　2. 保存した.gsをメモ帳で開いてCode.gsへ貼る　→　3. 作成関数を選び「実行」する")
-                            color: "#52647d"
-                            font.pixelSize: 10
-                            wrapMode: Text.Wrap
-                        }
-                    }
-
-                    AppButton {
-                        text: qsTr("赤い案内つき手順を見る")
-                        kind: "primary"
-                        onClicked: guideDialog.open()
                     }
                 }
             }

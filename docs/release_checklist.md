@@ -1,6 +1,6 @@
 # Release前チェックリスト
 
-このチェックリストは `v1.4.2 (Beta)` Releaseを検証するためのものです。
+このチェックリストは `v1.4.3 (Beta)` Releaseを検証するためのものです。
 チェックが埋まっただけで本番公開を許可しません。本番タグとGitHub Releaseには
 リポジトリ所有者の明示承認が必要です。
 
@@ -10,7 +10,7 @@
 - [ ] `CHANGELOG.md`が実装と一致し、存在しない機能を記載していない。
 - [ ] `pyproject.toml`、`summer_scheduler.__version__`、About、ログ、帳票のapp versionが一致する。
 - [ ] DB schema revisionとapp versionを別々に表示している。
-- [ ] Release tagはソース内versionと一致する `v1.4.2` であり、Pre-releaseである。
+- [ ] Release tagはソース内versionと一致する `v1.4.3` であり、Pre-releaseである。
 - [ ] git statusとdiffを確認し、無関係な変更、生成物、実データがない。
 
 ## 2. ライセンス・権利
@@ -99,7 +99,7 @@ pytest
   migration、YAML resourceを含む。
 - [ ] source、test、cache、build report、実データを不要に含めていない。
 - [ ] `THIRD_PARTY_NOTICES.md`と全文license directoryを含む。
-- [ ] artifact名が `SummerCourseScheduler-Portable-1.4.2.zip` と一致する。
+- [ ] artifact名が `SummerCourseScheduler-Portable-1.4.3.zip` と一致する。
 - [ ] ZIPを日本語名の別directoryへ展開して起動した。
 - [ ] Python、Node.js、Qt、Visual StudioのないWindows x64で起動した。
 - [ ] 管理者権限なし、offline、USB相当の別driveで確認した。
@@ -109,7 +109,7 @@ pytest
 
 ## 8. Windows installer
 
-- [ ] artifact名が `SummerCourseScheduler-Setup-1.4.2.exe` と一致する。
+- [ ] artifact名が `SummerCourseScheduler-Setup-1.4.3.exe` と一致する。
 - [ ] app名、version、publisher、install先が正しい。
 - [ ] Start menu shortcutと任意desktop shortcutが正しい。
 - [ ] `.jukuschedule`関連付けを採用する場合、引用符・icon・open動作を確認した。

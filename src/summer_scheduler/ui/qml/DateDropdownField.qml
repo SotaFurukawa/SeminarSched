@@ -5,6 +5,8 @@ import QtQuick.Layouts
 RowLayout {
     id: root
 
+    signal dateEdited
+
     property int fromYear: 2020
     property int toYear: 2070
     property int selectedYear: Math.max(fromYear,
@@ -69,7 +71,10 @@ RowLayout {
         model: root.numberRange(root.fromYear, root.toYear, qsTr("年"))
         currentIndex: root.selectedYear - root.fromYear
         Accessible.name: root.accessibleName + qsTr("の年")
-        onActivated: root.selectedYear = root.fromYear + currentIndex
+        onActivated: {
+            root.selectedYear = root.fromYear + currentIndex
+            root.dateEdited()
+        }
     }
 
     ComboBox {
@@ -79,7 +84,10 @@ RowLayout {
         model: root.numberRange(1, 12, qsTr("月"))
         currentIndex: root.selectedMonth - 1
         Accessible.name: root.accessibleName + qsTr("の月")
-        onActivated: root.selectedMonth = currentIndex + 1
+        onActivated: {
+            root.selectedMonth = currentIndex + 1
+            root.dateEdited()
+        }
     }
 
     ComboBox {
@@ -90,6 +98,9 @@ RowLayout {
                    1, root.daysInMonth(root.selectedYear, root.selectedMonth), qsTr("日"))
         currentIndex: root.selectedDay - 1
         Accessible.name: root.accessibleName + qsTr("の日")
-        onActivated: root.selectedDay = currentIndex + 1
+        onActivated: {
+            root.selectedDay = currentIndex + 1
+            root.dateEdited()
+        }
     }
 }

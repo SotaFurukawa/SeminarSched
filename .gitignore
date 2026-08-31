@@ -113,6 +113,10 @@ deployment/
 /docs/ui_redesign/prompts/
 /docs/ui_redesign/wireframes/
 /docs/ui_redesign/references/
+# Original UI screenshots may contain local paths, account names, email
+# addresses, and generated Google URLs. Keep them local; only reviewed,
+# redacted copies under the packaged QML assets directory may be committed.
+/docs/ui_redesign/source_screenshots/
 
 # Local implementation briefs and work logs used during assisted development.
 # They are intentionally kept on the developer machine and are not part of the

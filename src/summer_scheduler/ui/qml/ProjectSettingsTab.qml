@@ -31,8 +31,8 @@ ScrollView {
             projectSeason.currentIndex = 2
         else
             projectSeason.currentIndex = 1
-        startDate.text = root.viewModel.currentStartDate || ""
-        endDate.text = root.viewModel.currentEndDate || ""
+        startDate.setDateString(root.viewModel.currentStartDate || "")
+        endDate.setDateString(root.viewModel.currentEndDate || "")
         root.saveAttempted = false
     }
 
@@ -91,11 +91,14 @@ ScrollView {
                             id: projectYear
                             Layout.fillWidth: true
                             model: {
-                                const current = new Date().getFullYear()
-                                return [String(current - 1), String(current), String(current + 1),
-                                        String(current + 2), String(current + 3)]
+                                const years = []
+                                for (let year = 2020; year <= 2070; ++year)
+                                    years.push(String(year))
+                                return years
                             }
-                            currentIndex: 1
+                            currentIndex: Math.max(0, Math.min(50,
+                                                               new Date().getFullYear() - 2020))
+                            Accessible.name: qsTr("講習年度")
                             onActivated: root.viewModel.markDirty()
                         }
                     }
@@ -139,18 +142,13 @@ ScrollView {
                             color: "#344054"
                             font.pixelSize: 11
                         }
-                        TextField {
+                        DateDropdownField {
                             id: startDate
                             Layout.fillWidth: true
-                            placeholderText: "2026-07-20"
-                            Accessible.name: qsTr("講習開始日")
-                            onTextEdited: root.viewModel.markDirty()
-                        }
-                        Label {
-                            visible: root.saveAttempted && startDate.text.trim() === ""
-                            text: qsTr("開始日をYYYY-MM-DDで入力してください。")
-                            color: "#a23b3b"
-                            font.pixelSize: 10
+                            fromYear: 2020
+                            toYear: 2070
+                            accessibleName: qsTr("講習開始日")
+                            onDateEdited: root.viewModel.markDirty()
                         }
                     }
 
@@ -163,20 +161,23 @@ ScrollView {
                             color: "#344054"
                             font.pixelSize: 11
                         }
-                        TextField {
+                        DateDropdownField {
                             id: endDate
                             Layout.fillWidth: true
-                            placeholderText: "2026-08-31"
-                            Accessible.name: qsTr("講習終了日")
-                            onTextEdited: root.viewModel.markDirty()
-                        }
-                        Label {
-                            visible: root.saveAttempted && endDate.text.trim() === ""
-                            text: qsTr("終了日をYYYY-MM-DDで入力してください。")
-                            color: "#a23b3b"
-                            font.pixelSize: 10
+                            fromYear: 2020
+                            toYear: 2070
+                            accessibleName: qsTr("講習終了日")
+                            onDateEdited: root.viewModel.markDirty()
                         }
                     }
+                }
+
+                Label {
+                    visible: root.saveAttempted && startDate.dateText > endDate.dateText
+                    Layout.fillWidth: true
+                    text: qsTr("終了日は開始日以降を選択してください。")
+                    color: "#a23b3b"
+                    font.pixelSize: 10
                 }
 
                 Label {
@@ -213,14 +214,13 @@ ScrollView {
                         highlighted: true
                         onClicked: {
                             root.saveAttempted = true
-                            if (startDate.text.trim() === ""
-                                    || endDate.text.trim() === "")
+                            if (startDate.dateText > endDate.dateText)
                                 return
                             root.viewModel.saveProjectInfo(
                                         root.generatedTitle,
                                         root.viewModel.currentCampusName || "既定校舎",
-                                        startDate.text.trim(),
-                                        endDate.text.trim())
+                                        startDate.dateText,
+                                        endDate.dateText)
                         }
                     }
                 }
