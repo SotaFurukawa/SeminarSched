@@ -130,6 +130,8 @@ def test_pyside_deploy_spec_is_relative_standalone_and_complete() -> None:
 
     assert "mode = standalone" in text
     assert "packages = Nuitka==4.0" in text
+    assert "icon = src/summer_scheduler/resources/app_icon.ico" in text
+    assert text.count("windows-icon-from-ico") == 0
     assert "--windows-console-mode=disable" in text
     assert "--include-package-data=ortools" in text
     assert "--include-package=summer_scheduler.infrastructure.db.alembic.versions" in text
