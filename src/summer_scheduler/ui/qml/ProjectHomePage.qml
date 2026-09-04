@@ -37,6 +37,17 @@ Item {
     readonly property bool outputComplete: outputViewModel
                                             && String(outputViewModel.lastOutputPath || "").length > 0
 
+    function isStepComplete(step) {
+        if (Number(root.viewModel.workflowCompletedStep || 0) >= step)
+            return true
+        return step === 1 ? root.basicSetupComplete
+             : step === 2 ? root.questionnaireCreated
+             : step === 3 ? root.questionnaireComplete
+             : step === 5 ? root.scheduleComplete
+             : step === 6 ? root.outputComplete
+             : false
+    }
+
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
             return row[key]
@@ -57,26 +68,15 @@ Item {
     }
 
     function nextStepNumber() {
-        if (!root.basicSetupComplete)
-            return 1
-        if (!root.questionnaireCreated)
-            return 2
-        if (!root.questionnaireComplete)
-            return 3
-        if (!root.scheduleComplete)
-            return 4
-        if (!root.outputComplete)
-            return 6
+        for (let step = 1; step <= 6; ++step) {
+            if (!root.isStepComplete(step))
+                return step
+        }
         return 6
     }
 
     function stepStatus(step) {
-        const complete = step === 1 ? root.basicSetupComplete
-                       : step === 2 ? root.questionnaireCreated
-                       : step === 3 ? root.questionnaireComplete
-                       : step === 4 ? root.scheduleComplete
-                       : step === 5 ? root.scheduleComplete
-                       : root.outputComplete
+        const complete = root.isStepComplete(step)
         if (complete)
             return "complete"
         return step === root.nextStepNumber() ? "current" : "pending"
@@ -215,16 +215,18 @@ Item {
                         anchors.rightMargin: 18
                         spacing: 8
 
-                        RowLayout {
+                        GridLayout {
                             Layout.fillWidth: true
-                            spacing: 12
+                            columns: width >= 820 ? 2 : 1
+                            columnSpacing: 12
+                            rowSpacing: 12
 
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 2
 
                                 Label {
-                                    text: qsTr("生徒・講師の基本情報（共通）")
+                                    text: qsTr("生徒・講師の基本情報")
                                     color: "#183b59"
                                     font.pixelSize: 16
                                     font.weight: Font.DemiBold
@@ -232,7 +234,7 @@ Item {
 
                                 Label {
                                     Layout.fillWidth: true
-                                    text: qsTr("講習ごとに作り直さない在籍情報・指導可能科目・通常授業の担当を、1つのExcelで管理します。")
+                                    text: qsTr("在籍状況・講師の指導科目・通期の授業の担当をExcelで管理")
                                     color: "#52647d"
                                     font.pixelSize: 11
                                     wrapMode: Text.Wrap
@@ -240,30 +242,33 @@ Item {
                             }
 
                             ColumnLayout {
+                                Layout.fillWidth: true
                                 Layout.preferredWidth: 440
                                 spacing: 7
 
                                 AppButton {
                                     Layout.fillWidth: true
                                     implicitHeight: 48
-                                    text: qsTr("反映済みの基本情報を開いて編集")
+                                    text: qsTr("Excelで基本情報を編集")
                                     kind: "primary"
                                     onClicked: root.viewModel.openSharedRoster()
                                 }
 
-                                RowLayout {
+                                GridLayout {
                                     Layout.fillWidth: true
-                                    spacing: 7
+                                    columns: width >= 420 ? 2 : 1
+                                    columnSpacing: 7
+                                    rowSpacing: 7
 
                                     AppButton {
                                         Layout.fillWidth: true
-                                        text: qsTr("新規で基本情報を作成…")
+                                        text: qsTr("新規で基本情報を作成")
                                         onClicked: sharedRosterTemplateDialog.open()
                                     }
 
                                     AppButton {
                                         Layout.fillWidth: true
-                                        text: qsTr("作成した基本情報を反映…")
+                                        text: qsTr("作成した基本情報を反映")
                                         onClicked: sharedRosterImportDialog.open()
                                     }
                                 }
@@ -280,7 +285,7 @@ Item {
 
                         Label {
                             Layout.fillWidth: true
-                            text: qsTr("在籍のチェックを外した人は削除せず退籍扱いとなり、Excelでは灰色で表示されます。編集後は「作成した基本情報を反映」で検証・反映してください。")
+                            text: qsTr("新しく基本情報のファイルを作り直す場合は、「新規で基本情報を作成」からテンプレートをダウンロードし、「作成した基本情報を反映」からアプリに反映してください。")
                             color: "#52647d"
                             font.pixelSize: 10
                             wrapMode: Text.Wrap
@@ -307,21 +312,14 @@ Item {
                         spacing: 12
 
                         Label {
-                            text: qsTr("プロジェクトを開始")
+                            text: qsTr("時間割を作る")
                             color: "#18212f"
                             font.pixelSize: 17
                             font.weight: Font.DemiBold
                         }
 
-                        Label {
+                        Flow {
                             Layout.fillWidth: true
-                            text: qsTr(".jukuscheduleファイルには、講習期間・生徒・講師・科目・アンケート原本などが保存されます。")
-                            color: "#667085"
-                            font.pixelSize: 11
-                            wrapMode: Text.Wrap
-                        }
-
-                        RowLayout {
                             spacing: 10
 
                             AppButton {
@@ -331,7 +329,7 @@ Item {
                             }
 
                             AppButton {
-                                text: qsTr("既存プロジェクトを開く…")
+                                text: qsTr("既存プロジェクトを開く")
                                 onClicked: root.requestProjectSwitch("open", "")
                             }
                         }
@@ -433,7 +431,7 @@ Item {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    visible: root.viewModel.recoveryTargetPath.length > 0
+                    visible: false
                     implicitHeight: recoveryContent.implicitHeight + 32
                     radius: 12
                     color: "#fffaf0"
@@ -611,23 +609,18 @@ Item {
                         spacing: 12
 
                         Label {
-                            text: qsTr("時間割完成までの6ステップ")
+                            text: qsTr("次に行うこと")
                             color: "#18212f"
                             font.pixelSize: 17
                             font.weight: Font.DemiBold
                         }
-                        Label {
-                            Layout.fillWidth: true
-                            text: qsTr("上から順に進めれば、必要な作業を迷わず完了できます。")
-                            color: "#667085"
-                            font.pixelSize: 10
-                        }
-
                         InlineMessage {
                             Layout.fillWidth: true
-                            kind: root.outputComplete
+                            kind: root.isStepComplete(6)
                                   ? "success" : "info"
-                            message: root.nextStepNumber() === 1
+                            message: root.isStepComplete(6)
+                                     ? qsTr("すべての作業が完了しています。必要に応じて時間割を確認・再出力できます。")
+                                     : root.nextStepNumber() === 1
                                      ? qsTr("次に行うこと：共通名簿を確認し、授業日・コマをまとめて設定します。")
                                      : root.nextStepNumber() === 2
                                        ? qsTr("次に行うこと：設定した日時から生徒用・講師用アンケートを作成します。")
@@ -653,15 +646,15 @@ Item {
                                      "detail": qsTr("設定日時から生徒用・講師用を作成"),
                                      "button": qsTr("アンケート作成"), "page": 9},
                                     {"number": "3", "title": qsTr("回答を取込む"),
-                                     "detail": qsTr("生徒・講師の回答を検証"),
+                                     "detail": qsTr("生徒・講師のアンケートを取り込み"),
                                      "button": qsTr("アンケート取込み"), "page": 4},
                                     {"number": "4", "title": qsTr("事前確定する"),
-                                     "detail": qsTr("調整済みの個別指導・集団授業を固定"),
+                                     "detail": qsTr("先に確定させたいコマを固定"),
                                      "button": qsTr("固定枠を登録"), "page": 10},
                                     {"number": "5", "title": qsTr("時間割を配置する"),
                                      "detail": qsTr("集団授業確認・自動配置・編集"),
                                      "button": qsTr("時間割を作成"), "page": 5},
-                                    {"number": "6", "title": qsTr("個人時間割を作る"),
+                                    {"number": "6", "title": qsTr("時間割を完成させる"),
                                      "detail": qsTr("生徒別Excel・PDFを出力"),
                                      "button": qsTr("出力へ進む"), "page": 7}
                                 ]
@@ -828,6 +821,13 @@ Item {
                                                        root.rowValue(recentDelegate.modelData,
                                                                      "path", ""))
                                     }
+
+                                    Button {
+                                        text: qsTr("表示しない")
+                                        onClicked: root.viewModel.hideRecent(
+                                                       root.rowValue(recentDelegate.modelData,
+                                                                     "path", ""))
+                                    }
                                 }
 
                                 MouseArea {
@@ -836,6 +836,119 @@ Item {
                                     anchors.fill: parent
                                     acceptedButtons: Qt.NoButton
                                     hoverEnabled: true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: root.viewModel.recoveryTargetPath.length > 0
+                    implicitHeight: bottomBackupContent.implicitHeight + 30
+                    radius: 12
+                    color: "#fffaf0"
+                    border.color: "#e6c777"
+
+                    ColumnLayout {
+                        id: bottomBackupContent
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: 20
+                        anchors.rightMargin: 20
+                        spacing: 9
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: root.viewModel.hasOpenProject
+                                  ? qsTr("バックアップとデータ整合性")
+                                  : qsTr("前回正常終了を確認できないプロジェクトがあります")
+                            color: "#5f4300"
+                            font.pixelSize: 15
+                            font.weight: Font.DemiBold
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: root.viewModel.recoveryTargetPath
+                            color: "#6f5a24"
+                            font.pixelSize: 10
+                            elide: Text.ElideMiddle
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("バックアップにも、生徒名・講師名・希望日時などの個人情報が含まれます。取扱いと保存先に注意してください。")
+                            color: "#7a5710"
+                            font.pixelSize: 11
+                            wrapMode: Text.Wrap
+                        }
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Button {
+                                visible: root.viewModel.hasOpenProject
+                                text: qsTr("DB整合性を確認")
+                                onClicked: root.viewModel.checkCurrentProjectIntegrity()
+                            }
+                            Button {
+                                text: qsTr("別のバックアップを選んで復元…")
+                                onClicked: restoreBackupDialog.open()
+                            }
+                            Button {
+                                text: qsTr("候補を再確認")
+                                onClicked: root.viewModel.refreshRecoveryCandidates()
+                            }
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            visible: bottomRecoveryRepeater.count === 0
+                            text: qsTr("このプロジェクトに紐づく自動バックアップは見つかりません。")
+                            color: "#7a6a42"
+                            font.pixelSize: 11
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Repeater {
+                                id: bottomRecoveryRepeater
+                                model: root.viewModel.recoveryCandidates
+                                delegate: Rectangle {
+                                    id: bottomRecoveryDelegate
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    implicitHeight: 54
+                                    radius: 7
+                                    color: "#ffffff"
+                                    border.color: root.rowValue(bottomRecoveryDelegate.modelData, "isValid", false) ? "#d8c38b" : "#d9a0a0"
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 12
+                                        anchors.rightMargin: 8
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Label {
+                                                Layout.fillWidth: true
+                                                text: qsTr("%1　%2").arg(root.rowValue(bottomRecoveryDelegate.modelData, "kindLabel", qsTr("バックアップ"))).arg(root.rowValue(bottomRecoveryDelegate.modelData, "createdAt", ""))
+                                                color: "#4b3b14"
+                                                font.pixelSize: 11
+                                                font.weight: Font.DemiBold
+                                            }
+                                            Label {
+                                                Layout.fillWidth: true
+                                                text: root.rowValue(bottomRecoveryDelegate.modelData, "integrityMessage", "")
+                                                color: "#52624c"
+                                                font.pixelSize: 10
+                                                elide: Text.ElideRight
+                                            }
+                                        }
+                                        Button {
+                                            text: qsTr("復元")
+                                            enabled: root.rowValue(bottomRecoveryDelegate.modelData, "isValid", false)
+                                            onClicked: {
+                                                root.pendingRestorePath = root.rowValue(bottomRecoveryDelegate.modelData, "path", "")
+                                                restoreConfirmDialog.open()
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

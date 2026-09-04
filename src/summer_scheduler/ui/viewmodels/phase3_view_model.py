@@ -56,6 +56,7 @@ class Phase3ViewModel(QObject):
     messageChanged = Signal()
     projectChanged = Signal()
     questionnaireScriptsChanged = Signal()
+    workflowStepCompleted = Signal(int)
 
     def __init__(
         self,
@@ -602,6 +603,12 @@ class Phase3ViewModel(QObject):
             self._student_availability_editor_cells = []
             self.availabilityStateChanged.emit()
             self._refresh_validation_after_data_change()
+            if (
+                self._availability.latest_source_name("student")
+                and self._availability.latest_source_name("teacher")
+            ):
+                self._projects.mark_workflow_step_complete(3)
+                self.workflowStepCompleted.emit(3)
             self._set_status(
                 "アンケートを反映しました"
                 f"（追加{result.added}、変更{result.changed}、"
@@ -710,6 +717,8 @@ class Phase3ViewModel(QObject):
                 contact=contact,
             )
             self._last_questionnaire_script_directory = str(result.directory)
+            self._projects.mark_workflow_step_complete(2)
+            self.workflowStepCompleted.emit(2)
             self.questionnaireScriptsChanged.emit()
 
         return self._perform(

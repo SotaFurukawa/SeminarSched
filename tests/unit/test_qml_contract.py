@@ -23,5 +23,5 @@ def test_main_qml_contains_all_required_navigation_labels() -> None:
         "設定",
     }
     assert all(f'title: "{label}"' in source for label in required_labels)
-    assert "夏期講習時間割作成" in source
+    assert "季節講習 時間割作成" in source
     assert "workspace.currentProjectTitle" in source

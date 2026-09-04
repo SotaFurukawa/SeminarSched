@@ -63,6 +63,31 @@ def test_create_save_reopen_and_recent_project(
     assert reopened.campus_name == "架空校"
     assert project_service.recent_projects()[0].path == created.path
 
+    assert project_service.mark_workflow_step_complete(2) == 2
+    assert project_service.mark_workflow_step_complete(1) == 2
+    project_service.close_project()
+    project_service.open_project(created.path)
+    assert project_service.workflow_completed_step() == 2
+
+
+def test_recent_project_can_be_hidden_without_deleting_file(
+    project_service: ProjectService,
+    tmp_path: Path,
+) -> None:
+    created = project_service.create_project(
+        tmp_path / "非表示確認.jukuschedule",
+        title="非表示確認",
+        campus_name="架空校",
+        start_date=date(2026, 7, 20),
+        end_date=date(2026, 7, 21),
+    )
+    project_service.close_project()
+
+    project_service.hide_recent_project(created.path)
+
+    assert created.path.is_file()
+    assert all(row.path != created.path for row in project_service.recent_projects())
+
 
 def test_workspace_directories_and_automatic_project_path(
     project_service: ProjectService,

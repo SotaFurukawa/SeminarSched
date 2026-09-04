@@ -1,4 +1,4 @@
-# 夏期講習時間割作成アプリ 利用者マニュアル
+# 季節講習時間割作成アプリ 利用者マニュアル
 
 ## 基本の6ステップ
 
@@ -43,7 +43,7 @@ Excelでは`TRUE`／`FALSE`と表示されますが、アプリは同じ在籍�
 生徒画面の「在籍中」を外すと卒業・退会扱いとなり、一覧の末尾へ移動して灰色表示されます。
 講師も同様に、在籍中を外すと退職・休止として末尾へ表示されます。
 
-対象: `1.4.4 (Beta)`
+対象: `1.5.0 (Beta)`
 最終更新: 2026-08-29
 
 初めて利用する場合は、先に
@@ -89,8 +89,8 @@ Releaseページ以外から受け取った実行ファイルを安易に実行�
 公開版では`SHA256SUMS.txt`とダウンロードしたファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Portable-1.4.4.zip -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Setup-1.4.4.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.5.0.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.5.0.exe -Algorithm SHA256
 ```
 
 表示されたhashがReleaseページの値と1文字でも異なる場合は使用しません。
@@ -101,7 +101,7 @@ Get-FileHash .\SummerCourseScheduler-Setup-1.4.4.exe -Algorithm SHA256
 2. SHA-256を確認します。
 3. installerを起動し、install先とshortcutを確認します。
 4. desktop shortcutは任意です。不要なら選択を外します。
-5. install後、Start menuから「夏期講習時間割作成アプリ」を起動します。
+5. install後、Start menuから「季節講習時間割作成アプリ」を起動します。
 
 初期の署名なし候補ではSmartScreenに「認識されないアプリ」と表示される可能性が
 あります。公式Release URLとSHA-256を再確認しても組織のpolicyで許可されない場合は、
@@ -670,7 +670,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 
 ## 20. 現在の既知の制限
 
-- `1.4.4`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
+- `1.5.0`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
   すべてBeta版（Pre-release）です。成果物は
   方針どおり未署名です。
 - clean Windows、実installer / portable、SmartScreen、install / uninstallの受入結果は

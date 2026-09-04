@@ -43,6 +43,7 @@ class WorkspaceViewModel(QObject):
     """
 
     projectStateChanged = Signal()
+    workflowProgressChanged = Signal()
     recentProjectsChanged = Signal()
     recoveryCandidatesChanged = Signal()
     studentsChanged = Signal()
@@ -83,6 +84,7 @@ class WorkspaceViewModel(QObject):
         self._lesson_requests: list[dict[str, object]] = []
         self._qualifications: list[dict[str, object]] = []
         self._recent_projects: list[dict[str, object]] = []
+        self._workflow_completed_step = 0
         self._recovery_candidates: list[dict[str, object]] = []
         self._excel_preview: ImportPreview | None = None
         self._excel_preview_summary: dict[str, int] | None = None
@@ -145,6 +147,15 @@ class WorkspaceViewModel(QObject):
         return self._dirty
 
     isDirty = Property(bool, _get_is_dirty, notify=dirtyChanged)
+
+    def _get_workflow_completed_step(self) -> int:
+        return self._workflow_completed_step
+
+    workflowCompletedStep = Property(
+        int,
+        _get_workflow_completed_step,
+        notify=workflowProgressChanged,
+    )
 
     def _get_status_message(self) -> str:
         return self._status_message
@@ -279,6 +290,8 @@ class WorkspaceViewModel(QObject):
         """共有ProjectServiceが外部ユースケースで切り替わった後に再同期する。"""
         if self._projects.current is None:
             self._set_dirty(False)
+            self._workflow_completed_step = 0
+            self.workflowProgressChanged.emit()
             self._clear_project_collections()
             self.projectStateChanged.emit()
             self._refresh_recent_projects()
@@ -359,6 +372,22 @@ class WorkspaceViewModel(QObject):
     def openRecent(self, path_value: str) -> bool:
         """最近使用したプロジェクトを開く。"""
         return self.openProject(path_value)
+
+    @Slot(str, result=bool)
+    def hideRecent(self, path_value: str) -> bool:
+        """プロジェクト本体を削除せず、最近使用した一覧だけから隠す。"""
+        def action() -> None:
+            self._projects.hide_recent_project(_path_from_qml(path_value))
+            self._refresh_recent_projects()
+
+        return self._perform(action, "最近使用した一覧から非表示にしました")
+
+    @Slot(int)
+    def markWorkflowStepComplete(self, step: int) -> None:
+        if self._projects.current is None:
+            return
+        self._workflow_completed_step = self._projects.mark_workflow_step_complete(step)
+        self.workflowProgressChanged.emit()
 
     @Slot(str, str, str, str, result=bool)
     def saveProjectInfo(
@@ -503,6 +532,8 @@ class WorkspaceViewModel(QObject):
         self._projects.close_project()
         self._clear_project_collections()
         self._selected_teacher_id = None
+        self._workflow_completed_step = 0
+        self.workflowProgressChanged.emit()
         self._set_dirty(False)
         self.projectStateChanged.emit()
         self._refresh_recent_projects()
@@ -809,6 +840,16 @@ class WorkspaceViewModel(QObject):
 
         return self._perform(action, "コマを削除しました")
 
+    @Slot("QVariantList", result=bool)
+    def reorderTimeSlots(self, ordered_values: list[object]) -> bool:
+        def action() -> None:
+            self._master_data.reorder_time_slots(
+                _required_int(value, "コマID") for value in ordered_values
+            )
+            self._refresh_time_slots()
+
+        return self._perform(action, "コマの順序を変更しました")
+
     @Slot(str, bool, str, result=bool)
     def setOpenDate(self, date_value: str, is_open: bool, note: str) -> bool:
         def action() -> None:
@@ -842,6 +883,22 @@ class WorkspaceViewModel(QObject):
 
         state_label = "開校日" if is_open else "休校日"
         return self._perform(action, f"選択した日付を一括で{state_label}にしました")
+
+    @Slot("QVariantList", "QVariantList", result=bool)
+    def setOpenDateTimeSlots(
+        self,
+        date_values: list[object],
+        time_slot_values: list[object],
+    ) -> bool:
+        def action() -> None:
+            days = tuple(parse_iso_date(str(value), "dates") for value in date_values)
+            self._master_data.set_open_dates_time_slots(
+                days,
+                (_required_int(value, "コマID") for value in time_slot_values),
+            )
+            self._refresh_open_dates()
+
+        return self._perform(action, "選択した日付の有効コマを保存しました")
 
     @Slot(int, result=bool)
     def setWeekdayClosed(self, sunday_first_index: int) -> bool:
@@ -1041,6 +1098,8 @@ class WorkspaceViewModel(QObject):
         self._refresh_all_collections()
         self.projectStateChanged.emit()
         self._refresh_recent_projects()
+        self._workflow_completed_step = self._projects.workflow_completed_step()
+        self.workflowProgressChanged.emit()
         self._refresh_recovery_candidates()
 
     def _refresh_all_collections(self) -> None:
@@ -1126,6 +1185,12 @@ class WorkspaceViewModel(QObject):
                 "date": row.date.isoformat(),
                 "isOpen": row.is_open,
                 "note": row.note,
+                "enabledTimeSlotIds": list(row.enabled_time_slot_ids),
+                "enabledSlotCodes": "・".join(
+                    str(slot["code"])
+                    for slot in self._time_slots
+                    if _required_int(slot["id"], "コマID") in row.enabled_time_slot_ids
+                ),
             }
             for row in rows
         ]

@@ -48,7 +48,7 @@ from summer_scheduler.reporting.unassigned_builder import (
 from summer_scheduler.shared.settings import OptimizationAppSettings
 
 _REPORT_NAMES: Final = {
-    "overall": "夏期講習時間割",
+    "overall": "季節講習時間割",
     "students": "生徒別時間割",
     "teachers": "講師別時間割",
     "issues": "未配置・警告一覧",

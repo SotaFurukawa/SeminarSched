@@ -7,7 +7,7 @@
 省略・緩和・変更しない。
 
 本書の実装計画部分は、Phase 0 / 1着手時点の記録である。現在は
-Phase 7および`1.4.4 (Beta)`まで実装している。Phase 2で確定した
+Phase 7および`1.5.0 (Beta)`まで実装している。Phase 2で確定した
 プロジェクトファイル、マスターの所属範囲、
 削除、Excel transactionは
 [`ADR 0005`](adr/0005-project-file-and-master-data-lifecycle.md)を参照する。

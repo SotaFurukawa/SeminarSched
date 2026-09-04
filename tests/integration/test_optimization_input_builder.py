@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, time
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from summer_scheduler.application.optimization_input_builder import (
@@ -409,6 +411,42 @@ def test_builds_complete_deterministic_session_independent_input(
     assert first.existing_assignments[0].is_locked is True
     assert first.existing_assignments[0].is_manual is True
     _assert_no_orm_rows(first)
+
+
+def test_date_specific_disabled_slots_are_excluded_from_availability(
+    tmp_path: Path,
+) -> None:
+    database = create_database(tmp_path / "日別コマ.jukuschedule")
+    upgrade_database(database.engine)
+    try:
+        with database.session_factory.begin() as session:
+            ids = _add_source_graph(session)
+            first_day = session.scalar(
+                select(OpenDate).where(
+                    OpenDate.project_id == ids["project"],
+                    OpenDate.date == date(2026, 8, 1),
+                )
+            )
+            assert first_day is not None
+            first_day.enabled_time_slot_ids_json = json.dumps([ids["slot_later"]])
+
+        with database.session_factory() as session:
+            result = build_optimization_input(
+                session=session,
+                project_id=ids["project"],
+                settings=_settings(),
+            )
+    finally:
+        database.dispose()
+
+    assert all(
+        not (row.day == date(2026, 8, 1) and row.time_slot_id == ids["slot_first"])
+        for row in result.availabilities
+    )
+    assert any(
+        row.day == date(2026, 8, 2) and row.time_slot_id == ids["slot_later"]
+        for row in result.availabilities
+    )
 
 
 def test_missing_project_is_rejected_without_fallback(

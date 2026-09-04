@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine, QQmlError
 
 from summer_scheduler import __release_channel__, __version__
@@ -61,6 +61,9 @@ def run(argv: Sequence[str] | None = None) -> int:
         )
         application.setOrganizationName(runtime.settings.organization_name)
         application.setApplicationVersion(__version__)
+        application.setWindowIcon(
+            QIcon(str(Path(__file__).parent / "resources" / "app_icon.png"))
+        )
 
         engine = QQmlApplicationEngine()
         engine.warnings.connect(_log_qml_warnings)
@@ -134,8 +137,20 @@ def run(argv: Sequence[str] | None = None) -> int:
         )
         workspace_view_model.projectStateChanged.connect(output_view_model.refreshProjectState)
         phase3_view_model.projectChanged.connect(workspace_view_model.refreshProjectState)
+        phase3_view_model.workflowStepCompleted.connect(
+            workspace_view_model.markWorkflowStepComplete
+        )
         optimization_view_model.optimizationSaved.connect(workspace_view_model.refreshProjectState)
+        optimization_view_model.optimizationSaved.connect(
+            lambda: workspace_view_model.markWorkflowStepComplete(5)
+        )
         schedule_editor_view_model.scheduleSaved.connect(workspace_view_model.refreshProjectState)
+        schedule_editor_view_model.scheduleSaved.connect(
+            lambda: workspace_view_model.markWorkflowStepComplete(4)
+        )
+        output_view_model.outputGenerated.connect(
+            lambda _path: workspace_view_model.markWorkflowStepComplete(6)
+        )
         application.aboutToQuit.connect(optimization_view_model.shutdown)
         application.aboutToQuit.connect(output_view_model.shutdown)
         engine.rootContext().setContextProperty("appViewModel", view_model)
@@ -207,7 +222,7 @@ def _parse_arguments(
 ) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(
         prog=argv[0] if argv else "summer-scheduler",
-        description="夏期講習時間割作成ローカルデスクトップアプリ",
+        description="季節講習時間割作成ローカルデスクトップアプリ",
     )
     parser.add_argument(
         "--config",

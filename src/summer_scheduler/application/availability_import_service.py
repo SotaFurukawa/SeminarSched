@@ -30,6 +30,7 @@ from summer_scheduler.infrastructure.db.models import (
     AuditLog,
     ImportBatch,
     ImportSourceSnapshot,
+    OpenDate,
     Student,
     StudentAvailability,
     Subject,
@@ -196,6 +197,7 @@ class AvailabilityImportService:
                 project_id=project.project_id,
                 enabled_only=True,
             )
+            default_slot_ids = tuple(row.id for row in slots)
             return {
                 "grades": tuple(
                     {"value": grade, "label": grade}
@@ -229,6 +231,9 @@ class AvailabilityImportService:
                         "value": row.date.isoformat(),
                         "label": f"{row.date:%m/%d}（{'開校' if row.is_open else '休校'}）",
                         "isOpen": row.is_open,
+                        "enabledTimeSlotIds": list(
+                            _enabled_slot_ids_for_date(row, default_slot_ids)
+                        ),
                     }
                     for row in dates
                 ),
@@ -264,6 +269,9 @@ class AvailabilityImportService:
                 project_id=project.project_id,
                 enabled_only=True,
             )
+            enabled_slot_ids = set(
+                _enabled_slot_ids_for_date(date_setting, tuple(row.id for row in slots))
+            )
             levels = {
                 (row.student_id, row.time_slot_id): row.availability_level
                 for row in repository.list_student_availabilities(
@@ -282,6 +290,8 @@ class AvailabilityImportService:
                 missing_count = sum(level is None for level in slot_levels)
                 if not date_setting.is_open:
                     current_label = "休校日のため編集不可"
+                elif slot.id not in enabled_slot_ids:
+                    current_label = "この日は使用しないコマ"
                 elif missing_count == student_count:
                     current_label = "全員未登録"
                 elif missing_count:
@@ -301,6 +311,7 @@ class AvailabilityImportService:
                         "unavailableCount": unavailable_count,
                         "availableCount": available_count,
                         "missingCount": missing_count,
+                        "enabledForDate": slot.id in enabled_slot_ids,
                     }
                 )
             return tuple(result)
@@ -342,6 +353,11 @@ class AvailabilityImportService:
             }
             if set(normalized_levels) - slots_by_id.keys():
                 raise AvailabilityImportError("有効なコマを選択してください。")
+            allowed_ids = set(
+                _enabled_slot_ids_for_date(date_setting, tuple(slots_by_id))
+            )
+            if set(normalized_levels) - allowed_ids:
+                raise AvailabilityImportError("この日に使用しないコマは変更できません。")
 
             changed = 0
             for student_id in normalized_ids:
@@ -1111,6 +1127,22 @@ def _normalized_student_ids(student_ids: Sequence[int]) -> tuple[int, ...]:
     if not normalized or any(value <= 0 for value in normalized):
         raise AvailabilityImportError("生徒を1名以上選択してください。")
     return normalized
+
+
+def _enabled_slot_ids_for_date(
+    row: OpenDate,
+    default_ids: tuple[int, ...],
+) -> tuple[int, ...]:
+    if not row.enabled_time_slot_ids_json:
+        return default_ids
+    try:
+        values = json.loads(row.enabled_time_slot_ids_json)
+    except (TypeError, json.JSONDecodeError):
+        return default_ids
+    if not isinstance(values, list):
+        return default_ids
+    selected = {value for value in values if isinstance(value, int)}
+    return tuple(value for value in default_ids if value in selected)
 
 
 def _require_editor_students(

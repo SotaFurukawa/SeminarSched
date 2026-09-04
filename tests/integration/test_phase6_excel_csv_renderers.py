@@ -55,7 +55,7 @@ from summer_scheduler.reporting.timetable_builder import build_timetable_documen
 def test_excel_renderer_round_trips_layout_print_settings_and_safe_text(
     tmp_path: Path,
 ) -> None:
-    destination = tmp_path / "日本語の出力先" / "夏期講習時間割.xlsx"
+    destination = tmp_path / "日本語の出力先" / "季節講習時間割.xlsx"
 
     result = ExcelRenderer().render(_layout_document(), destination)
 

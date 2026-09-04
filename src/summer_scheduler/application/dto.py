@@ -34,6 +34,7 @@ class OpenDateDto:
     date: date
     is_open: bool
     note: str
+    enabled_time_slot_ids: tuple[int, ...]
 
 
 @dataclass(frozen=True, slots=True)

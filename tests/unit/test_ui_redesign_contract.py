@@ -46,7 +46,7 @@ def test_shared_visual_components_and_workflow_navigation_exist() -> None:
         "回答を取込む",
         "事前確定する",
         "時間割を配置する",
-        "個人時間割を作る",
+        "時間割を完成させる",
     ):
         assert title in home
     assert "次に行うこと" in home

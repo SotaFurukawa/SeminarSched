@@ -14,7 +14,7 @@ def test_home_exposes_six_step_workflow_and_automatic_project_creation() -> None
         "回答を取込む",
         "事前確定する",
         "時間割を配置する",
-        "個人時間割を作る",
+        "時間割を完成させる",
     ):
         assert label in source
     assert "createProjectInWorkspace" in source
@@ -22,7 +22,7 @@ def test_home_exposes_six_step_workflow_and_automatic_project_creation() -> None
     assert "currentFolder: root.viewModel.projectsDirectoryUrl" in source
     assert "新規で基本情報を作成" in source
     assert "作成した基本情報を反映" in source
-    assert "反映済みの基本情報を開いて編集" in source
+    assert "Excelで基本情報を編集" in source
     assert 'model: [qsTr("春期"), qsTr("夏期"), qsTr("冬期")]' in source
     assert "for (let year = 2020; year <= 2070; ++year)" in source
     assert source.count("DateDropdownField {") >= 2

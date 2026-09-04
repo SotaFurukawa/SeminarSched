@@ -10,9 +10,22 @@ Item {
 
     required property var viewModel
     property int editingId: 0
+    property int editingSortOrder: 1
     property var selectedRow: null
     property bool saveAttempted: false
     readonly property var sortedSlots: buildSortedSlots()
+
+    function moveSlot(fromIndex, toIndex) {
+        if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex
+                || fromIndex >= root.sortedSlots.length || toIndex >= root.sortedSlots.length)
+            return
+        const ids = []
+        for (let i = 0; i < root.sortedSlots.length; ++i)
+            ids.push(Number(root.rowValue(root.sortedSlots[i], "id", 0)))
+        const moved = ids.splice(fromIndex, 1)[0]
+        ids.splice(toIndex, 0, moved)
+        root.viewModel.reorderTimeSlots(ids)
+    }
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -39,7 +52,7 @@ Item {
         slotDisplayName.text = root.rowValue(row, "displayName", "")
         slotStart.text = root.rowValue(row, "startTime", "")
         slotEnd.text = root.rowValue(row, "endTime", "")
-        slotOrder.value = Number(root.rowValue(row, "sortOrder", 1))
+        root.editingSortOrder = Number(root.rowValue(row, "sortOrder", 1))
         slotEnabled.checked = Boolean(root.rowValue(row, "enabled", true))
         root.saveAttempted = false
     }
@@ -51,14 +64,14 @@ Item {
         slotDisplayName.text = ""
         slotStart.text = ""
         slotEnd.text = ""
-        slotOrder.value = Math.max(1, slotList.count + 1)
+        root.editingSortOrder = Math.max(1, slotList.count + 1)
         slotEnabled.checked = true
         root.saveAttempted = false
     }
 
     SplitView {
         anchors.fill: parent
-        orientation: Qt.Horizontal
+        orientation: root.width < 820 ? Qt.Vertical : Qt.Horizontal
         handle: Rectangle {
             implicitWidth: 16
             color: "transparent"
@@ -73,7 +86,8 @@ Item {
 
         Rectangle {
             SplitView.preferredWidth: 430
-            SplitView.minimumWidth: 340
+            SplitView.minimumWidth: root.width < 820 ? 0 : 320
+            SplitView.preferredHeight: root.width < 820 ? 270 : -1
             color: "#f8fafc"
             border.color: "#e2e7ee"
             radius: 8
@@ -98,7 +112,7 @@ Item {
                         }
 
                         Label {
-                            text: qsTr("順序／コマ名／時刻／状態")
+                            text: qsTr("左のつまみをドラッグして順序を変更")
                             color: "#667085"
                             font.pixelSize: 9
                         }
@@ -128,8 +142,11 @@ Item {
                         id: slotDelegate
 
                         required property var modelData
+                        required property int index
+                        property real dragOriginY: 0
                         width: ListView.view.width
                         height: 54
+                        z: dragArea.drag.active ? 10 : 0
                         highlighted: root.editingId
                                      === Number(root.rowValue(modelData, "id", 0))
                         Accessible.name: qsTr("%1 %2 %3から%4 %5")
@@ -144,18 +161,30 @@ Item {
                         contentItem: RowLayout {
                             spacing: 9
 
-                            Rectangle {
+                            Label {
                                 Layout.preferredWidth: 34
-                                Layout.preferredHeight: 34
-                                radius: 17
-                                color: slotDelegate.highlighted ? "#2767c5" : "#e7ecf3"
+                                text: "≡"
+                                horizontalAlignment: Text.AlignHCenter
+                                color: slotDelegate.highlighted ? "#2767c5" : "#667085"
+                                font.pixelSize: 24
+                                font.weight: Font.Bold
 
-                                Label {
-                                    anchors.centerIn: parent
-                                    text: root.rowValue(slotDelegate.modelData, "sortOrder", "")
-                                    color: slotDelegate.highlighted ? "#ffffff" : "#475467"
-                                    font.pixelSize: 11
-                                    font.weight: Font.Bold
+                                MouseArea {
+                                    id: dragArea
+                                    anchors.fill: parent
+                                    cursorShape: Qt.SizeVerCursor
+                                    drag.target: slotDelegate
+                                    drag.axis: Drag.YAxis
+                                    onPressed: slotDelegate.dragOriginY = slotDelegate.y
+                                    onReleased: {
+                                        const centerY = slotDelegate.y + slotDelegate.height / 2
+                                        const targetIndex = Math.max(
+                                                    0,
+                                                    Math.min(slotList.count - 1,
+                                                             Math.floor(centerY / (slotDelegate.height + slotList.spacing))))
+                                        slotDelegate.y = slotDelegate.dragOriginY
+                                        root.moveSlot(slotDelegate.index, targetIndex)
+                                    }
                                 }
                             }
 
@@ -209,7 +238,8 @@ Item {
             id: slotEditorScroll
 
             SplitView.fillWidth: true
-            SplitView.minimumWidth: 430
+            SplitView.minimumWidth: root.width < 820 ? 0 : 380
+            SplitView.fillHeight: true
             clip: true
             leftPadding: 10
             contentWidth: availableWidth
@@ -226,9 +256,11 @@ Item {
                     font.weight: Font.DemiBold
                 }
 
-                RowLayout {
+                GridLayout {
                     Layout.fillWidth: true
-                    spacing: 12
+                    columns: width >= 500 ? 2 : 1
+                    columnSpacing: 12
+                    rowSpacing: 12
 
                     ColumnLayout {
                         Layout.fillWidth: true
@@ -277,9 +309,11 @@ Item {
                     }
                 }
 
-                RowLayout {
+                GridLayout {
                     Layout.fillWidth: true
-                    spacing: 12
+                    columns: width >= 500 ? 2 : 1
+                    columnSpacing: 12
+                    rowSpacing: 12
 
                     ColumnLayout {
                         Layout.fillWidth: true
@@ -329,25 +363,6 @@ Item {
                         }
                     }
 
-                    ColumnLayout {
-                        Layout.preferredWidth: 110
-                        spacing: 3
-                        Label {
-                            text: qsTr("順序 *")
-                            color: "#344054"
-                            font.pixelSize: 11
-                        }
-                        SpinBox {
-                            id: slotOrder
-                            Layout.fillWidth: true
-                            from: 1
-                            to: 99
-                            value: 1
-                            editable: true
-                            Accessible.name: qsTr("コマ順序")
-                            onValueModified: root.viewModel.markDirty()
-                        }
-                    }
                 }
 
                 CheckBox {
@@ -355,27 +370,6 @@ Item {
                     text: qsTr("このコマを時間割作成に使用する")
                     checked: true
                     onClicked: root.viewModel.markDirty()
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: validationHelp.implicitHeight + 22
-                    radius: 7
-                    color: "#f5f8fc"
-                    border.color: "#d9e1ec"
-
-                    Label {
-                        id: validationHelp
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        text: qsTr("保存時にコマ名・順序の重複、開始≧終了、不正時刻、他コマとの時刻区間重複を検証します。")
-                        color: "#52647d"
-                        font.pixelSize: 10
-                        wrapMode: Text.Wrap
-                    }
                 }
 
                 Label {
@@ -427,7 +421,7 @@ Item {
                                         slotDisplayName.text.trim(),
                                         slotStart.text.trim(),
                                         slotEnd.text.trim(),
-                                        slotOrder.value,
+                                        root.editingSortOrder,
                                         slotEnabled.checked)
                         }
                     }

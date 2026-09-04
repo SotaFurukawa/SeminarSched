@@ -1185,6 +1185,7 @@ Item {
                                             model: [qsTr("変更しない"), qsTr("参加可"), qsTr("参加不可")]
                                             currentIndex: 0
                                             enabled: root.selectedAvailabilityDateIsOpen()
+                                                     && Boolean(availabilitySlotRow.modelData.enabledForDate)
                                             Accessible.name: qsTr("%1の変更内容").arg(
                                                                  String(availabilitySlotRow.modelData.label))
                                         }

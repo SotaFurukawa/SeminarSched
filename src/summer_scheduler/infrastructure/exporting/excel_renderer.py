@@ -88,7 +88,7 @@ class ExcelRenderer:
         workbook.remove(initial_sheet)
         workbook.properties.title = document.title
         workbook.properties.subject = document.report_code
-        workbook.properties.creator = "夏期講習時間割作成アプリ"
+        workbook.properties.creator = "季節講習時間割作成アプリ"
         used_names: set[str] = set()
         try:
             for section in document.sections:

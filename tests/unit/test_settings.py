@@ -21,7 +21,7 @@ def test_environment_paths_override_packaged_defaults(
 
     settings = load_settings()
 
-    assert settings.application_name == "夏期講習 時間割作成"
+    assert settings.application_name == "季節講習 時間割作成"
     assert settings.data_directory == data_directory.resolve()
     assert settings.database_path == (data_directory / "summer_scheduler.db").resolve()
     assert settings.logging.directory == log_directory.resolve()

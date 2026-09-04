@@ -193,7 +193,7 @@ def write_shared_roster(
             {
                 "title": "生徒・講師 基本情報",
                 "subject": "講習に依存しない在籍者・通常授業情報",
-                "author": "夏期講習時間割作成アプリ",
+                "author": "季節講習時間割作成アプリ",
             }
         )
         workbook.set_calc_mode("auto")
@@ -978,7 +978,7 @@ def _setup_sheet(
             0,
             column,
             "（必須）は入力必須です。空欄時の既定値は列の入力規則に従います。",
-            {"author": "夏期講習時間割作成アプリ"},
+            {"author": "季節講習時間割作成アプリ"},
         )
         sheet.set_column(column, column, width)
 
@@ -999,7 +999,7 @@ def _mark_auto_id_header(sheet: Any, coordinate: str, person_label: str, example
         coordinate,
         f"入力不要です。{person_label}の姓を入力すると{example}形式の候補を表示します。"
         "アプリで反映すると、既存IDと衝突しない正式IDとしてこの列へ書き戻します。",
-        {"author": "夏期講習時間割作成アプリ"},
+        {"author": "季節講習時間割作成アプリ"},
     )
 
 

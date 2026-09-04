@@ -149,9 +149,9 @@ def write_master_data_workbook(
 
     workbook = Workbook()
     workbook.remove(workbook.worksheets[0])
-    workbook.properties.title = "夏期講習時間割 マスターデータ"
+    workbook.properties.title = "季節講習時間割 マスターデータ"
     workbook.properties.subject = "生徒・講師・科目・講師対応科目・受講希望"
-    workbook.properties.creator = "夏期講習時間割作成アプリ"
+    workbook.properties.creator = "季節講習時間割作成アプリ"
     workbook.calculation.calcMode = "auto"
     workbook.calculation.fullCalcOnLoad = True
     workbook.calculation.forceFullCalc = True
@@ -207,7 +207,7 @@ def _write_sheet(
         cell.fill = _HEADER_FILL if layout_column.canonical is not None else _HELPER_HEADER_FILL
         cell.font = _HEADER_FONT
         cell.alignment = _HEADER_ALIGNMENT
-        cell.comment = Comment(layout_column.comment, "夏期講習時間割作成アプリ")
+        cell.comment = Comment(layout_column.comment, "季節講習時間割作成アプリ")
         worksheet.column_dimensions[get_column_letter(column_number)].width = layout_column.width
         if layout_column.canonical is not None:
             _add_column_validation(worksheet, column_number, layout_column.canonical)

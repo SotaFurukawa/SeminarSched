@@ -1,5 +1,5 @@
 application:
-  name: "夏期講習 時間割作成"
+  name: "季節講習 時間割作成"
   organization_name: "SummerScheduler"
 
 storage:

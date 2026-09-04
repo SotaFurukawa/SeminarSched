@@ -84,7 +84,7 @@ def build_timetable_document(
 
     return LayoutDocument(
         report_code="overall",
-        title="夏期講習時間割",
+        title="季節講習時間割",
         campus_name=snapshot.project.campus_name,
         course_name=snapshot.project.title,
         updated_text=updated_text(snapshot),
@@ -247,7 +247,7 @@ def _build_page(
     )
     teacher_text = "、".join(teacher_display_names[row.id] for row in teachers) or "対象講師なし"
     return LayoutPage(
-        heading="夏期講習時間割",
+        heading="季節講習時間割",
         subheading=f"{date_text}／講師: {teacher_text}",
         tables=(
             LayoutTable(

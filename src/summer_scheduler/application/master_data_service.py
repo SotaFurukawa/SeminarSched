@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterable
 from datetime import date, time, timedelta
 from typing import Final, NoReturn
@@ -54,6 +55,23 @@ _SCHOOL_LEVEL_ORDER: Final = {
     "junior_high": 1,
     "high_school": 2,
 }
+
+
+def _resolve_open_date_time_slots(
+    raw_value: str | None,
+    default_ids: tuple[int, ...],
+    enabled_ids: set[int],
+) -> tuple[int, ...]:
+    if not raw_value:
+        return default_ids
+    try:
+        parsed = json.loads(raw_value)
+    except (TypeError, json.JSONDecodeError):
+        return default_ids
+    if not isinstance(parsed, list):
+        return default_ids
+    requested = {value for value in parsed if isinstance(value, int)}
+    return tuple(value for value in default_ids if value in requested and value in enabled_ids)
 
 
 class MasterDataService:
@@ -221,14 +239,107 @@ class MasterDataService:
             if not MasterRepository(session).delete_time_slot(record_id):
                 _raise_missing("time_slot", "コマ")
 
+    def reorder_time_slots(self, ordered_ids: Iterable[int]) -> None:
+        """ドラッグ操作で指定された順にコマを並べ替える。"""
+        project_id = self._projects.require_project().project_id
+        requested = tuple(int(value) for value in ordered_ids)
+        database = self._projects.require_database()
+        with database.session_factory.begin() as session:
+            repository = MasterRepository(session)
+            rows = repository.list_time_slots(project_id=project_id)
+            existing_ids = {row.id for row in rows}
+            if len(requested) != len(existing_ids) or set(requested) != existing_ids:
+                raise DomainValidationError(
+                    [ValidationIssue("time_slots", "コマ一覧が更新されています。再読み込みしてから並べ替えてください。")]
+                )
+            rows_by_id = {row.id: row for row in rows}
+            temporary_base = max((row.sort_order for row in rows), default=0) + len(rows) + 1
+            for offset, row in enumerate(rows, start=1):
+                row.sort_order = temporary_base + offset
+            session.flush()
+            for sort_order, record_id in enumerate(requested, start=1):
+                rows_by_id[record_id].sort_order = sort_order
+
     # Open dates
 
     def list_open_dates(self) -> tuple[OpenDateDto, ...]:
         project_id = self._projects.require_project().project_id
         database = self._projects.require_database()
         with database.session_factory() as session:
-            rows = MasterRepository(session).list_open_dates(project_id=project_id)
-            return tuple(OpenDateDto(row.id, row.date, row.is_open, row.note or "") for row in rows)
+            repository = MasterRepository(session)
+            rows = repository.list_open_dates(project_id=project_id)
+            enabled_ids = tuple(
+                row.id for row in repository.list_time_slots(project_id=project_id) if row.enabled
+            )
+            enabled_set = set(enabled_ids)
+            return tuple(
+                OpenDateDto(
+                    row.id,
+                    row.date,
+                    row.is_open,
+                    row.note or "",
+                    _resolve_open_date_time_slots(
+                        row.enabled_time_slot_ids_json,
+                        enabled_ids,
+                        enabled_set,
+                    ),
+                )
+                for row in rows
+            )
+
+    def set_open_dates_time_slots(
+        self,
+        days: Iterable[date],
+        time_slot_ids: Iterable[int],
+    ) -> None:
+        """選択した開校日に、その日に使用できるコマをまとめて設定する。"""
+        project = self._projects.require_project()
+        selected_days = tuple(sorted(set(days)))
+        selected_ids = tuple(dict.fromkeys(int(value) for value in time_slot_ids))
+        issues: list[ValidationIssue] = []
+        if not selected_days:
+            issues.append(ValidationIssue("dates", "日付を1日以上選択してください。"))
+        if not selected_ids:
+            issues.append(ValidationIssue("time_slots", "使用するコマを1つ以上選択してください。"))
+        for day in selected_days:
+            if not project.start_date <= day <= project.end_date:
+                issues.append(ValidationIssue("dates", f"講習期間外の日付です: {day.isoformat()}"))
+        if issues:
+            raise DomainValidationError(issues)
+
+        database = self._projects.require_database()
+        with database.session_factory.begin() as session:
+            repository = MasterRepository(session)
+            valid_ids = {
+                row.id
+                for row in repository.list_time_slots(project_id=project.project_id)
+                if row.enabled
+            }
+            if not set(selected_ids).issubset(valid_ids):
+                raise DomainValidationError(
+                    [ValidationIssue("time_slots", "選択したコマが更新または使用停止されています。")]
+                )
+            encoded = json.dumps(list(selected_ids), ensure_ascii=False)
+            for day in selected_days:
+                row = repository.get_open_date_by_date(
+                    project_id=project.project_id,
+                    date_value=day,
+                )
+                if row is None:
+                    repository.create_open_date(
+                        OpenDate(
+                            project_id=project.project_id,
+                            date=day,
+                            is_open=True,
+                            note="",
+                            enabled_time_slot_ids_json=encoded,
+                        )
+                    )
+                else:
+                    repository.update_open_date(
+                        row,
+                        enabled_time_slot_ids_json=encoded,
+                    )
 
     def set_open_date(self, day: date, *, is_open: bool, note: str) -> None:
         project = self._projects.require_project()

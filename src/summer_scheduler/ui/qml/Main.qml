@@ -21,7 +21,7 @@ ApplicationWindow {
     // qmllint enable unqualified
     property int currentPageIndex: 0
     readonly property var activePage: navigationModel.get(currentPageIndex)
-    readonly property string applicationDisplayName: qsTr("夏期講習時間割作成 v%1 (%2)")
+    readonly property string applicationDisplayName: qsTr("季節講習 時間割作成 v%1 (%2)")
                                                      .arg(root.viewModel.appVersion)
                                                      .arg(root.viewModel.releaseChannel)
 
@@ -30,13 +30,14 @@ ApplicationWindow {
     height: 768
     minimumWidth: 1040
     minimumHeight: 640
+    // Windowsはアプリ表示名をタイトル末尾へ自動付加するため、ここでは重複させない。
     title: workspace.hasOpenProject && workspace.currentProjectTitle
-           ? qsTr("%1 - %2").arg(workspace.currentProjectTitle)
-                             .arg(root.applicationDisplayName)
-           : root.applicationDisplayName
+           ? workspace.currentProjectTitle : ""
     color: theme.appBackground
 
     function selectPage(index) {
+        if (index !== 0 && !workspace.hasOpenProject)
+            return
         if (index >= 0 && index < navigationModel.count)
             currentPageIndex = index
     }
@@ -96,7 +97,7 @@ ApplicationWindow {
             title: "設定"
             shortLabel: "設"
             phaseLabel: "Phase 2"
-            description: "プロジェクト、コマ、開校日、科目を設定します。基本情報Excelはホームで管理します。"
+            description: "プロジェクト、コマ、開校日、科目を設定します。"
         }
         ListElement {
             title: "アンケート作成"
@@ -193,7 +194,7 @@ ApplicationWindow {
             spacing: 10
 
             Label {
-                text: qsTr("夏期講習 時間割作成 v%1 (%2)")
+                text: qsTr("季節講習 時間割作成 v%1 (%2)")
                       .arg(root.viewModel.appVersion)
                       .arg(root.viewModel.releaseChannel)
                 color: "#18212f"
@@ -240,6 +241,7 @@ ApplicationWindow {
             Layout.preferredWidth: 248
             Layout.fillHeight: true
             itemsModel: navigationModel
+            projectOpen: root.workspace.hasOpenProject
             currentIndex: root.currentPageIndex
             onPageSelected: index => root.selectPage(index)
         }

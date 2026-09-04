@@ -303,6 +303,7 @@ class OpenDate(TimestampMixin, Base):
         server_default="1",
     )
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    enabled_time_slot_ids_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     project: Mapped[CourseProject] = relationship(back_populates="open_dates")
 

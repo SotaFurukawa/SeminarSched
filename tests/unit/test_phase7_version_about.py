@@ -17,7 +17,7 @@ ROOT = Path(__file__).parents[2]
 def test_release_candidate_version_is_consistent_in_package_and_metadata() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
-    assert __version__ == "1.4.4"
+    assert __version__ == "1.5.0"
     assert __release_channel__ == "Beta"
     assert metadata["project"]["version"] == __version__
 
@@ -25,7 +25,7 @@ def test_release_candidate_version_is_consistent_in_package_and_metadata() -> No
 def test_app_view_model_distinguishes_application_and_database_versions() -> None:
     view_model = AppViewModel(__version__, "20260729_0006", database_ready=True)
 
-    assert view_model._get_app_version() == "1.4.4"
+    assert view_model._get_app_version() == "1.5.0"
     assert view_model._get_release_channel() == "Beta"
     assert view_model._get_schema_version() == "20260729_0006"
     assert view_model._get_database_ready() is True
@@ -40,7 +40,7 @@ def test_main_qml_has_real_about_dialog_with_both_versions() -> None:
     assert "root.viewModel.releaseChannel" in source
     assert "root.viewModel.schemaVersion" in source
     assert "applicationDisplayName" in source
-    assert "夏期講習時間割作成 v%1 (%2)" in source
+    assert "季節講習 時間割作成 v%1 (%2)" in source
     assert "アプリの版とDBスキーマの版は別々" in source
     assert "テレメトリや外部送信は行いません" in source
 
@@ -68,4 +68,4 @@ def test_report_metadata_contains_application_version() -> None:
         warnings=(),
     )
 
-    assert updated_text(snapshot).endswith("／アプリ v1.4.4 (Beta)")
+    assert updated_text(snapshot).endswith("／アプリ v1.5.0 (Beta)")

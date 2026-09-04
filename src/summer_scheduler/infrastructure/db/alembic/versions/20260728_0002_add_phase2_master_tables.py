@@ -245,6 +245,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("note", sa.Text(), nullable=True),
+        sa.Column("enabled_time_slot_ids_json", sa.Text(), nullable=True),
         *_timestamp_columns(),
         sa.ForeignKeyConstraint(
             ["project_id"],

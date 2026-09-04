@@ -261,7 +261,7 @@ def _new_workbook(title: str) -> Any:
     workbook = Workbook()
     workbook.remove(workbook.worksheets[0])
     workbook.properties.title = title
-    workbook.properties.creator = "夏期講習時間割作成アプリ"
+    workbook.properties.creator = "季節講習時間割作成アプリ"
     workbook.calculation.calcMode = "auto"
     workbook.calculation.fullCalcOnLoad = True
     workbook.calculation.forceFullCalc = True
@@ -304,7 +304,7 @@ def _write_data_sheet(
             wrap_text=True,
         )
         if column.comment:
-            header_cell.comment = Comment(column.comment, "夏期講習時間割作成アプリ")
+            header_cell.comment = Comment(column.comment, "季節講習時間割作成アプリ")
         worksheet.column_dimensions[letter].width = column.width
         if column.availability:
             _add_availability_validation(worksheet, letter)

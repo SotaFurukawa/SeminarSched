@@ -8,6 +8,7 @@ Rectangle {
     id: root
 
     required property var itemsModel
+    required property bool projectOpen
     property int currentIndex: 0
     signal pageSelected(int index)
 
@@ -63,38 +64,73 @@ Rectangle {
                     onClicked: root.pageSelected(0)
                 }
 
-                Label {
-                    Layout.leftMargin: 18
-                    Layout.topMargin: 12
-                    Layout.bottomMargin: 3
-                    text: qsTr("業務フロー")
-                    color: theme.textSecondary
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                }
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: workflowColumn.implicitHeight
 
-                Repeater {
-                    model: [
-                        {"index": 8, "prefix": "①"},
-                        {"index": 9, "prefix": "②"},
-                        {"index": 4, "prefix": "③"},
-                        {"index": 10, "prefix": "④"},
-                        {"index": 5, "prefix": "⑤"},
-                        {"index": 7, "prefix": "⑥"}
-                    ]
+                    ColumnLayout {
+                        id: workflowColumn
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        spacing: 3
 
-                    delegate: SidebarNavButton {
-                        id: workflowButton
-                        required property var modelData
-                        readonly property int targetIndex: Number(modelData.index)
-                        Layout.fillWidth: true
-                        Layout.leftMargin: 10
-                        Layout.rightMargin: 10
-                        itemTitle: root.itemsModel.get(targetIndex).title
-                        iconText: root.itemsModel.get(targetIndex).shortLabel
-                        stepPrefix: String(modelData.prefix)
-                        selected: root.currentIndex === targetIndex
-                        onClicked: root.pageSelected(targetIndex)
+                        Label {
+                            Layout.leftMargin: 18
+                            Layout.topMargin: 12
+                            Layout.bottomMargin: 3
+                            text: qsTr("業務フロー")
+                            color: theme.textSecondary
+                            font.pixelSize: 11
+                            font.weight: Font.DemiBold
+                        }
+
+                        Repeater {
+                            model: [
+                                {"index": 8, "prefix": "①"},
+                                {"index": 9, "prefix": "②"},
+                                {"index": 4, "prefix": "③"},
+                                {"index": 10, "prefix": "④"},
+                                {"index": 5, "prefix": "⑤"},
+                                {"index": 7, "prefix": "⑥"}
+                            ]
+
+                            delegate: SidebarNavButton {
+                                id: workflowButton
+                                required property var modelData
+                                readonly property int targetIndex: Number(modelData.index)
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 10
+                                Layout.rightMargin: 10
+                                enabled: root.projectOpen
+                                itemTitle: root.itemsModel.get(targetIndex).title
+                                iconText: root.itemsModel.get(targetIndex).shortLabel
+                                stepPrefix: String(modelData.prefix)
+                                selected: root.currentIndex === targetIndex
+                                onClicked: root.pageSelected(targetIndex)
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: !root.projectOpen
+                        z: 10
+                        radius: 7
+                        color: "#e3e6eb"
+                        opacity: 0.88
+
+                        Label {
+                            anchors.centerIn: parent
+                            width: parent.width - 28
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.Wrap
+                            text: qsTr("プロジェクトが開かれていません")
+                            color: "#667085"
+                            font.pixelSize: 12
+                            font.weight: Font.DemiBold
+                        }
+
+                        MouseArea { anchors.fill: parent }
                     }
                 }
 

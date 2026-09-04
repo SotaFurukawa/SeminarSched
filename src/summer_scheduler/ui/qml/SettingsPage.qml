@@ -53,7 +53,7 @@ Item {
                 }
 
                 Label {
-                    text: qsTr("プロジェクト、コマ、開校日、科目を設定します。基本情報Excelはホームで管理します。")
+                    text: qsTr("プロジェクト、コマ、開校日、科目を設定します。")
                     color: "#667085"
                     font.pixelSize: 11
                 }

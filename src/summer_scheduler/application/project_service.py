@@ -47,6 +47,7 @@ from summer_scheduler.infrastructure.db.models import (
 
 PROJECT_EXTENSION: Final = ".jukuschedule"
 _RECENT_PROJECTS_KEY: Final = "recent_projects"
+_WORKFLOW_COMPLETED_STEP_KEY: Final = "workflow_completed_step"
 _MAX_RECENT_PROJECTS: Final = 10
 _RECOVERY_MARKER_FILENAME: Final = "recovery-session.json"
 _DEFAULT_CAMPUS_NAME: Final = "既定校舎"
@@ -559,6 +560,56 @@ class ProjectService:
                 projects.append(summary)
         return tuple(projects[:_MAX_RECENT_PROJECTS])
 
+    def hide_recent_project(self, path: Path) -> None:
+        """最近使用した一覧から指定ファイルだけを非表示にする。"""
+        target = path.resolve(strict=False)
+        payload = [
+            item
+            for item in self._load_recent_payload()
+            if Path(str(item.get("path", ""))).resolve(strict=False) != target
+        ]
+        self._save_recent_payload(payload)
+
+    def workflow_completed_step(self) -> int:
+        """現在のプロジェクトに保存された業務フローの到達段階を返す。"""
+        if self._current is None:
+            return 0
+        database = self.require_database()
+        with database.session_factory() as session:
+            metadata = session.get(ApplicationMetadata, _WORKFLOW_COMPLETED_STEP_KEY)
+            if metadata is None:
+                return 0
+            try:
+                return max(0, min(6, int(metadata.value)))
+            except ValueError:
+                return 0
+
+    def mark_workflow_step_complete(self, step: int) -> int:
+        """業務フローの到達段階を単調増加でプロジェクトDBへ保存する。"""
+        normalized = max(0, min(6, int(step)))
+        database = self.require_database()
+        with database.session_factory.begin() as session:
+            metadata = session.get(ApplicationMetadata, _WORKFLOW_COMPLETED_STEP_KEY)
+            current = 0
+            if metadata is not None:
+                try:
+                    current = int(metadata.value)
+                except ValueError:
+                    current = 0
+            saved = max(current, normalized)
+            if metadata is None:
+                session.add(
+                    ApplicationMetadata(
+                        key=_WORKFLOW_COMPLETED_STEP_KEY,
+                        value=str(saved),
+                        updated_at=datetime.now(tz=UTC),
+                    )
+                )
+            else:
+                metadata.value = str(saved)
+                metadata.updated_at = datetime.now(tz=UTC)
+        return saved
+
     def _seed_project(
         self,
         database: Database,
@@ -629,6 +680,9 @@ class ProjectService:
             if Path(str(item.get("path", ""))).resolve() != summary.path.resolve()
         ]
         payload.insert(0, summary.to_recent_dict())
+        self._save_recent_payload(payload[:_MAX_RECENT_PROJECTS])
+
+    def _save_recent_payload(self, payload: list[dict[str, object]]) -> None:
         encoded = json.dumps(payload[:_MAX_RECENT_PROJECTS], ensure_ascii=False)
         with self._registry_database.session_factory.begin() as session:
             metadata = session.get(ApplicationMetadata, _RECENT_PROJECTS_KEY)

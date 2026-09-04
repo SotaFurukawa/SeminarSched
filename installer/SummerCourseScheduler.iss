@@ -1,14 +1,14 @@
-#define MyAppName "夏期講習 時間割作成"
+#define MyAppName "季節講習 時間割作成"
 #define MyAppExeName "SummerCourseScheduler.exe"
 #define MyAppPublisher "SummerScheduler"
 #define MyAppId "{{69E193A4-8240-49BD-9933-0E175303A4EE}"
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.4.4"
+  #define MyAppVersion "1.5.0"
 #endif
 
 #ifndef MyAppFileVersion
-  #define MyAppFileVersion "1.4.4.0"
+  #define MyAppFileVersion "1.5.0.0"
 #endif
 
 #ifndef SourceDirectory
@@ -37,6 +37,7 @@ OutputBaseFilename=SummerCourseScheduler-Setup-{#MyAppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\src\summer_scheduler\resources\app_icon.ico
 CloseApplications=yes
 RestartApplications=no
 ChangesAssociations=no

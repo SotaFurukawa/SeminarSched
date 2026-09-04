@@ -106,7 +106,7 @@ def test_upgrade_from_0005_adds_output_settings_without_changing_campus_logo(
     try:
         upgrade_database(database.engine)
 
-        assert get_head_revision() == "20260822_0009"
+        assert get_head_revision() == "20260904_0010"
         assert "output_settings" in inspect(database.engine).get_table_names()
         columns = {
             column["name"] for column in inspect(database.engine).get_columns("output_settings")

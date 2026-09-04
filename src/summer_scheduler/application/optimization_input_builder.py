@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 
 from sqlalchemy import select
@@ -145,9 +146,9 @@ def build_optimization_input(
     ):
         members_by_group[membership.group_lesson_id].add(membership.student_id)
 
-    open_dates = tuple(
+    open_date_rows = tuple(
         session.scalars(
-            select(OpenDate.date)
+            select(OpenDate)
             .where(
                 OpenDate.project_id == project_id,
                 OpenDate.is_open.is_(True),
@@ -155,6 +156,24 @@ def build_optimization_input(
             .order_by(OpenDate.date)
         )
     )
+    open_dates = tuple(row.date for row in open_date_rows)
+    default_slot_ids = {row.id for row in slots}
+    selectable_slot_ids = {row.id for row in slots if row.enabled}
+    allowed_slots_by_date: dict[object, set[int]] = {}
+    for row in open_date_rows:
+        selected = default_slot_ids
+        if row.enabled_time_slot_ids_json:
+            try:
+                parsed = json.loads(row.enabled_time_slot_ids_json)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                selected = {
+                    value
+                    for value in parsed
+                    if isinstance(value, int) and value in selectable_slot_ids
+                }
+        allowed_slots_by_date[row.date] = selected
     availability_rows = [
         *(
             AvailabilityData(
@@ -165,6 +184,7 @@ def build_optimization_input(
                 level=row.availability_level,
             )
             for row in student_availabilities
+            if row.time_slot_id in allowed_slots_by_date.get(row.date, set())
         ),
         *(
             AvailabilityData(
@@ -175,6 +195,7 @@ def build_optimization_input(
                 level=row.availability_level,
             )
             for row in teacher_availabilities
+            if row.time_slot_id in allowed_slots_by_date.get(row.date, set())
         ),
     ]
 

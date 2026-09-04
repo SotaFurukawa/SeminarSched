@@ -48,7 +48,7 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
         assert workspace.unassigned_count == 1
         assert workspace.warning_count >= 0
         assert workspace.settings.paper_size == "A3"
-        assert service.suggested_filename("overall", "xlsx") == "夏期講習時間割.xlsx"
+        assert service.suggested_filename("overall", "xlsx") == "季節講習時間割.xlsx"
         assert service.suggested_filename("raw", ".csv") == "割当て生データ.csv"
 
         issues = service.build_document(
@@ -68,7 +68,7 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
         output_dir = tmp_path / "日本語の出力先"
         excel_result = service.export_excel(
             "overall",
-            output_dir / "夏期講習時間割.xlsx",
+            output_dir / "季節講習時間割.xlsx",
         )
         csv_result = service.export_csv(output_dir / "割当て生データ.csv")
         filtered_csv_result = service.export_csv(
@@ -80,7 +80,7 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
         workbook = load_workbook(excel_result.path, read_only=False, data_only=False)
         try:
             assert workbook.sheetnames[0].startswith("全体時間割")
-            assert workbook[workbook.sheetnames[0]]["A1"].value == "夏期講習時間割"
+            assert workbook[workbook.sheetnames[0]]["A1"].value == "季節講習時間割"
         finally:
             workbook.close()
         assert csv_result.path.read_bytes().startswith(b"\xef\xbb\xbf")
@@ -120,7 +120,7 @@ def test_output_settings_round_trip_and_filename_sanitization(tmp_path: Path) ->
         assert reloaded.paper_size == "A4"
         today = datetime.now().astimezone().strftime("%Y%m%d")
         assert service.suggested_filename("overall", "pdf") == (
-            f"架空校 夏期講習_夏期講習時間割_{today}.pdf"
+            f"架空校 夏期講習_季節講習時間割_{today}.pdf"
         )
         assert (
             service.suggested_filename(
@@ -221,7 +221,7 @@ def test_yaml_defaults_apply_only_until_project_settings_are_saved(
 
         assert workspace.settings == yaml_defaults.for_project(workspace.project_id)
         assert service.suggested_filename("overall", "pdf") == (
-            "架空校 夏期講習_夏期講習時間割.pdf"
+            "架空校 夏期講習_季節講習時間割.pdf"
         )
 
         project_settings = replace(

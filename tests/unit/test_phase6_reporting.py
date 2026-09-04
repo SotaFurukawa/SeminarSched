@@ -378,7 +378,7 @@ def test_html_rejects_corrupt_logo_without_silently_omitting_it(tmp_path: Path) 
 def test_qt_pdf_generates_a3_landscape_multiple_pages_on_japanese_path(
     tmp_path: Path,
 ) -> None:
-    target = tmp_path / "日本語出力先" / "夏期講習時間割.pdf"
+    target = tmp_path / "日本語出力先" / "季節講習時間割.pdf"
     document = build_timetable_document(_snapshot(), _settings())
     payload_path = tmp_path / "pdf-input.pickle"
     payload_path.write_bytes(pickle.dumps((document, _settings(), target)))

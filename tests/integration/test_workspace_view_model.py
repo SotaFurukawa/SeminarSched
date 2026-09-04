@@ -59,6 +59,27 @@ def test_unicode_file_url_project_lifecycle_and_qml_weekday_mapping(
             "2026-08-03": False,
         }
 
+        # コマはID一覧の順へ並び替え、日ごとに使うコマを絞り込める。
+        slots = cast(list[dict[str, object]], view_model.timeSlots)
+        reversed_ids = [int(str(row["id"])) for row in reversed(slots)]
+        assert view_model.reorderTimeSlots(reversed_ids)
+        reordered = cast(list[dict[str, object]], view_model.timeSlots)
+        assert [int(str(row["id"])) for row in reordered] == reversed_ids
+
+        selected_slot_ids = reversed_ids[:2]
+        assert view_model.setOpenDates(["2026-08-01"], True)
+        assert view_model.setOpenDateTimeSlots(["2026-08-01"], selected_slot_ids)
+        configured_day = next(
+            row
+            for row in cast(list[dict[str, object]], view_model.openDates)
+            if row["date"] == "2026-08-01"
+        )
+        assert configured_day["enabledTimeSlotIds"] == selected_slot_ids
+        assert configured_day["enabledSlotCodes"]
+
+        view_model.markWorkflowStepComplete(3)
+        assert cast(int, view_model.workflowCompletedStep) == 3
+
         view_model.markDirty()
         assert cast(bool, view_model.isDirty)
         assert not view_model.closeProject(False)
