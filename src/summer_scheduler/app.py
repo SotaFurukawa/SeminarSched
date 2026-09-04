@@ -61,9 +61,7 @@ def run(argv: Sequence[str] | None = None) -> int:
         )
         application.setOrganizationName(runtime.settings.organization_name)
         application.setApplicationVersion(__version__)
-        application.setWindowIcon(
-            QIcon(str(Path(__file__).parent / "resources" / "app_icon.png"))
-        )
+        application.setWindowIcon(QIcon(str(Path(__file__).parent / "resources" / "app_icon.png")))
 
         engine = QQmlApplicationEngine()
         engine.warnings.connect(_log_qml_warnings)

@@ -376,6 +376,7 @@ class WorkspaceViewModel(QObject):
     @Slot(str, result=bool)
     def hideRecent(self, path_value: str) -> bool:
         """プロジェクト本体を削除せず、最近使用した一覧だけから隠す。"""
+
         def action() -> None:
             self._projects.hide_recent_project(_path_from_qml(path_value))
             self._refresh_recent_projects()

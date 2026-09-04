@@ -603,10 +603,9 @@ class Phase3ViewModel(QObject):
             self._student_availability_editor_cells = []
             self.availabilityStateChanged.emit()
             self._refresh_validation_after_data_change()
-            if (
-                self._availability.latest_source_name("student")
-                and self._availability.latest_source_name("teacher")
-            ):
+            if self._availability.latest_source_name(
+                "student"
+            ) and self._availability.latest_source_name("teacher"):
                 self._projects.mark_workflow_step_complete(3)
                 self.workflowStepCompleted.emit(3)
             self._set_status(

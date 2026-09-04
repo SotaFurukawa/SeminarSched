@@ -250,7 +250,12 @@ class MasterDataService:
             existing_ids = {row.id for row in rows}
             if len(requested) != len(existing_ids) or set(requested) != existing_ids:
                 raise DomainValidationError(
-                    [ValidationIssue("time_slots", "コマ一覧が更新されています。再読み込みしてから並べ替えてください。")]
+                    [
+                        ValidationIssue(
+                            "time_slots",
+                            "コマ一覧が更新されています。再読み込みしてから並べ替えてください。",
+                        )
+                    ]
                 )
             rows_by_id = {row.id: row for row in rows}
             temporary_base = max((row.sort_order for row in rows), default=0) + len(rows) + 1
@@ -317,7 +322,11 @@ class MasterDataService:
             }
             if not set(selected_ids).issubset(valid_ids):
                 raise DomainValidationError(
-                    [ValidationIssue("time_slots", "選択したコマが更新または使用停止されています。")]
+                    [
+                        ValidationIssue(
+                            "time_slots", "選択したコマが更新または使用停止されています。"
+                        )
+                    ]
                 )
             encoded = json.dumps(list(selected_ids), ensure_ascii=False)
             for day in selected_days:

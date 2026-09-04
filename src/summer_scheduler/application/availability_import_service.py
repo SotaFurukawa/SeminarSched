@@ -353,9 +353,7 @@ class AvailabilityImportService:
             }
             if set(normalized_levels) - slots_by_id.keys():
                 raise AvailabilityImportError("有効なコマを選択してください。")
-            allowed_ids = set(
-                _enabled_slot_ids_for_date(date_setting, tuple(slots_by_id))
-            )
+            allowed_ids = set(_enabled_slot_ids_for_date(date_setting, tuple(slots_by_id)))
             if set(normalized_levels) - allowed_ids:
                 raise AvailabilityImportError("この日に使用しないコマは変更できません。")
 
