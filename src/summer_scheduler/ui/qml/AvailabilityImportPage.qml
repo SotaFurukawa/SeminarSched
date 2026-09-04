@@ -11,6 +11,9 @@ Item {
     required property var viewModel
     signal openHomeRequested
     property bool mappingExpanded: false
+    property var selectedAvailabilityStudentIds: []
+    property string selectedAvailabilityGrade: ""
+    property string selectedAvailabilityDate: ""
 
     UiTheme { id: theme }
 
@@ -85,6 +88,83 @@ Item {
         return parts.join("  /  ")
     }
 
+    function availabilityGradeOptions() {
+        const result = [{"label": qsTr("すべての学年"), "value": ""}]
+        const grades = root.viewModel.studentAvailabilityGrades || []
+        for (let i = 0; i < grades.length; ++i)
+            result.push(grades[i])
+        return result
+    }
+
+    function availabilityStudentSelected(studentId) {
+        return root.selectedAvailabilityStudentIds.indexOf(Number(studentId)) >= 0
+    }
+
+    function setAvailabilityStudentSelected(studentId, selected) {
+        const wanted = Number(studentId)
+        const next = root.selectedAvailabilityStudentIds.slice()
+        const index = next.indexOf(wanted)
+        if (selected && index < 0)
+            next.push(wanted)
+        else if (!selected && index >= 0)
+            next.splice(index, 1)
+        next.sort((left, right) => left - right)
+        root.selectedAvailabilityStudentIds = next
+        availabilityReloadTimer.restart()
+    }
+
+    function setAllVisibleAvailabilityStudents(selected) {
+        const students = root.viewModel.studentAvailabilityStudents || []
+        let next = root.selectedAvailabilityStudentIds.slice()
+        for (let i = 0; i < students.length; ++i) {
+            const row = students[i]
+            if (root.selectedAvailabilityGrade
+                    && String(row.grade) !== root.selectedAvailabilityGrade)
+                continue
+            const studentId = Number(row.id)
+            const index = next.indexOf(studentId)
+            if (selected && index < 0)
+                next.push(studentId)
+            else if (!selected && index >= 0)
+                next.splice(index, 1)
+        }
+        next.sort((left, right) => left - right)
+        root.selectedAvailabilityStudentIds = next
+        availabilityReloadTimer.restart()
+    }
+
+    function selectedAvailabilityDateIsOpen() {
+        const dates = root.viewModel.studentAvailabilityDates || []
+        for (let i = 0; i < dates.length; ++i) {
+            if (String(dates[i].value) === root.selectedAvailabilityDate)
+                return Boolean(dates[i].isOpen)
+        }
+        return false
+    }
+
+    function collectAvailabilityChanges() {
+        const changes = []
+        for (let i = 0; i < availabilitySlotRepeater.count; ++i) {
+            const item = availabilitySlotRepeater.itemAt(i)
+            if (item && item.requestedLevel >= 0) {
+                changes.push({
+                    "timeSlotId": item.timeSlotId,
+                    "availabilityLevel": item.requestedLevel
+                })
+            }
+        }
+        return changes
+    }
+
+    Timer {
+        id: availabilityReloadTimer
+        interval: 80
+        repeat: false
+        onTriggered: root.viewModel.loadStudentAvailabilityEditor(
+                         root.selectedAvailabilityStudentIds,
+                         root.selectedAvailabilityDate)
+    }
+
     Rectangle {
         anchors.fill: parent
         anchors.margins: 20
@@ -147,6 +227,13 @@ Item {
                     color: "#667085"
                     font.pixelSize: 10
                 }
+            }
+
+            AppButton {
+                text: qsTr("取込み済み回答を編集…")
+                enabled: (root.viewModel.studentAvailabilityStudents || []).length > 0
+                         && (root.viewModel.studentAvailabilityDates || []).length > 0
+                onClicked: studentAvailabilityEditor.open()
             }
 
         }
@@ -865,6 +952,297 @@ Item {
                 ToolTip.visible: hovered && !enabled
                 ToolTip.text: qsTr("エラーがある場合は反映できません。")
                 onClicked: applyConfirmation.open()
+            }
+        }
+    }
+
+    Dialog {
+        id: studentAvailabilityEditor
+
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(1040, root.width - 44)
+        height: Math.min(720, root.height - 44)
+        modal: true
+        title: qsTr("取込み済みの生徒参加可否を編集")
+        closePolicy: Popup.CloseOnEscape
+
+        onOpened: {
+            root.selectedAvailabilityStudentIds = []
+            root.selectedAvailabilityGrade = ""
+            availabilityGradeBox.currentIndex = 0
+            const dates = root.viewModel.studentAvailabilityDates || []
+            availabilityDateBox.currentIndex = dates.length > 0 ? 0 : -1
+            root.selectedAvailabilityDate = dates.length > 0
+                    ? String(dates[0].value) : ""
+            availabilityReloadTimer.restart()
+        }
+
+        contentItem: RowLayout {
+            spacing: 12
+
+            Rectangle {
+                Layout.preferredWidth: 340
+                Layout.fillHeight: true
+                radius: 8
+                color: "#f8fafc"
+                border.color: "#dce2ea"
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 8
+
+                    Label {
+                        text: qsTr("1. 生徒を複数選択")
+                        color: "#183b59"
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                    }
+
+                    ComboBox {
+                        id: availabilityGradeBox
+                        Layout.fillWidth: true
+                        model: root.availabilityGradeOptions()
+                        textRole: "label"
+                        valueRole: "value"
+                        Accessible.name: qsTr("絞り込む学年")
+                        onActivated: root.selectedAvailabilityGrade = String(currentValue)
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Button {
+                            text: qsTr("表示中をすべて選択")
+                            onClicked: root.setAllVisibleAvailabilityStudents(true)
+                        }
+                        Button {
+                            text: qsTr("選択解除")
+                            onClicked: root.setAllVisibleAvailabilityStudents(false)
+                        }
+                    }
+
+                    Label {
+                        text: qsTr("選択中：%1名").arg(
+                                  root.selectedAvailabilityStudentIds.length)
+                        color: "#344054"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                    }
+
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 3
+                        model: root.viewModel.studentAvailabilityStudents || []
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                        delegate: Rectangle {
+                            id: availabilityStudentRow
+
+                            required property var modelData
+                            readonly property bool matchesGrade:
+                                !root.selectedAvailabilityGrade
+                                || String(modelData.grade)
+                                   === root.selectedAvailabilityGrade
+
+                            width: ListView.view.width
+                            height: matchesGrade ? 42 : 0
+                            visible: matchesGrade
+                            radius: 5
+                            color: availabilityStudentCheck.checked ? "#e7f2ff" : "#ffffff"
+                            border.color: availabilityStudentCheck.checked
+                                          ? "#5aa3df" : "#e1e6ee"
+
+                            CheckBox {
+                                id: availabilityStudentCheck
+                                anchors.fill: parent
+                                anchors.leftMargin: 7
+                                anchors.rightMargin: 7
+                                text: qsTr("%1　%2").arg(
+                                          String(availabilityStudentRow.modelData.grade))
+                                      .arg(String(availabilityStudentRow.modelData.label))
+                                checked: root.availabilityStudentSelected(
+                                             availabilityStudentRow.modelData.id)
+                                onClicked: root.setAvailabilityStudentSelected(
+                                               availabilityStudentRow.modelData.id,
+                                               checked)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                radius: 8
+                color: "#ffffff"
+                border.color: "#dce2ea"
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 9
+
+                    Label {
+                        text: qsTr("2. 日付とコマごとの変更内容を選択")
+                        color: "#183b59"
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                    }
+
+                    ComboBox {
+                        id: availabilityDateBox
+                        Layout.fillWidth: true
+                        model: root.viewModel.studentAvailabilityDates || []
+                        textRole: "label"
+                        valueRole: "value"
+                        Accessible.name: qsTr("参加可否を編集する日付")
+                        onActivated: {
+                            root.selectedAvailabilityDate = String(currentValue)
+                            availabilityReloadTimer.restart()
+                        }
+                    }
+
+                    InlineMessage {
+                        Layout.fillWidth: true
+                        kind: root.selectedAvailabilityDateIsOpen() ? "info" : "warning"
+                        message: root.selectedAvailabilityDateIsOpen()
+                                 ? qsTr("集団授業などで個別指導を入れないコマは「参加不可」にします。希望（2）を「参加可」に変更すると通常の可能（1）になります。")
+                                 : qsTr("休校日は授業を配置しないため、参加可否を編集できません。①設定で開校日に変更すると編集できます。")
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("注意：この後にアンケート回答を再取込みすると、同じ生徒・日付・コマの手動変更は新しい回答で上書きされます。")
+                        color: "#7a5710"
+                        font.pixelSize: 9
+                        wrapMode: Text.Wrap
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        visible: root.selectedAvailabilityStudentIds.length === 0
+                        text: qsTr("左側で生徒を1名以上選択してください。")
+                        color: "#667085"
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    ScrollView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        visible: root.selectedAvailabilityStudentIds.length > 0
+                        contentWidth: availableWidth
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                        ColumnLayout {
+                            width: parent.width
+                            spacing: 5
+
+                            Repeater {
+                                id: availabilitySlotRepeater
+                                model: root.viewModel.studentAvailabilityCells || []
+
+                                delegate: Rectangle {
+                                    id: availabilitySlotRow
+
+                                    required property var modelData
+                                    readonly property int timeSlotId: Number(modelData.timeSlotId)
+                                    readonly property int requestedLevel:
+                                        availabilityChangeBox.currentIndex === 1 ? 1
+                                        : availabilityChangeBox.currentIndex === 2 ? 0 : -1
+
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 58
+                                    radius: 6
+                                    color: "#f8fafc"
+                                    border.color: "#e1e6ee"
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 8
+                                        spacing: 10
+
+                                        Label {
+                                            Layout.preferredWidth: 190
+                                            text: String(availabilitySlotRow.modelData.label)
+                                            color: "#344054"
+                                            font.weight: Font.DemiBold
+                                        }
+                                        Label {
+                                            Layout.fillWidth: true
+                                            text: qsTr("現在：%1").arg(
+                                                      String(availabilitySlotRow.modelData.currentLabel))
+                                            color: "#667085"
+                                            font.pixelSize: 10
+                                        }
+                                        ComboBox {
+                                            id: availabilityChangeBox
+                                            Layout.preferredWidth: 150
+                                            model: [qsTr("変更しない"), qsTr("参加可"), qsTr("参加不可")]
+                                            currentIndex: 0
+                                            enabled: root.selectedAvailabilityDateIsOpen()
+                                            Accessible.name: qsTr("%1の変更内容").arg(
+                                                                 String(availabilitySlotRow.modelData.label))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        visible: Boolean(root.viewModel.errorMessage)
+                        text: root.viewModel.errorMessage
+                        color: "#a23b3b"
+                        font.pixelSize: 10
+                        wrapMode: Text.Wrap
+                    }
+                }
+            }
+        }
+
+        footer: Rectangle {
+            implicitHeight: 62
+            color: "#ffffff"
+            border.color: "#dce2ea"
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                spacing: 10
+
+                Label {
+                    text: qsTr("%1名を一括編集").arg(
+                              root.selectedAvailabilityStudentIds.length)
+                    color: "#52647d"
+                    font.pixelSize: 10
+                }
+                Item { Layout.fillWidth: true }
+                Button {
+                    text: qsTr("閉じる")
+                    onClicked: studentAvailabilityEditor.close()
+                }
+                Button {
+                    text: qsTr("変更を保存")
+                    highlighted: true
+                    enabled: root.selectedAvailabilityStudentIds.length > 0
+                             && root.selectedAvailabilityDateIsOpen()
+                             && (root.viewModel.studentAvailabilityCells || []).length > 0
+                    onClicked: {
+                        const changes = root.collectAvailabilityChanges()
+                        if (root.viewModel.updateStudentAvailabilityEditor(
+                                    root.selectedAvailabilityStudentIds,
+                                    root.selectedAvailabilityDate,
+                                    changes))
+                            availabilityReloadTimer.restart()
+                    }
+                }
             }
         }
     }

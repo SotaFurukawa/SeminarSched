@@ -168,10 +168,15 @@ def run(argv: Sequence[str] | None = None) -> int:
 
         logger.info("メインウィンドウを表示しました")
         if arguments.smoke_test:
-            # The preconfirmation page is loaded lazily in the normal UI. Open it
-            # during smoke testing so its individual/group bindings are exercised.
-            engine.rootObjects()[0].setProperty("currentPageIndex", 10)
-            QTimer.singleShot(200, application.quit)
+            # These pages are loaded lazily in the normal UI. Open both so the
+            # availability editor and individual/group preconfirmation bindings run.
+            root_window = engine.rootObjects()[0]
+            root_window.setProperty("currentPageIndex", 4)
+            QTimer.singleShot(
+                120,
+                lambda: root_window.setProperty("currentPageIndex", 10),
+            )
+            QTimer.singleShot(320, application.quit)
 
         return application.exec()
     except Exception:

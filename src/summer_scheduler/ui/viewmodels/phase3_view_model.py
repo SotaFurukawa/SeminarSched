@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import traceback
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, time
 from pathlib import Path
 
@@ -107,6 +107,11 @@ class Phase3ViewModel(QObject):
         self._import_diffs: list[dict[str, object]] = []
         self._import_issues: list[dict[str, object]] = []
         self._import_summary = _empty_summary()
+        self._student_availability_editor_grades: list[dict[str, object]] = []
+        self._student_availability_editor_students: list[dict[str, object]] = []
+        self._student_availability_editor_dates: list[dict[str, object]] = []
+        self._student_availability_editor_slots: list[dict[str, object]] = []
+        self._student_availability_editor_cells: list[dict[str, object]] = []
 
         self._group_preview: GroupImportPreview | None = None
         self._group_source_path = ""
@@ -282,6 +287,32 @@ class Phase3ViewModel(QObject):
 
     canApplyImport = Property(bool, _get_can_apply_import, notify=availabilityStateChanged)
 
+    studentAvailabilityGrades = Property(
+        list,
+        lambda self: self._student_availability_editor_grades,
+        notify=availabilityStateChanged,
+    )
+    studentAvailabilityStudents = Property(
+        list,
+        lambda self: self._student_availability_editor_students,
+        notify=availabilityStateChanged,
+    )
+    studentAvailabilityDates = Property(
+        list,
+        lambda self: self._student_availability_editor_dates,
+        notify=availabilityStateChanged,
+    )
+    studentAvailabilitySlots = Property(
+        list,
+        lambda self: self._student_availability_editor_slots,
+        notify=availabilityStateChanged,
+    )
+    studentAvailabilityCells = Property(
+        list,
+        lambda self: self._student_availability_editor_cells,
+        notify=availabilityStateChanged,
+    )
+
     # Group lesson properties
 
     def _get_group_lessons(self) -> list[dict[str, object]]:
@@ -447,6 +478,7 @@ class Phase3ViewModel(QObject):
             self._combined_trial_student_rows.clear()
             self._clear_combined_preview()
             self._refresh_stored_source_name()
+            self._refresh_student_availability_editor_options()
             self.availabilityStateChanged.emit()
             self._refresh_validation_after_data_change()
 
@@ -567,6 +599,7 @@ class Phase3ViewModel(QObject):
             )
             self._clear_availability_preview()
             self._refresh_stored_source_name()
+            self._student_availability_editor_cells = []
             self.availabilityStateChanged.emit()
             self._refresh_validation_after_data_change()
             self._set_status(
@@ -576,6 +609,66 @@ class Phase3ViewModel(QObject):
             )
 
         return self._perform(action, "")
+
+    @Slot(list, str, result=bool)
+    def loadStudentAvailabilityEditor(self, student_ids: list[object], day_value: str) -> bool:
+        """選択した生徒・日付のコマ別可否を編集画面へ読み込む。"""
+        if not student_ids or not day_value:
+            self._student_availability_editor_cells = []
+            self._clear_messages()
+            self.availabilityStateChanged.emit()
+            return True
+
+        def action() -> None:
+            self._student_availability_editor_cells = [
+                dict(row)
+                for row in self._availability.summarize_student_availability(
+                    _qml_int_list(student_ids),
+                    date.fromisoformat(day_value),
+                )
+            ]
+            self.availabilityStateChanged.emit()
+
+        return self._perform(action, "")
+
+    @Slot(list, str, list, result=bool)
+    def updateStudentAvailabilityEditor(
+        self,
+        student_ids: list[object],
+        day_value: str,
+        changes: list[object],
+    ) -> bool:
+        """画面で指定した複数生徒・複数コマの参加可否を一括保存する。"""
+        changed_cells = 0
+
+        def action() -> None:
+            nonlocal changed_cells
+            slot_levels: dict[int, int] = {}
+            for change in changes:
+                if not isinstance(change, Mapping):
+                    raise AvailabilityImportError("コマの変更内容が不正です。")
+                slot_levels[int(change.get("timeSlotId", 0))] = int(
+                    change.get("availabilityLevel", -1)
+                )
+            changed_cells = self._availability.update_student_availability(
+                _qml_int_list(student_ids),
+                date.fromisoformat(day_value),
+                slot_levels,
+            )
+            self._student_availability_editor_cells = [
+                dict(row)
+                for row in self._availability.summarize_student_availability(
+                    _qml_int_list(student_ids),
+                    date.fromisoformat(day_value),
+                )
+            ]
+            self.availabilityStateChanged.emit()
+            self._refresh_validation_after_data_change()
+
+        result = self._perform(action, "")
+        if result:
+            self._set_status(f"生徒の参加可否を更新しました（{changed_cells}セル変更）")
+        return result
 
     @Slot()
     def clearImport(self) -> None:
@@ -768,6 +861,11 @@ class Phase3ViewModel(QObject):
             self._validation_has_run = False
         if self._projects.current is None:
             self._stored_source_name = ""
+            self._student_availability_editor_grades = []
+            self._student_availability_editor_students = []
+            self._student_availability_editor_dates = []
+            self._student_availability_editor_slots = []
+            self._student_availability_editor_cells = []
             self._group_lessons = []
             self._group_dates = []
             self._group_subjects = []
@@ -778,6 +876,7 @@ class Phase3ViewModel(QObject):
             self._update_validation_summary()
         else:
             self._refresh_stored_source_name()
+            self._refresh_student_availability_editor_options()
             self._refresh_group_options()
             self._refresh_group_lessons()
             self._set_validation_issues(self._validation.list_issues())
@@ -962,6 +1061,14 @@ class Phase3ViewModel(QObject):
             return
         self._stored_source_name = self._availability.latest_source_name(self._import_kind)
 
+    def _refresh_student_availability_editor_options(self) -> None:
+        options = self._availability.student_editor_options()
+        self._student_availability_editor_grades = [dict(row) for row in options["grades"]]
+        self._student_availability_editor_students = [dict(row) for row in options["students"]]
+        self._student_availability_editor_dates = [dict(row) for row in options["dates"]]
+        self._student_availability_editor_slots = [dict(row) for row in options["slots"]]
+        self._student_availability_editor_cells = []
+
     def _reset_availability_source(self, *, keep_kind: bool) -> None:
         if not keep_kind:
             self._import_kind = "student"
@@ -1112,6 +1219,15 @@ def _xlsx_path_from_qml(value: str) -> Path:
     if path.suffix.casefold() != ".xlsx":
         path = Path(f"{path}.xlsx")
     return path
+
+
+def _qml_int_list(values: Sequence[object]) -> list[int]:
+    converted: list[int] = []
+    for value in values:
+        if not isinstance(value, str | int | float):
+            raise ValueError("生徒の選択が不正です。")
+        converted.append(int(value))
+    return converted
 
 
 def _qml_scalar(value: object) -> object:

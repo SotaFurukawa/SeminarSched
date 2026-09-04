@@ -9,7 +9,7 @@ QML からはこのサービスだけを呼び出し、ファイル形式、ORM�
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from hashlib import sha256
@@ -25,6 +25,7 @@ from summer_scheduler.application.phase3_dto import (
     ImportIssueDto,
 )
 from summer_scheduler.application.project_service import ProjectFileError, ProjectService
+from summer_scheduler.domain.grades import INTERNAL_GRADE_OPTIONS
 from summer_scheduler.infrastructure.db.models import (
     AuditLog,
     ImportBatch,
@@ -182,6 +183,208 @@ class AvailabilityImportService:
                 import_type=_IMPORT_TYPES[import_kind],
             )
             return snapshot.source_file_name if snapshot is not None else ""
+
+    def student_editor_options(self) -> dict[str, tuple[dict[str, object], ...]]:
+        """取込み後の生徒可否を画面で編集するための選択肢を返す。"""
+        project = self._projects.require_project()
+        database = self._projects.require_database()
+        with database.session_factory() as session:
+            repository = MasterRepository(session)
+            students = repository.list_students(active_only=True)
+            dates = repository.list_open_dates(project_id=project.project_id)
+            slots = repository.list_time_slots(
+                project_id=project.project_id,
+                enabled_only=True,
+            )
+            return {
+                "grades": tuple(
+                    {"value": grade, "label": grade}
+                    for grade in (
+                        *(
+                            grade
+                            for grade in INTERNAL_GRADE_OPTIONS
+                            if any(student.grade == grade for student in students)
+                        ),
+                        *sorted(
+                            {
+                                student.grade
+                                for student in students
+                                if student.grade not in INTERNAL_GRADE_OPTIONS
+                            }
+                        ),
+                    )
+                ),
+                "students": tuple(
+                    {
+                        "id": row.id,
+                        "externalId": row.external_id,
+                        "name": row.name,
+                        "grade": row.grade,
+                        "label": f"{row.name}（{row.external_id}）",
+                    }
+                    for row in students
+                ),
+                "dates": tuple(
+                    {
+                        "value": row.date.isoformat(),
+                        "label": f"{row.date:%m/%d}（{'開校' if row.is_open else '休校'}）",
+                        "isOpen": row.is_open,
+                    }
+                    for row in dates
+                ),
+                "slots": tuple(
+                    {
+                        "id": row.id,
+                        "code": row.code,
+                        "label": f"{row.code} {row.start_time:%H:%M}～{row.end_time:%H:%M}",
+                    }
+                    for row in slots
+                ),
+            }
+
+    def summarize_student_availability(
+        self,
+        student_ids: Sequence[int],
+        day: date,
+    ) -> tuple[dict[str, object], ...]:
+        """複数生徒について、指定日のコマ別可否を集約して返す。"""
+        normalized_ids = _normalized_student_ids(student_ids)
+        project = self._projects.require_project()
+        database = self._projects.require_database()
+        with database.session_factory() as session:
+            repository = MasterRepository(session)
+            _require_editor_students(repository, normalized_ids)
+            date_setting = repository.get_open_date_by_date(
+                project_id=project.project_id,
+                date_value=day,
+            )
+            if date_setting is None:
+                raise AvailabilityImportError("講習期間内の日付を選択してください。")
+            slots = repository.list_time_slots(
+                project_id=project.project_id,
+                enabled_only=True,
+            )
+            levels = {
+                (row.student_id, row.time_slot_id): row.availability_level
+                for row in repository.list_student_availabilities(
+                    project_id=project.project_id,
+                    date_value=day,
+                )
+                if row.student_id in normalized_ids
+            }
+
+            result: list[dict[str, object]] = []
+            student_count = len(normalized_ids)
+            for slot in slots:
+                slot_levels = [levels.get((student_id, slot.id)) for student_id in normalized_ids]
+                unavailable_count = sum(level == 0 for level in slot_levels)
+                available_count = sum(level is not None and level > 0 for level in slot_levels)
+                missing_count = sum(level is None for level in slot_levels)
+                if not date_setting.is_open:
+                    current_label = "休校日のため編集不可"
+                elif missing_count == student_count:
+                    current_label = "全員未登録"
+                elif missing_count:
+                    current_label = "未登録あり"
+                elif unavailable_count == student_count:
+                    current_label = "全員参加不可"
+                elif available_count == student_count:
+                    current_label = "全員参加可"
+                else:
+                    current_label = "参加可・不可が混在"
+                result.append(
+                    {
+                        "timeSlotId": slot.id,
+                        "code": slot.code,
+                        "label": f"{slot.code} {slot.start_time:%H:%M}～{slot.end_time:%H:%M}",
+                        "currentLabel": current_label,
+                        "unavailableCount": unavailable_count,
+                        "availableCount": available_count,
+                        "missingCount": missing_count,
+                    }
+                )
+            return tuple(result)
+
+    def update_student_availability(
+        self,
+        student_ids: Sequence[int],
+        day: date,
+        slot_levels: Mapping[int, int],
+    ) -> int:
+        """選択した複数生徒の可否を、指定日のコマ単位で一括更新する。"""
+        normalized_ids = _normalized_student_ids(student_ids)
+        normalized_levels = {int(slot_id): int(level) for slot_id, level in slot_levels.items()}
+        if not normalized_levels:
+            raise AvailabilityImportError("変更するコマを1件以上選択してください。")
+        if any(level not in {0, 1} for level in normalized_levels.values()):
+            raise AvailabilityImportError("参加可または参加不可を選択してください。")
+
+        project = self._projects.require_project()
+        database = self._projects.require_database()
+        with database.session_factory.begin() as session:
+            repository = MasterRepository(session)
+            _require_editor_students(repository, normalized_ids)
+            date_setting = repository.get_open_date_by_date(
+                project_id=project.project_id,
+                date_value=day,
+            )
+            if date_setting is None:
+                raise AvailabilityImportError("講習期間内の日付を選択してください。")
+            if not date_setting.is_open:
+                raise AvailabilityImportError("休校日の参加可否は変更できません。")
+
+            slots_by_id = {
+                row.id: row
+                for row in repository.list_time_slots(
+                    project_id=project.project_id,
+                    enabled_only=True,
+                )
+            }
+            if set(normalized_levels) - slots_by_id.keys():
+                raise AvailabilityImportError("有効なコマを選択してください。")
+
+            changed = 0
+            for student_id in normalized_ids:
+                for slot_id, level in normalized_levels.items():
+                    existing = repository.get_student_availability(
+                        project_id=project.project_id,
+                        student_id=student_id,
+                        date_value=day,
+                        time_slot_id=slot_id,
+                    )
+                    if existing is None or existing.availability_level != level:
+                        changed += 1
+                    repository.upsert_student_availability(
+                        project_id=project.project_id,
+                        student_id=student_id,
+                        date_value=day,
+                        time_slot_id=slot_id,
+                        availability_level=level,
+                    )
+
+            repository.create_audit_log(
+                AuditLog(
+                    project_id=project.project_id,
+                    action="student_availability_manually_updated",
+                    entity_type="student_availability",
+                    entity_id=day.isoformat(),
+                    before_json=None,
+                    after_json=json.dumps(
+                        {
+                            "date": day.isoformat(),
+                            "student_count": len(normalized_ids),
+                            "slot_levels": {
+                                slots_by_id[slot_id].code: level
+                                for slot_id, level in sorted(normalized_levels.items())
+                            },
+                            "changed_cells": changed,
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                )
+            )
+            return changed
 
     def _template_master_references(
         self,
@@ -898,6 +1101,25 @@ def _encoding(value: str) -> CsvEncoding:
         return CsvEncoding(value.casefold())
     except ValueError as exc:
         raise ValueError("CSV文字コードは auto、utf-8、utf-8-sig、cp932 のいずれかです。") from exc
+
+
+def _normalized_student_ids(student_ids: Sequence[int]) -> tuple[int, ...]:
+    try:
+        normalized = tuple(sorted({int(value) for value in student_ids}))
+    except (TypeError, ValueError) as exc:
+        raise AvailabilityImportError("生徒の選択が不正です。") from exc
+    if not normalized or any(value <= 0 for value in normalized):
+        raise AvailabilityImportError("生徒を1名以上選択してください。")
+    return normalized
+
+
+def _require_editor_students(
+    repository: MasterRepository,
+    student_ids: Sequence[int],
+) -> None:
+    active_ids = {row.id for row in repository.list_students(active_only=True)}
+    if set(student_ids) - active_ids:
+        raise AvailabilityImportError("選択した生徒が見つからないか、使用停止になっています。")
 
 
 def _dto_issue(issue: ImportIssue) -> ImportIssueDto:

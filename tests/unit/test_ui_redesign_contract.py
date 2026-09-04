@@ -118,6 +118,10 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     ):
         assert label in guide
     assert "Google Apps Scriptの「デプロイ」は不要" in guide
+    assert "別ウィンドウで表示" in guide
+    assert "Window {" in guide
+    assert "separateGuideWindow.show()" in guide
+    assert guide.count("sourceComponent: guideContentComponent") == 2
     assert "赤い案内" not in guide
     assert "mockScreen" not in guide
     assert "assets/google_forms_authorization_and_csv.png" not in guide
@@ -140,6 +144,22 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     assert expected_assets == {path.name for path in GUIDE_ASSET_ROOT.glob("*.png")}
     for asset in expected_assets:
         assert f"assets/google_forms_guide/{asset}" in guide
+
+    for label in (
+        "取込み済み回答を編集…",
+        "取込み済みの生徒参加可否を編集",
+        "表示中をすべて選択",
+        "変更しない",
+        "参加可",
+        "参加不可",
+        "休校日は授業を配置しない",
+    ):
+        assert label in questionnaire
+    assert "studentAvailabilityStudents" in questionnaire
+    assert "studentAvailabilityDates" in questionnaire
+    assert "studentAvailabilityCells" in questionnaire
+    assert "loadStudentAvailabilityEditor" in questionnaire
+    assert "updateStudentAvailabilityEditor" in questionnaire
 
 
 def test_date_dropdowns_and_settings_tabs_have_explicit_visual_state() -> None:

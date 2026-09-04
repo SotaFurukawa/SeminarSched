@@ -8,6 +8,7 @@ import json
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
+from typing import cast
 
 import pytest
 from openpyxl import Workbook
@@ -164,6 +165,85 @@ def test_student_import_updates_cells_and_preferences(
     assert snapshot.source_file_name == source.name
     assert snapshot.content == source.read_bytes()
     assert snapshot.sha256 == hashlib.sha256(source.read_bytes()).hexdigest()
+
+
+def test_manual_student_availability_editor_updates_multiple_students_and_slots(
+    import_service: AvailabilityImportService,
+) -> None:
+    master = MasterDataService(import_service._projects)
+    second_student_id = master.save_student(
+        record_id=None,
+        external_id="S002",
+        name="生徒 次郎",
+        grade="中1",
+        default_max_consecutive_slots=2,
+        allow_gap=False,
+        note="",
+        active=True,
+    ).record_id
+    options = import_service.student_editor_options()
+    first_student_id = next(
+        cast(int, row["id"]) for row in options["students"] if row["externalId"] == "S001"
+    )
+    assert {row["value"] for row in options["grades"]} == {"中1"}
+    assert options["dates"][0]["isOpen"] is True
+    first_slot_id = cast(int, options["slots"][0]["id"])
+
+    changed = import_service.update_student_availability(
+        [first_student_id, second_student_id],
+        _DAY,
+        {first_slot_id: 0},
+    )
+    assert changed == 2
+    summary = import_service.summarize_student_availability(
+        [first_student_id, second_student_id],
+        _DAY,
+    )
+    assert summary[0]["currentLabel"] == "全員参加不可"
+    assert summary[0]["unavailableCount"] == 2
+
+    assert (
+        import_service.update_student_availability(
+            [first_student_id],
+            _DAY,
+            {first_slot_id: 1},
+        )
+        == 1
+    )
+    mixed = import_service.summarize_student_availability(
+        [first_student_id, second_student_id],
+        _DAY,
+    )
+    assert mixed[0]["currentLabel"] == "参加可・不可が混在"
+
+    with import_service._projects.require_database().session_factory() as session:
+        audit = list(session.scalars(select(AuditLog).order_by(AuditLog.id.desc())))[0]
+    payload = json.loads(audit.after_json or "{}")
+    assert audit.action == "student_availability_manually_updated"
+    assert payload["student_count"] == 1
+    assert payload["slot_levels"] == {str(options["slots"][0]["code"]): 1}
+    assert "生徒 太郎" not in (audit.after_json or "")
+    assert "S001" not in (audit.after_json or "")
+
+
+def test_manual_student_availability_editor_rejects_closed_date(
+    import_service: AvailabilityImportService,
+) -> None:
+    master = MasterDataService(import_service._projects)
+    closed_day = date(2026, 8, 2)
+    master.set_open_date(closed_day, is_open=False, note="休校")
+    options = import_service.student_editor_options()
+    student_id = cast(int, options["students"][0]["id"])
+    slot_id = cast(int, options["slots"][0]["id"])
+
+    summary = import_service.summarize_student_availability([student_id], closed_day)
+    assert summary[0]["currentLabel"] == "休校日のため編集不可"
+    with pytest.raises(AvailabilityImportError, match="休校日"):
+        import_service.update_student_availability(
+            [student_id],
+            closed_day,
+            {slot_id: 1},
+        )
 
 
 def test_new_import_replaces_embedded_source_snapshot(

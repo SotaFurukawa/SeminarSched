@@ -6,6 +6,7 @@ import logging
 from collections.abc import Callable, Iterator
 from datetime import date
 from pathlib import Path
+from typing import cast
 
 import pytest
 from openpyxl import Workbook
@@ -217,6 +218,37 @@ def test_xlsx_sheet_selection_manual_mapping_and_apply_emit_state_changes(
     assert group_spy.count() == 1
     assert view_model._get_can_apply_group_import() is False
     assert view_model._get_group_import_diffs() == []
+
+
+def test_manual_student_availability_editor_is_exposed_as_qml_primitives(
+    project_service: ProjectService,
+    tmp_path: Path,
+) -> None:
+    SampleProjectService(project_service).create_anonymous_sample(tmp_path / "可否編集サンプル")
+    view_model = _view_model(project_service)
+    students = view_model.studentAvailabilityStudents
+    dates = view_model.studentAvailabilityDates
+    slots = view_model.studentAvailabilitySlots
+    assert isinstance(students, list) and students
+    assert isinstance(dates, list) and dates
+    assert isinstance(slots, list) and slots
+
+    student_ids = [students[0]["id"]]
+    open_day = next(row for row in dates if row["isOpen"])
+    assert view_model.loadStudentAvailabilityEditor(student_ids, open_day["value"])
+    cells = view_model.studentAvailabilityCells
+    assert isinstance(cells, list) and len(cells) == len(slots)
+
+    availability_spy = QSignalSpy(view_model.availabilityStateChanged)
+    assert view_model.updateStudentAvailabilityEditor(
+        student_ids,
+        open_day["value"],
+        [{"timeSlotId": cells[0]["timeSlotId"], "availabilityLevel": 0}],
+    )
+    assert availability_spy.count() >= 1
+    assert "生徒の参加可否を更新しました" in view_model._get_status_message()
+    refreshed_cells = cast(list[dict[str, object]], view_model.studentAvailabilityCells)
+    assert refreshed_cells[0]["currentLabel"] == "全員参加不可"
 
 
 def test_unexpected_error_log_keeps_location_without_exception_value(

@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 
 Dialog {
     id: root
@@ -109,12 +110,67 @@ Dialog {
     height: Math.min(780, parent.height - 40)
     modal: true
     title: qsTr("Googleフォーム作成手順（画像つき）")
-    standardButtons: Dialog.Close
     closePolicy: Popup.CloseOnEscape
 
     UiTheme { id: theme }
 
-    contentItem: ScrollView {
+    contentItem: Loader {
+        sourceComponent: guideContentComponent
+    }
+
+    footer: Rectangle {
+        implicitHeight: 58
+        color: theme.surface
+        border.color: theme.border
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 14
+            anchors.rightMargin: 14
+            spacing: 10
+
+            Button {
+                text: qsTr("別ウィンドウで表示")
+                icon.name: "window-new"
+                onClicked: {
+                    root.close()
+                    separateGuideWindow.show()
+                    separateGuideWindow.raise()
+                    separateGuideWindow.requestActivate()
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+
+            Button {
+                text: qsTr("閉じる")
+                onClicked: root.close()
+            }
+        }
+    }
+
+    Window {
+        id: separateGuideWindow
+
+        width: 1180
+        height: 820
+        minimumWidth: 760
+        minimumHeight: 560
+        visible: false
+        title: qsTr("Googleフォーム作成手順")
+        color: theme.appBackground
+
+        Loader {
+            anchors.fill: parent
+            anchors.margins: 14
+            sourceComponent: guideContentComponent
+        }
+    }
+
+    Component {
+        id: guideContentComponent
+
+        ScrollView {
         id: guideScroll
 
         clip: true
@@ -253,6 +309,7 @@ Dialog {
                 Layout.fillWidth: true
                 kind: "warning"
                 message: qsTr("回答原本には氏名・学年・希望日時などの個人情報が含まれます。一般公開せず、担当者だけがアクセスできる場所で管理してください。")
+            }
             }
         }
     }
