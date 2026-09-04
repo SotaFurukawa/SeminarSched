@@ -60,17 +60,15 @@ Item {
             return 1
         if (entity === "teacher")
             return 2
-        if (entity === "group_lesson")
-            return 3
         if (entity.indexOf("availability") >= 0 || entity === "import_batch")
-            return 4
+            return 3
         if (entity === "lesson_request" || entity === "assignment"
                 || entity === "assignmentsession")
-            return 5
+            return 4
         if (entity === "project" || entity === "open_date"
                 || entity === "time_slot" || entity === "subject")
-            return 8
-        return 6
+            return 7
+        return 5
     }
 
     function buildFilteredIssues() {

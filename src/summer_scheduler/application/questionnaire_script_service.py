@@ -20,6 +20,11 @@ _GRADE_GROUPS = {
     "juniorHigh": ["中1", "中2", "中3"],
     "highSchool": ["高1", "高2", "高3"],
 }
+_SCHOOL_LEVEL_SUFFIXES = {
+    "elementary": "小",
+    "junior_high": "中",
+    "high_school": "高",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,9 +95,16 @@ class QuestionnaireScriptService:
             raise ValueError("有効なコマがありません。①の「コマ設定」を確認してください")
 
         subjects_by_level: dict[str, list[str]] = {level: [] for level in _SCHOOL_LEVELS}
+        student_subjects_by_level: dict[str, list[str]] = {level: [] for level in _SCHOOL_LEVELS}
+        cross_level_subjects: list[str] = []
         for subject in subjects:
             if subject.school_level in subjects_by_level:
                 subjects_by_level[subject.school_level].append(subject.display_name)
+                short_label = _student_subject_label(subject.display_name)
+                student_subjects_by_level[subject.school_level].append(short_label)
+                cross_level_subjects.append(
+                    f"{short_label}({_SCHOOL_LEVEL_SUFFIXES[subject.school_level]})"
+                )
         missing_levels = [level for level, values in subjects_by_level.items() if not values]
         if missing_levels:
             raise ValueError(
@@ -116,10 +128,11 @@ class QuestionnaireScriptService:
             "gradeGroups": _GRADE_GROUPS,
             "enrollmentTypes": ["在籍生", "体験生"],
             "subjectsBySchoolLevel": {
-                "elementary": subjects_by_level["elementary"],
-                "juniorHigh": subjects_by_level["junior_high"],
-                "highSchool": subjects_by_level["high_school"],
+                "elementary": student_subjects_by_level["elementary"],
+                "juniorHigh": student_subjects_by_level["junior_high"],
+                "highSchool": student_subjects_by_level["high_school"],
             },
+            "crossLevelSubjects": cross_level_subjects,
             "sessionCounts": [str(value) for value in range(1, 21)],
             "summerTestChoices": [
                 "夏期学力テストを受験する",
@@ -216,6 +229,16 @@ def _safe_filename(value: str) -> str:
     cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", value.strip())
     cleaned = cleaned.rstrip(". ")[:60]
     return cleaned or "講習"
+
+
+def _student_subject_label(display_name: str) -> str:
+    """生徒フォームでは学校段階の接頭辞を省き、説明を簡潔にする。"""
+    label = display_name
+    for prefix in ("小学校・", "中学校・", "高校・"):
+        if label.startswith(prefix):
+            label = label.removeprefix(prefix)
+            break
+    return label.replace("（中学受験以外なら可能）", "（中学受験以外）")
 
 
 def _available_directory(parent: Path, base_name: str) -> Path:
@@ -413,6 +436,10 @@ function addStudentQuestions_(form) {
     "小学校",
     QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.elementary,
   );
+  const elementaryCrossLevelItem = form
+    .addMultipleChoiceItem()
+    .setTitle("他学年の内容も受講しますか（必須）")
+    .setRequired(true);
   const juniorHighPage = form
     .addPageBreakItem()
     .setTitle("中学生の受講教科・回数")
@@ -422,6 +449,10 @@ function addStudentQuestions_(form) {
     "中学校",
     QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.juniorHigh,
   );
+  const juniorHighCrossLevelItem = form
+    .addMultipleChoiceItem()
+    .setTitle("他学年の内容も受講しますか（必須）")
+    .setRequired(true);
   const highSchoolPage = form
     .addPageBreakItem()
     .setTitle("高校生の受講教科・回数")
@@ -431,10 +462,26 @@ function addStudentQuestions_(form) {
     "高校",
     QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.highSchool,
   );
+  const highSchoolCrossLevelItem = form
+    .addMultipleChoiceItem()
+    .setTitle("他学年の内容も受講しますか（必須）")
+    .setRequired(true);
+  const crossLevelPage = form
+    .addPageBreakItem()
+    .setTitle("他学年の受講教科・回数")
+    .setHelpText("小・中・高の科目を選択できます。科目名末尾の(小)(中)(高)で内容を区別します。");
+  addSubjectRequestSection_(
+    form,
+    "他学年",
+    QUESTIONNAIRE_CONFIG.crossLevelSubjects,
+  );
   const availabilityPage = addAvailabilityPage_(form, "受講");
-  elementaryPage.setGoToPage(availabilityPage);
-  juniorHighPage.setGoToPage(availabilityPage);
-  highSchoolPage.setGoToPage(availabilityPage);
+  [elementaryCrossLevelItem, juniorHighCrossLevelItem, highSchoolCrossLevelItem]
+    .forEach((item) => item.setChoices([
+      item.createChoice("受講しない", availabilityPage),
+      item.createChoice("受講する", crossLevelPage),
+    ]));
+  crossLevelPage.setGoToPage(availabilityPage);
   gradeItem.setChoices([
     ...QUESTIONNAIRE_CONFIG.gradeGroups.elementary.map((grade) =>
       gradeItem.createChoice(grade, elementaryPage),

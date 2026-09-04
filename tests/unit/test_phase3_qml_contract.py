@@ -15,10 +15,9 @@ def test_main_connects_phase3_navigation_to_real_pages() -> None:
     source = _qml_source("Main.qml")
 
     assert "readonly property var phase3: phase3ViewModel" in source
-    assert "GroupLessonPage {" in source
+    assert "GroupLessonPage {" not in source
     assert "AvailabilityImportPage {" in source
     assert "ValidationIssuesPage {" in source
-    assert "? groupLessonComponent" in source
     assert "? availabilityImportComponent" in source
     assert "? validationIssuesComponent" in source
 
@@ -37,7 +36,7 @@ def test_availability_import_page_exposes_complete_safe_workflow() -> None:
     assert all(call in source for call in required_calls)
     assert "生徒・講師回答をまとめて取り込む" in source
     assert "2ファイルを検証" in source
-    assert "カンマ区切り形式（.csv）" in source
+    assert "カンマ区切り形式（csv）" in source
     assert "enabled: root.viewModel.canApplyCombinedSurvey" in source
     assert "Dialogs.MessageDialog" in source
 

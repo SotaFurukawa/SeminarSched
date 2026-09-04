@@ -91,7 +91,7 @@ def test_main_uses_output_page_and_composes_project_switch_guards() -> None:
     app = APP.read_text(encoding="utf-8")
 
     assert "readonly property var output: outputViewModel" in main
-    assert "root.currentPageIndex === 7" in main
+    assert "root.currentPageIndex === 6" in main
     assert "OutputPage {" in main
     assert "OutputViewModel(" in app
     assert "OutputService(" in app

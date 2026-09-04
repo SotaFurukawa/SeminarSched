@@ -134,12 +134,11 @@ Item {
 
             InlineMessage {
                 Layout.fillWidth: true
+                visible: root.configuredOpenDateCount === 0
+                         || root.configuredTimeSlotCount === 0
                 kind: root.configuredOpenDateCount > 0
                       && root.configuredTimeSlotCount > 0 ? "info" : "warning"
-                message: root.configuredOpenDateCount > 0
-                         && root.configuredTimeSlotCount > 0
-                         ? qsTr("フォームでは、生徒・講師とも『参加／出勤できない日時』を同じ日付×コマ表で回答できます。生徒用には学年別科目、回数、特記事項、学力テストも含まれます。")
-                         : qsTr("先に①基本設定で開校日と有効コマを設定してください。設定内容がそのままフォームへ反映されます。")
+                message: qsTr("先に①基本設定で開校日と有効コマを設定してください。設定内容がそのままフォームへ反映されます。")
             }
 
             Rectangle {
@@ -165,6 +164,8 @@ Item {
 
                     GridLayout {
                         Layout.fillWidth: true
+                        Layout.maximumWidth: 920
+                        Layout.alignment: Qt.AlignLeft
                         columns: 2
                         columnSpacing: 16
                         rowSpacing: 10
@@ -237,7 +238,7 @@ Item {
                             onClicked: root.viewModel.openQuestionnaireScriptDirectory()
                         }
                         AppButton {
-                            text: qsTr("画像で見る作成手順")
+                            text: qsTr("作成手順")
                             onClicked: guideDialog.open()
                         }
                         AppButton {

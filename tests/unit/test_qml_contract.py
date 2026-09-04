@@ -11,9 +11,8 @@ def test_main_qml_contains_all_required_navigation_labels() -> None:
 
     required_labels = {
         "ホーム",
-        "生徒",
-        "講師",
-        "集団授業",
+        "生徒の基本情報",
+        "講師の基本情報",
         "アンケート取込み",
         "アンケート作成",
         "事前確定",

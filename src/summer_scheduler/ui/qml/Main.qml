@@ -52,22 +52,16 @@ ApplicationWindow {
             description: "プロジェクトの作成・読込みと、次に行う作業を確認します。"
         }
         ListElement {
-            title: "生徒"
+            title: "生徒の基本情報"
             shortLabel: "生"
             phaseLabel: "Phase 2"
             description: "生徒情報と、生徒×科目単位の受講希望を管理します。"
         }
         ListElement {
-            title: "講師"
+            title: "講師の基本情報"
             shortLabel: "講"
             phaseLabel: "Phase 2"
             description: "講師情報と、科目ごとの指導可否を管理します。"
-        }
-        ListElement {
-            title: "集団授業"
-            shortLabel: "集"
-            phaseLabel: "Phase 3"
-            description: "集団授業の取込み、受講者、担当講師、衝突を管理する画面です。"
         }
         ListElement {
             title: "アンケート取込み"
@@ -239,6 +233,8 @@ ApplicationWindow {
 
         Sidebar {
             Layout.preferredWidth: 248
+            Layout.minimumWidth: 224
+            Layout.maximumWidth: 248
             Layout.fillHeight: true
             itemsModel: navigationModel
             projectOpen: root.workspace.hasOpenProject
@@ -278,20 +274,18 @@ ApplicationWindow {
                                      : root.currentPageIndex === 2
                                          ? teacherComponent
                                          : root.currentPageIndex === 3
-                                           ? groupLessonComponent
+                                           ? availabilityImportComponent
                                            : root.currentPageIndex === 4
-                                             ? availabilityImportComponent
-                                             : root.currentPageIndex === 5
                                              ? optimizationComponent
-                                             : root.currentPageIndex === 6
+                                             : root.currentPageIndex === 5
                                                ? validationIssuesComponent
-                                               : root.currentPageIndex === 7
+                                               : root.currentPageIndex === 6
                                                  ? outputComponent
-                                               : root.currentPageIndex === 8
+                                               : root.currentPageIndex === 7
                                                  ? settingsComponent
-                                                 : root.currentPageIndex === 9
+                                                 : root.currentPageIndex === 8
                                                    ? questionnaireCreationComponent
-                                                   : root.currentPageIndex === 10
+                                                   : root.currentPageIndex === 9
                                                      ? preconfirmationComponent
                                                  : placeholderComponent
                 }
@@ -307,7 +301,7 @@ ApplicationWindow {
             phase3ViewModel: root.phase3
             scheduleViewModel: root.scheduleEditor
             outputViewModel: root.output
-            onOpenSettingsRequested: root.selectPage(8)
+            onOpenSettingsRequested: root.selectPage(7)
             onNavigateRequested: pageIndex => root.selectPage(pageIndex)
         }
     }
@@ -331,15 +325,6 @@ ApplicationWindow {
     }
 
     Component {
-        id: groupLessonComponent
-
-        GroupLessonPage {
-            viewModel: root.phase3
-            onOpenHomeRequested: root.selectPage(0)
-        }
-    }
-
-    Component {
         id: availabilityImportComponent
 
         AvailabilityImportPage {
@@ -355,7 +340,7 @@ ApplicationWindow {
             viewModel: root.phase3
             workspace: root.workspace
             onOpenHomeRequested: root.selectPage(0)
-            onOpenSettingsRequested: root.selectPage(8)
+            onOpenSettingsRequested: root.selectPage(7)
         }
     }
 
@@ -364,9 +349,8 @@ ApplicationWindow {
 
         PreconfirmationPage {
             viewModel: root.scheduleEditor
-            groupViewModel: root.phase3
             onOpenHomeRequested: root.selectPage(0)
-            onOpenTimetableRequested: root.selectPage(5)
+            onOpenTimetableRequested: root.selectPage(4)
         }
     }
 
@@ -441,7 +425,7 @@ ApplicationWindow {
         OutputPage {
             viewModel: root.output
             onOpenHomeRequested: root.selectPage(0)
-            onOpenIssuesRequested: root.selectPage(6)
+            onOpenIssuesRequested: root.selectPage(5)
         }
     }
 

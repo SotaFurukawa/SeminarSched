@@ -223,6 +223,20 @@ class SharedRosterService:
             regular_lessons=len(data.regular_lessons),
         )
 
+    def sync_from_current_project(self) -> Path:
+        """現在の生徒・講師基本情報を共通Excelへ書き戻す。"""
+        data = self._from_current_project()
+        if data is None:
+            raise ValueError("プロジェクトが開かれていません")
+        reserved_students, reserved_teachers = self._reserved_external_ids()
+        write_shared_roster(
+            self.path,
+            _merge_default_subjects(data),
+            reserved_student_ids=reserved_students,
+            reserved_teacher_ids=reserved_teachers,
+        )
+        return self.path
+
     def _read_with_reserved_ids(self, source: Path) -> SharedRosterData:
         reserved_student_ids, reserved_teacher_ids = self._reserved_external_ids()
         return read_shared_roster(

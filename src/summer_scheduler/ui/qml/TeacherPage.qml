@@ -230,14 +230,14 @@ Item {
                 spacing: 2
 
                 Label {
-                    text: qsTr("講師")
+                    text: qsTr("講師の基本情報")
                     color: "#18212f"
                     font.pixelSize: 24
                     font.weight: Font.Bold
                 }
 
                 Label {
-                    text: qsTr("講師情報と指導可能科目を登録・編集します")
+                    text: qsTr("追加・変更した内容と指導可能科目は、ホームの基本情報Excelにも保存されます")
                     color: "#667085"
                     font.pixelSize: 11
                 }
@@ -250,6 +250,7 @@ Item {
             }
 
             AppButton {
+                visible: false
                 text: qsTr("Excel一括追加・更新…")
                 enabled: root.viewModel.hasOpenProject
                 onClicked: rosterImportDialog.open()
@@ -268,9 +269,7 @@ Item {
             visible: root.viewModel.hasOpenProject
                      && (root.viewModel.teachers || []).length === 0
             kind: "info"
-            message: qsTr("初期名簿はExcelで一括登録できます。講師対応科目の「指導可能」が空欄なら「はい」として取り込みます。")
-            actionText: qsTr("Excelを選択")
-            onActionRequested: rosterImportDialog.open()
+            message: qsTr("講師が未登録です。右上の「講師を追加」から基本情報を登録できます。")
         }
 
         Rectangle {
@@ -297,7 +296,7 @@ Item {
 
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("講師データと資格は.jukuscheduleプロジェクトごとに保存されます。")
+                    text: qsTr("先にホームからプロジェクトを開いてください。編集内容は基本情報Excelと同期されます。")
                     horizontalAlignment: Text.AlignHCenter
                     color: "#667085"
                     font.pixelSize: 11

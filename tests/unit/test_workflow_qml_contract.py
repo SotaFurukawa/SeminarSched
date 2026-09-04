@@ -33,14 +33,11 @@ def test_home_exposes_six_step_workflow_and_automatic_project_creation() -> None
     assert "collectionCount(viewModel.teachers) > 0" not in source
 
 
-def test_group_lesson_page_supports_calendar_entry() -> None:
-    source = (QML / "GroupLessonPage.qml").read_text(encoding="utf-8")
+def test_group_lesson_page_is_not_exposed_in_v1_navigation() -> None:
+    source = (QML / "Main.qml").read_text(encoding="utf-8")
 
-    assert "＋ カレンダーに追加" in source
-    assert "createCalendarGroupLesson" in source
-    assert "groupDates" in source
-    assert "groupSubjects" in source
-    assert "groupTeachers" in source
+    assert "GroupLessonPage" not in source
+    assert 'title: "集団授業"' not in source
 
 
 def test_availability_page_explains_embedded_source_replacement() -> None:
@@ -50,5 +47,5 @@ def test_availability_page_explains_embedded_source_replacement() -> None:
     assert ".jukuschedule内に保管" in source
     assert "次回反映時に差し替えます" in source
     assert "おすすめ：" not in source
-    assert "カンマ区切り形式（.csv）" in source
+    assert "カンマ区切り形式（csv）" in source
     assert "Z・A・B・Cなど複数のチェックが1セル" in source

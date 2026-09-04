@@ -350,6 +350,73 @@ class MasterDataService:
                         enabled_time_slot_ids_json=encoded,
                     )
 
+    def save_open_date_schedule(
+        self,
+        entries: Iterable[tuple[date, bool, Iterable[int]]],
+    ) -> None:
+        """画面上で編集した全日程を検証し、1トランザクションで保存する。"""
+        project = self._projects.require_project()
+        normalized: list[tuple[date, bool, tuple[int, ...]]] = []
+        seen_days: set[date] = set()
+        issues: list[ValidationIssue] = []
+        for day, is_open, time_slot_ids in entries:
+            slot_ids = tuple(dict.fromkeys(int(value) for value in time_slot_ids))
+            if day in seen_days:
+                issues.append(ValidationIssue("dates", f"日付が重複しています: {day.isoformat()}"))
+            seen_days.add(day)
+            if not project.start_date <= day <= project.end_date:
+                issues.append(ValidationIssue("dates", f"講習期間外の日付です: {day.isoformat()}"))
+            if is_open and not slot_ids:
+                issues.append(
+                    ValidationIssue(
+                        "time_slots",
+                        f"開校日には使用するコマを1つ以上選択してください: {day.isoformat()}",
+                    )
+                )
+            normalized.append((day, is_open, slot_ids))
+        if not normalized:
+            issues.append(ValidationIssue("dates", "保存する日程がありません"))
+        if issues:
+            raise DomainValidationError(issues)
+
+        database = self._projects.require_database()
+        with database.session_factory.begin() as session:
+            repository = MasterRepository(session)
+            valid_ids = {
+                row.id
+                for row in repository.list_time_slots(project_id=project.project_id)
+                if row.enabled
+            }
+            selected_ids = {slot_id for _, _, slot_ids in normalized for slot_id in slot_ids}
+            if not selected_ids.issubset(valid_ids):
+                raise DomainValidationError(
+                    [
+                        ValidationIssue(
+                            "time_slots", "選択したコマが更新または使用停止されています。"
+                        )
+                    ]
+                )
+            for day, is_open, slot_ids in normalized:
+                row = repository.get_open_date_by_date(
+                    project_id=project.project_id,
+                    date_value=day,
+                )
+                values = {
+                    "is_open": is_open,
+                    "enabled_time_slot_ids_json": json.dumps(list(slot_ids), ensure_ascii=False),
+                }
+                if row is None:
+                    repository.create_open_date(
+                        OpenDate(
+                            project_id=project.project_id,
+                            date=day,
+                            note="",
+                            **values,
+                        )
+                    )
+                else:
+                    repository.update_open_date(row, **values)
+
     def set_open_date(self, day: date, *, is_open: bool, note: str) -> None:
         project = self._projects.require_project()
         if not project.start_date <= day <= project.end_date:

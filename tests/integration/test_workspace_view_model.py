@@ -12,6 +12,7 @@ from PySide6.QtCore import QUrl
 from summer_scheduler.application.master_data_service import MasterDataService
 from summer_scheduler.application.project_service import ProjectFileError, ProjectService
 from summer_scheduler.infrastructure.db import create_database, upgrade_database
+from summer_scheduler.infrastructure.excel.shared_roster import read_shared_roster
 from summer_scheduler.ui.viewmodels.workspace_view_model import WorkspaceViewModel
 
 
@@ -67,8 +68,17 @@ def test_unicode_file_url_project_lifecycle_and_qml_weekday_mapping(
         assert [int(str(row["id"])) for row in reordered] == reversed_ids
 
         selected_slot_ids = reversed_ids[:2]
-        assert view_model.setOpenDates(["2026-08-01"], True)
-        assert view_model.setOpenDateTimeSlots(["2026-08-01"], selected_slot_ids)
+        assert view_model.saveOpenDateSchedule(
+            [
+                {
+                    "date": "2026-08-01",
+                    "isOpen": True,
+                    "enabledTimeSlotIds": selected_slot_ids,
+                },
+                {"date": "2026-08-02", "isOpen": False, "enabledTimeSlotIds": []},
+                {"date": "2026-08-03", "isOpen": False, "enabledTimeSlotIds": []},
+            ]
+        )
         configured_day = next(
             row
             for row in cast(list[dict[str, object]], view_model.openDates)
@@ -76,6 +86,10 @@ def test_unicode_file_url_project_lifecycle_and_qml_weekday_mapping(
         )
         assert configured_day["enabledTimeSlotIds"] == selected_slot_ids
         assert configured_day["enabledSlotCodes"]
+        assert not view_model.saveOpenDateSchedule(
+            [{"date": "2026-08-01", "isOpen": True, "enabledTimeSlotIds": []}]
+        )
+        assert "使用するコマ" in cast(str, view_model.errorMessage)
 
         view_model.markWorkflowStepComplete(3)
         assert cast(int, view_model.workflowCompletedStep) == 3
@@ -109,6 +123,7 @@ def test_qualification_draft_is_saved_as_one_application_operation(
 
     try:
         assert view_model.refreshAll()
+        assert view_model.saveStudent(0, "S-001", "架空 生徒", "中2", 2, False, "", True)
         assert view_model.saveTeacher(0, "T-001", "架空 講師", False, "", True)
         teachers = cast(list[dict[str, object]], view_model.teachers)
         subjects = cast(list[dict[str, object]], view_model.subjects)
@@ -128,6 +143,12 @@ def test_qualification_draft_is_saved_as_one_application_operation(
             )
         }
         assert qualifications[int(str(subjects[0]["id"]))]
+        shared = read_shared_roster(view_model._shared_roster.path)  # noqa: SLF001
+        assert shared.students[0].name == "架空 生徒"
+        assert shared.teachers[0].name == "架空 講師"
+        assert any(
+            row.teacher_external_id == "T-001" and row.can_teach for row in shared.qualifications
+        )
         assert not qualifications[int(str(subjects[1]["id"]))]
     finally:
         projects.close_project()

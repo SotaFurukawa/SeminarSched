@@ -97,7 +97,13 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
         *subject_groups["juniorHigh"],
         *subject_groups["highSchool"],
     ]
-    assert generated_subjects == [subject.display_name for subject in DEFAULT_SUBJECTS]
+    assert "日本史" in generated_subjects
+    assert "高校・日本史" not in generated_subjects
+    assert "算数（中学受験以外）" in generated_subjects
+    assert "算数（中学受験以外なら可能）" not in generated_subjects
+    cross_level_subjects = cast(list[str], student_config["crossLevelSubjects"])
+    assert "日本史(高)" in cross_level_subjects
+    assert "理科(中)" in cross_level_subjects
     teacher_subject_groups = cast(
         dict[str, list[str]], teacher_subject_config["subjectsBySchoolLevel"]
     )
@@ -105,11 +111,10 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
         *teacher_subject_groups["elementary"],
         *teacher_subject_groups["juniorHigh"],
         *teacher_subject_groups["highSchool"],
-    ] == generated_subjects
+    ] == [subject.display_name for subject in DEFAULT_SUBJECTS]
     assert "function createStudentQuestionnaire()" in student_source
-    assert "elementaryPage.setGoToPage(availabilityPage)" in student_source
-    assert "juniorHighPage.setGoToPage(availabilityPage)" in student_source
-    assert "highSchoolPage.setGoToPage(availabilityPage)" in student_source
+    assert 'item.createChoice("受講する", crossLevelPage)' in student_source
+    assert "crossLevelPage.setGoToPage(availabilityPage)" in student_source
     assert "function createReplacementStudentQuestionnaire()" in student_source
     assert "function createTeacherQuestionnaire()" in teacher_source
     assert "function createReplacementTeacherQuestionnaire()" in teacher_source

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Sequence
+from datetime import date
 from pathlib import Path
 from typing import TypeVar
 
@@ -360,6 +361,8 @@ class WorkspaceViewModel(QObject):
         def action() -> None:
             self._ensure_no_unsaved_draft()
             self._projects.open_project(_path_from_qml(path_value))
+            self._shared_roster.ensure_workbook()
+            self._shared_roster.sync_to_current_project()
             self._after_project_opened()
 
         result = self._perform(action, "プロジェクトを開きました")
@@ -606,6 +609,7 @@ class WorkspaceViewModel(QObject):
             )
             self._refresh_students()
             self._refresh_lesson_requests()
+            self._shared_roster.sync_from_current_project()
             self._set_dirty(False)
             return "、".join(result.warnings)
 
@@ -616,6 +620,7 @@ class WorkspaceViewModel(QObject):
         def action() -> None:
             self._master_data.deactivate_student(record_id)
             self._refresh_students()
+            self._shared_roster.sync_from_current_project()
 
         return self._perform(action, "生徒を使用停止にしました")
 
@@ -625,6 +630,7 @@ class WorkspaceViewModel(QObject):
             self._master_data.delete_student(record_id)
             self._refresh_students()
             self._refresh_lesson_requests()
+            self._shared_roster.sync_from_current_project()
 
         return self._perform(action, "生徒を削除しました")
 
@@ -652,6 +658,7 @@ class WorkspaceViewModel(QObject):
             self._refresh_subjects()
             self._refresh_qualifications()
             self._refresh_lesson_requests()
+            self._shared_roster.sync_from_current_project()
             self._set_dirty(False)
 
         return self._perform(action, "科目情報を保存しました")
@@ -662,6 +669,7 @@ class WorkspaceViewModel(QObject):
             self._master_data.deactivate_subject(record_id)
             self._refresh_subjects()
             self._refresh_qualifications()
+            self._shared_roster.sync_from_current_project()
 
         return self._perform(action, "科目を使用停止にしました")
 
@@ -688,6 +696,7 @@ class WorkspaceViewModel(QObject):
             )
             self._refresh_teachers()
             self._refresh_lesson_requests()
+            self._shared_roster.sync_from_current_project()
             self._set_dirty(False)
             return "、".join(result.warnings)
 
@@ -698,6 +707,7 @@ class WorkspaceViewModel(QObject):
         def action() -> None:
             self._master_data.deactivate_teacher(record_id)
             self._refresh_teachers()
+            self._shared_roster.sync_from_current_project()
 
         return self._perform(action, "講師を使用停止にしました")
 
@@ -710,6 +720,7 @@ class WorkspaceViewModel(QObject):
             self.currentTeacherQualificationsChanged.emit()
             self._refresh_teachers()
             self._refresh_lesson_requests()
+            self._shared_roster.sync_from_current_project()
 
         return self._perform(action, "講師を削除しました")
 
@@ -732,6 +743,7 @@ class WorkspaceViewModel(QObject):
                 can_teach=can_teach,
             )
             self._refresh_qualifications()
+            self._shared_roster.sync_from_current_project()
 
         return self._perform(action, "指導可否を保存しました")
 
@@ -760,6 +772,7 @@ class WorkspaceViewModel(QObject):
                 qualifications,
             )
             self._refresh_qualifications()
+            self._shared_roster.sync_from_current_project()
             self._set_dirty(False)
 
         return self._perform(action, "指導可否を保存しました")
@@ -785,6 +798,7 @@ class WorkspaceViewModel(QObject):
                     can_teach=can_teach,
                 )
             self._refresh_qualifications()
+            self._shared_roster.sync_from_current_project()
 
         return self._perform(action, "指導可否を一括更新しました")
 
@@ -802,6 +816,7 @@ class WorkspaceViewModel(QObject):
                 target_teacher_id=teacher_id,
             )
             self._refresh_qualifications()
+            self._shared_roster.sync_from_current_project()
 
         return self._perform(action, "指導可否をコピーしました")
 
@@ -900,6 +915,31 @@ class WorkspaceViewModel(QObject):
             self._refresh_open_dates()
 
         return self._perform(action, "選択した日付の有効コマを保存しました")
+
+    @Slot("QVariantList", result=bool)
+    def saveOpenDateSchedule(self, entry_values: Sequence[object]) -> bool:
+        """QMLで保持した全日程のドラフトを一括保存する。"""
+
+        def action() -> None:
+            entries: list[tuple[date, bool, tuple[int, ...]]] = []
+            for value in entry_values:
+                if not isinstance(value, dict):
+                    raise ValueError("開校日設定の入力形式が不正です")
+                slot_values = value.get("enabledTimeSlotIds", [])
+                if not isinstance(slot_values, (list, tuple)):
+                    raise ValueError("開校日のコマ設定が不正です")
+                entries.append(
+                    (
+                        parse_iso_date(str(value.get("date", "")), "date"),
+                        bool(value.get("isOpen", False)),
+                        tuple(_required_int(item, "コマID") for item in slot_values),
+                    )
+                )
+            self._master_data.save_open_date_schedule(entries)
+            self._refresh_open_dates()
+            self._set_dirty(False)
+
+        return self._perform(action, "開校日・休校日と使用コマを保存しました")
 
     @Slot(int, result=bool)
     def setWeekdayClosed(self, sunday_first_index: int) -> bool:

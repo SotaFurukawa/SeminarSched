@@ -76,6 +76,8 @@ ScrollView {
 
                 RowLayout {
                     Layout.fillWidth: true
+                    Layout.maximumWidth: 920
+                    Layout.alignment: Qt.AlignLeft
                     spacing: 14
 
                     ColumnLayout {
@@ -131,6 +133,8 @@ ScrollView {
 
                 RowLayout {
                     Layout.fillWidth: true
+                    Layout.maximumWidth: 920
+                    Layout.alignment: Qt.AlignLeft
                     spacing: 14
 
                     ColumnLayout {

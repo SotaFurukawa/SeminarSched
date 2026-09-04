@@ -29,12 +29,12 @@ def test_shared_visual_components_and_workflow_navigation_exist() -> None:
 
     sidebar = _qml("Sidebar.qml")
     for route in (
-        '{"index": 8, "prefix": "①"}',
-        '{"index": 9, "prefix": "②"}',
-        '{"index": 4, "prefix": "③"}',
-        '{"index": 10, "prefix": "④"}',
-        '{"index": 5, "prefix": "⑤"}',
-        '{"index": 7, "prefix": "⑥"}',
+        '{"index": 7, "prefix": "①"}',
+        '{"index": 8, "prefix": "②"}',
+        '{"index": 3, "prefix": "③"}',
+        '{"index": 9, "prefix": "④"}',
+        '{"index": 4, "prefix": "⑤"}',
+        '{"index": 6, "prefix": "⑥"}',
     ):
         assert route in sidebar
 
@@ -72,14 +72,14 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     assert "保存時にT-0001形式で自動採番" in teachers
     assert "講師ID（必須）" not in teachers
 
-    for label in ("1　回答ファイルを選ぶ", "2　内容を確認する", "3　反映完了"):
+    for label in ("回答ファイルを選ぶ", "内容を確認する", "反映完了"):
         assert label in questionnaire
     assert "列名が合わない場合の設定" in questionnaire
     for label in (
         "Googleフォーム作成キット",
         "フォーム作成キットを保存…",
         "開校日 %1日／有効コマ %2件",
-        "画像で見る作成手順",
+        "作成手順",
     ):
         assert label in questionnaire_creation
     assert (
@@ -94,15 +94,14 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
     assert "Googleフォーム作成キット" not in questionnaire
     preconfirmation = _qml("PreconfirmationPage.qml")
     assert "個別指導" in preconfirmation
-    assert "集団授業" in preconfirmation
+    assert "集団授業" not in preconfirmation
     assert "individualGrades" in preconfirmation
     assert "individualStudents" in preconfirmation
     assert "individualSubjects" in preconfirmation
     assert "この個別枠を固定" in preconfirmation
-    assert "この集団授業を固定" in preconfirmation
     assert "createPreconfirmedAssignment" in preconfirmation
-    assert "createCalendarGroupLesson" in preconfirmation
-    assert "groupViewModel: root.phase3" in _qml("Main.qml")
+    assert "createCalendarGroupLesson" not in preconfirmation
+    assert "groupViewModel: root.phase3" not in _qml("Main.qml")
     guide = _qml("GoogleFormsGuideDialog.qml")
     for label in (
         "アプリで作成キットを保存",
@@ -197,14 +196,9 @@ def test_calendar_timetable_issues_and_output_keep_operational_routes() -> None:
     open_dates = _qml("OpenDateSettingsTab.qml")
     for label in ("すべて選択", "選択解除", "選択日を休校", "選択日を開校"):
         assert label in open_dates
-    assert "root.viewModel.setOpenDates(root.checkedDateValues, isOpen)" in open_dates
-
-    group = _qml("GroupLessonPage.qml")
-    assert "calendarWeekOffset" in group
-    assert "weeklyCalendar" in group
-    assert "＋ 授業を追加" in group
-    assert "createCalendarGroupLesson(" in group
-    assert "validateGroupImport()" in group
+    assert "root.viewModel.saveOpenDateSchedule(entries)" in open_dates
+    assert "すべての変更を保存" in open_dates
+    assert "draftRows" in open_dates
 
     schedule = _qml("ScheduleEditorPage.qml")
     assert "id: unassignedRail" in schedule

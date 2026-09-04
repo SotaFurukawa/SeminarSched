@@ -61,7 +61,7 @@ def run(argv: Sequence[str] | None = None) -> int:
         )
         application.setOrganizationName(runtime.settings.organization_name)
         application.setApplicationVersion(__version__)
-        application.setWindowIcon(QIcon(str(Path(__file__).parent / "resources" / "app_icon.png")))
+        application.setWindowIcon(QIcon(str(Path(__file__).parent / "resources" / "app_icon.ico")))
 
         engine = QQmlApplicationEngine()
         engine.warnings.connect(_log_qml_warnings)
@@ -184,10 +184,10 @@ def run(argv: Sequence[str] | None = None) -> int:
             # These pages are loaded lazily in the normal UI. Open both so the
             # availability editor and individual/group preconfirmation bindings run.
             root_window = engine.rootObjects()[0]
-            root_window.setProperty("currentPageIndex", 4)
+            root_window.setProperty("currentPageIndex", 3)
             QTimer.singleShot(
                 120,
-                lambda: root_window.setProperty("currentPageIndex", 10),
+                lambda: root_window.setProperty("currentPageIndex", 9),
             )
             QTimer.singleShot(320, application.quit)
 

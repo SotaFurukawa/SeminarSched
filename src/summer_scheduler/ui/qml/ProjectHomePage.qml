@@ -627,7 +627,7 @@ Item {
                                        : root.nextStepNumber() === 3
                                          ? qsTr("次に行うこと：生徒・講師の回答を取り込み、入力を検証します。")
                                          : root.nextStepNumber() === 4
-                                           ? qsTr("次に行うこと：調整済みの個別枠や集団授業があれば事前確定し、その後に時間割を作成します。")
+                                           ? qsTr("次に行うこと：先に確定させたい指導枠があれば固定し、その後に時間割を作成します。")
                                            : qsTr("次に行うこと：全体・生徒別・講師別の時間割を確認して出力します。")
                         }
 
@@ -641,22 +641,22 @@ Item {
                                 model: [
                                     {"number": "1", "title": qsTr("授業日を決める"),
                                      "detail": qsTr("講習期間・開校日・コマ"),
-                                     "button": qsTr("授業日を設定"), "page": 8},
+                                     "button": qsTr("授業日を設定"), "page": 7},
                                     {"number": "2", "title": qsTr("アンケートを作る"),
                                      "detail": qsTr("設定日時から生徒用・講師用を作成"),
-                                     "button": qsTr("アンケート作成"), "page": 9},
+                                     "button": qsTr("アンケート作成"), "page": 8},
                                     {"number": "3", "title": qsTr("回答を取込む"),
                                      "detail": qsTr("生徒・講師のアンケートを取り込み"),
-                                     "button": qsTr("アンケート取込み"), "page": 4},
+                                     "button": qsTr("アンケート取込み"), "page": 3},
                                     {"number": "4", "title": qsTr("事前確定する"),
                                      "detail": qsTr("先に確定させたいコマを固定"),
-                                     "button": qsTr("固定枠を登録"), "page": 10},
+                                     "button": qsTr("固定枠を登録"), "page": 9},
                                     {"number": "5", "title": qsTr("時間割を配置する"),
-                                     "detail": qsTr("集団授業確認・自動配置・編集"),
-                                     "button": qsTr("時間割を作成"), "page": 5},
+                                     "detail": qsTr("個別指導の自動配置・編集"),
+                                     "button": qsTr("時間割を作成"), "page": 4},
                                     {"number": "6", "title": qsTr("時間割を完成させる"),
                                      "detail": qsTr("生徒別Excel・PDFを出力"),
-                                     "button": qsTr("出力へ進む"), "page": 7}
+                                     "button": qsTr("出力へ進む"), "page": 6}
                                 ]
 
                                 delegate: StepCard {

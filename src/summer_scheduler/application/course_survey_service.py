@@ -518,7 +518,11 @@ def _parse_student_responses(
                         "フォーム回答を修正",
                     )
                 )
-            key = _text_key(subject_name)
+            canonical_subject_name = _canonical_questionnaire_subject(
+                subject_name,
+                subject_header,
+            )
+            key = _text_key(canonical_subject_name)
             if key not in known_subjects:
                 issues.append(
                     _issue(
@@ -542,7 +546,7 @@ def _parse_student_responses(
                     )
                 )
             request_keys.add(key)
-            requests.append((subject_name, count))
+            requests.append((canonical_subject_name, count))
         if not requests:
             issues.append(
                 _issue(
@@ -832,6 +836,26 @@ def _name_key(value: str) -> str:
 
 def _text_key(value: str) -> str:
     return "".join(value.split()).casefold()
+
+
+def _canonical_questionnaire_subject(value: str, header: str) -> str:
+    """短縮したフォーム選択肢をDB・統合xlsxの正式科目名へ戻す。"""
+    normalized = value.replace("（中学受験以外）", "（中学受験以外なら可能）")
+    if normalized.startswith(("小学校・", "中学校・", "高校・")):
+        return normalized
+    if "他学年" in header:
+        match = re.fullmatch(r"(.+)[(（]([小中高])[)）]", normalized)
+        if match:
+            prefix = {"小": "小学校・", "中": "中学校・", "高": "高校・"}[match.group(2)]
+            return prefix + match.group(1)
+    for marker, prefix in (
+        ("小学校", "小学校・"),
+        ("中学校", "中学校・"),
+        ("高校", "高校・"),
+    ):
+        if marker in header:
+            return prefix + normalized
+    return normalized
 
 
 def _text(value: object) -> str:

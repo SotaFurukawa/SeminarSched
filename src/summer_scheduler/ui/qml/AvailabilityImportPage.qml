@@ -222,11 +222,6 @@ Item {
                     font.pixelSize: theme.titleSize
                     font.weight: Font.Bold
                 }
-                Label {
-                    text: qsTr("xlsx／CSVを列マッピングし、0=不可・1=可能・2=希望として安全に反映します。")
-                    color: "#667085"
-                    font.pixelSize: 10
-                }
             }
 
             AppButton {
@@ -244,9 +239,9 @@ Item {
 
             Repeater {
                 model: [
-                    {"label": qsTr("1　回答ファイルを選ぶ")},
-                    {"label": qsTr("2　内容を確認する")},
-                    {"label": qsTr("3　反映完了")}
+                    {"label": qsTr("回答ファイルを選ぶ")},
+                    {"label": qsTr("内容を確認する")},
+                    {"label": qsTr("反映完了")}
                 ]
 
                 delegate: StatusBadge {
@@ -254,6 +249,8 @@ Item {
                     required property int index
                     required property var modelData
                     Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredHeight: 34
                     status: index < root.currentImportStep ? "complete"
                             : index === root.currentImportStep ? "current" : "neutral"
                     symbol: index < root.currentImportStep ? "✓" : String(index + 1)
@@ -293,7 +290,7 @@ Item {
 
                     Label {
                         anchors.centerIn: parent
-                        text: "↓"
+                        text: "!"
                         color: "#ffffff"
                         font.pixelSize: 16
                         font.weight: Font.Bold
@@ -302,7 +299,7 @@ Item {
 
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("回答スプレッドシートで「ファイル」→「ダウンロード」→「カンマ区切り形式（.csv）」を選びます。Z・A・B・Cなど複数のチェックが1セルにまとまっていても、そのまま選択してください。")
+                    text: qsTr("Googleのスプレッドシートから「ファイル」→「ダウンロード」→「カンマ区切り形式（csv）」を選択し、アンケート結果をダウンロードしてください。Z・A・B・Cなど複数のチェックが1セルにまとまっていても、そのまま取り込めます。")
                     color: "#5f4710"
                     font.pixelSize: 10
                     wrapMode: Text.Wrap
@@ -824,6 +821,7 @@ Item {
 
                         Layout.fillWidth: true
                         Layout.preferredHeight: 92
+                        Layout.maximumHeight: 92
                         clip: true
                         spacing: 1
                         model: root.viewModel.sourcePreviewRows || []
@@ -877,7 +875,7 @@ Item {
 
                         Phase3DiffList {
                             rows: root.viewModel.importDiffs
-                            emptyText: qsTr("検証すると、追加・変更・変更なし・削除候補を表示します。")
+                            emptyText: qsTr("追加・変更・変更なし・削除候補を表示します。")
                         }
 
                         Phase3IssueList {
@@ -1111,7 +1109,7 @@ Item {
                         Layout.fillWidth: true
                         kind: root.selectedAvailabilityDateIsOpen() ? "info" : "warning"
                         message: root.selectedAvailabilityDateIsOpen()
-                                 ? qsTr("集団授業などで個別指導を入れないコマは「参加不可」にします。希望（2）を「参加可」に変更すると通常の可能（1）になります。")
+                                 ? qsTr("個別指導を入れないコマは「参加不可」にします。希望（2）を「参加可」に変更すると通常の可能（1）になります。")
                                  : qsTr("休校日は授業を配置しないため、参加可否を編集できません。①設定で開校日に変更すると編集できます。")
                     }
 

@@ -11,7 +11,10 @@ import pytest
 from openpyxl import load_workbook
 from sqlalchemy import select
 
-from summer_scheduler.application.course_survey_service import CourseSurveyService
+from summer_scheduler.application.course_survey_service import (
+    CourseSurveyService,
+    _canonical_questionnaire_subject,
+)
 from summer_scheduler.application.project_service import ProjectService
 from summer_scheduler.infrastructure.db import create_database, upgrade_database
 from summer_scheduler.infrastructure.db.models import (
@@ -90,7 +93,7 @@ def test_generated_google_forms_answers_are_combined_and_stored(
                 "花子",
                 "中2",
                 "在籍生",
-                "中学校・数学",
+                "数学",
                 "3",
                 "Z, A, B, C",
                 "連続希望",
@@ -154,6 +157,27 @@ def test_generated_google_forms_answers_are_combined_and_stored(
         assert workbook["生徒回答原本"]["D2"].value == "中2"
     finally:
         workbook.close()
+
+
+@pytest.mark.parametrize(
+    ("value", "header", "expected"),
+    (
+        ("日本史", "受講教科（高校・1教科目）（必須）", "高校・日本史"),
+        ("化学(高)", "受講教科（他学年・1教科目）（必須）", "高校・化学"),
+        ("理科（中）", "受講教科（他学年・1教科目）（必須）", "中学校・理科"),
+        (
+            "算数（中学受験以外）",
+            "受講教科（小学校・1教科目）（必須）",
+            "小学校・算数（中学受験以外なら可能）",
+        ),
+    ),
+)
+def test_short_questionnaire_subjects_restore_canonical_names(
+    value: str,
+    header: str,
+    expected: str,
+) -> None:
+    assert _canonical_questionnaire_subject(value, header) == expected
 
 
 def test_missing_trial_student_is_warning_and_project_local(

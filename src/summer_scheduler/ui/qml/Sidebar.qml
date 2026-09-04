@@ -64,6 +64,33 @@ Rectangle {
                     onClicked: root.pageSelected(0)
                 }
 
+                Label {
+                    Layout.leftMargin: 18
+                    Layout.topMargin: 12
+                    Layout.bottomMargin: 3
+                    text: qsTr("基本情報")
+                    color: theme.textSecondary
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                }
+
+                Repeater {
+                    model: [1, 2]
+
+                    delegate: SidebarNavButton {
+                        id: basicDataButton
+                        required property int modelData
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 10
+                        enabled: root.projectOpen
+                        itemTitle: root.itemsModel.get(modelData).title
+                        iconText: root.itemsModel.get(modelData).shortLabel
+                        selected: root.currentIndex === modelData
+                        onClicked: root.pageSelected(modelData)
+                    }
+                }
+
                 Item {
                     Layout.fillWidth: true
                     implicitHeight: workflowColumn.implicitHeight
@@ -86,12 +113,12 @@ Rectangle {
 
                         Repeater {
                             model: [
-                                {"index": 8, "prefix": "①"},
-                                {"index": 9, "prefix": "②"},
-                                {"index": 4, "prefix": "③"},
-                                {"index": 10, "prefix": "④"},
-                                {"index": 5, "prefix": "⑤"},
-                                {"index": 7, "prefix": "⑥"}
+                                {"index": 7, "prefix": "①"},
+                                {"index": 8, "prefix": "②"},
+                                {"index": 3, "prefix": "③"},
+                                {"index": 9, "prefix": "④"},
+                                {"index": 4, "prefix": "⑤"},
+                                {"index": 6, "prefix": "⑥"}
                             ]
 
                             delegate: SidebarNavButton {
@@ -112,7 +139,12 @@ Rectangle {
                     }
 
                     Rectangle {
-                        anchors.fill: parent
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 5
+                        anchors.rightMargin: 5
                         visible: !root.projectOpen
                         z: 10
                         radius: 7
@@ -138,32 +170,6 @@ Rectangle {
                     Layout.leftMargin: 18
                     Layout.topMargin: 12
                     Layout.bottomMargin: 3
-                    text: qsTr("データ")
-                    color: theme.textSecondary
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                }
-
-                Repeater {
-                    model: [1, 2, 3]
-
-                    delegate: SidebarNavButton {
-                        id: dataButton
-                        required property int modelData
-                        Layout.fillWidth: true
-                        Layout.leftMargin: 10
-                        Layout.rightMargin: 10
-                        itemTitle: root.itemsModel.get(modelData).title
-                        iconText: root.itemsModel.get(modelData).shortLabel
-                        selected: root.currentIndex === modelData
-                        onClicked: root.pageSelected(modelData)
-                    }
-                }
-
-                Label {
-                    Layout.leftMargin: 18
-                    Layout.topMargin: 12
-                    Layout.bottomMargin: 3
                     text: qsTr("確認")
                     color: theme.textSecondary
                     font.pixelSize: 11
@@ -174,10 +180,11 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.leftMargin: 10
                     Layout.rightMargin: 10
-                    itemTitle: root.itemsModel.get(6).title
-                    iconText: root.itemsModel.get(6).shortLabel
-                    selected: root.currentIndex === 6
-                    onClicked: root.pageSelected(6)
+                    itemTitle: root.itemsModel.get(5).title
+                    iconText: root.itemsModel.get(5).shortLabel
+                    selected: root.currentIndex === 5
+                    enabled: root.projectOpen
+                    onClicked: root.pageSelected(5)
                 }
 
                 Item { Layout.preferredHeight: 12 }

@@ -71,7 +71,7 @@ def test_main_and_application_wire_phase4_page_and_shutdown_guard() -> None:
     app_source = APP_MODULE.read_text(encoding="utf-8")
 
     assert "readonly property var optimization: optimizationViewModel" in main_source
-    assert "root.currentPageIndex === 5" in main_source
+    assert "root.currentPageIndex === 4" in main_source
     assert "? optimizationComponent" in main_source
     assert "ScheduleEditorPage {" in main_source
     assert "OptimizationPage {" in main_source

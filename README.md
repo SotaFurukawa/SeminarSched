@@ -10,9 +10,9 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.5.0 (Beta)** です。v1系はすべてBeta版としてGitHubの
+現在のアプリ版は **v1.6.0 (Beta)** です。v1系はすべてBeta版としてGitHubの
 Pre-releaseで配布し、正式リリースを明示的に決定するまではv1系を継続します。Phase 1の
-起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・集団授業・
+起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
 ドラッグ＆ドロップの即時検証、ロック、Undo / Redo、差分・監査、自動保存、
 ロック以外の全体再最適化に加え、共通レイアウトからのExcel・PDF・CSV出力を
@@ -43,8 +43,8 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 1. 共通名簿を確認し、授業日・コマを設定する
 2. 設定した日時から生徒用・講師用アンケートを作る
 3. 生徒・講師アンケートの回答をまとめて取り込む
-4. 調整済みの個別指導、または個別指導を入れない集団授業を「事前確定」で固定する
-5. 集団授業を確認し、時間割を自動作成・編集する
+4. 調整済みの個別指導を「事前確定」で固定する
+5. 時間割を自動作成・編集する
 6. 全体・講師別・生徒別のExcel / PDFを出力する
 
 ホームの`生徒・講師_基本情報.xlsx`は講習間で共通です。「新規で基本情報を作成」、
@@ -56,9 +56,11 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 初期状態でオンですが姓が空なら取込み対象外で、入力後もワンクリックでオン・オフできます。
 セル内チェックボックスの表示と操作にはMicrosoft 365またはExcel 2024以降が必要です。
 古いExcelでは同じ値が`TRUE`／`FALSE`で表示されます。
-集団授業は週カレンダー、時間割編集は未配置・時間割・
-選択詳細の3ペインです。出力は対象、形式、保存先の順に進み、詳細な帳票設定は必要な
+時間割編集は未配置・時間割・選択詳細の3ペインです。出力は対象、形式、保存先の順に進み、詳細な帳票設定は必要な
 場合だけ開きます。詳細は[`docs/user_manual.md`](docs/user_manual.md)を参照してください。
+
+v1.6.0では集団授業の操作機能を一時的に停止しています。既存プロジェクトとの互換性を
+保つ保存構造は残し、集団授業の再導入はv2.0.0で行います。
 
 ①で開校日とコマを設定した後、②「アンケート作成」から、生徒用・講師勤務日時用・
 講師指導可能科目用のGoogle Apps Scriptと作成手順を一括出力できます。講師用ではメール
@@ -74,15 +76,15 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.5.0.exe`
-- `SummerCourseScheduler-Portable-1.5.0.zip`
+- `SummerCourseScheduler-Setup-1.6.0.exe`
+- `SummerCourseScheduler-Portable-1.6.0.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.5.0.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.5.0.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.6.0.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.6.0.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -174,9 +176,6 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 - 追加・変更・変更なし・削除候補のセル差分と、明示選択時だけの削除
 - 通常担当講師、優先度5、1対1契約をアンケートから上書きしない保護
 - 学年→生徒→受講予定科目→講師→日時の順で選び、ハード制約検証後にロックする個別事前確定
-- 学年・科目・講師・日時を選び、同じ講師へ個別を重ねない集団授業の事前確定
-- 任意の開始・終了時刻を持つ集団授業と受講者の2シート取込み
-- 半開区間による講師・生徒の集団授業衝突検証
 - ImportBatch、AuditLog、ValidationIssueによる取込み・検証記録
 - 生徒10名、講師5名等を含む架空名だけの匿名サンプル生成
 - 初回起動時のアプリ管理SQLite DB初期化
@@ -191,7 +190,7 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 - portable ZIP、Inno Setup installer、SHA-256を同じstandalone treeから作る配布基盤
 - runtime依存license収集、性能記録、最終受入表、release checklist
 - SQLAlchemy ORMやQMLへ依存しない、不変な最適化DTOとJSONスナップショット
-- 開校日、有効コマ、0／1／2のavailability、講師資格、優先度5、集団授業、
+- 開校日、有効コマ、0／1／2のavailability、講師資格、優先度5、
   固定授業を考慮した疎な候補生成
 - 必要回数ごとの配置または未配置、生徒重複禁止、講師最大2名、1対1必須、
   生徒・講師の空きコマ禁止、生徒の連続上限等をCP-SATのハード制約として適用
@@ -207,7 +206,7 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 - 前日・翌日、日付タブ、カレンダー、日表示、複数日サマリー、拡大縮小
 - 生徒・講師検索、学年・科目・1対1・優先度5・警告・ロック・未配置の絞込み
 - 生徒名、学年、科目、1対1、優先度5、ロック、手動変更、警告を示す授業カードと、
-  集団授業ブロック、詳細・履歴パネル
+  詳細・履歴パネル
 - 配置済みカードまたは未配置カードの、別日・別コマ・別講師への
   ドラッグ＆ドロップ
 - Phase 4と同じ独立validatorによるドロップ前検証。ハード制約違反は赤で拒否し、
@@ -235,7 +234,7 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
 - 用紙、向き、日数、講師列数、文字サイズ、余白、表示項目、色＋文字記号、
   ファイル名規則、既定出力先、生徒別改ページ、CSV BOMのプロジェクト別保存
 - 校舎マスターを正本とするロゴ設定（PDFヘッダーへ表示。Excelへは画像を埋め込まない）
-- 18列の割当て生データCSV、UTF-8 BOM有無、個別授業・集団授業、数式注入対策
+- 18列の割当て生データCSV、UTF-8 BOM有無、個別授業、数式注入対策
 - 出力直前の最新DB再読込みと独立ハード制約検証、未配置理由と単独配置可能候補
 - 同名上書き確認、同一ディレクトリ一時ファイルと原子的置換、日本語の権限エラー
 - Alembic revision `20260729_0006`によるプロジェクト別出力設定
@@ -339,7 +338,7 @@ python -m summer_scheduler --config .\config.example.yaml
 
 詳細な画面確認手順は
 [`docs/manual_test_phase2.md`](docs/manual_test_phase2.md)を参照してください。
-Phase 3の取込み・集団授業・入力検証は
+Phase 3の取込み・入力検証は
 [`docs/manual_test_phase3.md`](docs/manual_test_phase3.md)を参照してください。
 Phase 4の最適化画面とWindows実機での中断・結果保存確認は
 [`docs/manual_test_phase4.md`](docs/manual_test_phase4.md)を参照してください。
@@ -386,7 +385,7 @@ Excelを外部で編集する際は、シート名とヘッダー名を変更し
 アンケート取込みウィザードではありません。列ごとの仕様とエラー／警告の区別は
 [`docs/master_data_excel.md`](docs/master_data_excel.md)を参照してください。
 
-## アンケート・集団授業・入力検証
+## アンケート・入力検証
 
 「アンケート取込み」では、生徒または講師のxlsx / CSVを選び、xlsxのシート、CSVの
 文字コード、入力列と保存先項目の対応を確認してから検証します。生徒テンプレートは
@@ -410,9 +409,8 @@ Googleフォーム作成手順は、モーダル内の左下にある「別ウ�
 削除します。反映直前にファイルを再読込み・再検証し、業務データ、ImportBatch、
 AuditLogを1トランザクションで保存します。
 
-「集団授業」では `group_lessons.xlsx` の「集団授業」「受講者」2シートを取り込み
-ます。Y/Z/A/B/Cと完全一致しない時刻も使用でき、時間区間は `[開始, 終了)` として
-判定します。ある授業の終了と次の開始が同じだけなら重複ではありません。
+集団授業の操作画面と取込みはv1.6.0で一時停止しています。既存データの保存形式だけを
+互換性のために維持し、v2.0.0で操作フローを再設計します。
 
 「未配置・警告」では保存済みプロジェクトを再検証し、エラー、警告、情報を区別して
 ValidationIssueへ保存します。エラーがある状態はPhase 4の最適化入力として使用
@@ -473,7 +471,7 @@ PDFは「印刷プレビューを更新」で一時ファイルを生成し、�
 拡大縮小、幅合わせ、全体表示を確認してから保存します。一時PDFは条件変更時と
 アプリ終了時に削除され、プロジェクトDBには保存しません。ExcelとPDFは同じ
 `LayoutDocument`から生成し、全体時間割には日付ブロック、コマ・時刻、講師列、
-最大2名分の生徒・学年・科目、1対1、集団授業、休校、特記事項、凡例を含めます。
+最大2名分の生徒・学年・科目、1対1、休校、特記事項、凡例を含めます。
 
 用紙、向き、1ページの日数、講師列数、文字サイズ、余白、表示項目、色と
 文字マーカー、ファイル名規則、既定出力先、生徒別改ページ、CSV BOMは
@@ -485,7 +483,7 @@ PDFは「印刷プレビューを更新」で一時ファイルを生成し、�
 休校の文字記号を併記します。
 
 実ファイル生成の直前には最新DBを読み直し、Phase 4と同じ独立validatorで現在の
-全Assignmentを再検査します。容量、1対1、重複、空きコマ、連続上限、集団授業、
+全Assignmentを再検査します。容量、1対1、重複、空きコマ、連続上限、
 固定授業等のハード制約違反があれば出力しません。同名ファイルは確認なしに上書きせず、
 一時ファイルの生成が成功した後だけ原子的に置き換えます。
 
@@ -577,11 +575,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.5.0
+  -Version 1.6.0
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.5.0.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.6.0.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -593,13 +591,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.5.0 `
+  -Version 1.6.0 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.5.0.zip `
-  dist\SummerCourseScheduler-Setup-1.5.0.exe
+  dist\SummerCourseScheduler-Portable-1.6.0.zip `
+  dist\SummerCourseScheduler-Setup-1.6.0.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

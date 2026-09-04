@@ -87,7 +87,7 @@ Item {
         Rectangle {
             SplitView.preferredWidth: 430
             SplitView.minimumWidth: root.width < 820 ? 0 : 320
-            SplitView.preferredHeight: root.width < 820 ? 270 : -1
+            SplitView.preferredHeight: root.width < 820 ? 405 : -1
             color: "#f8fafc"
             border.color: "#e2e7ee"
             radius: 8
