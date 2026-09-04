@@ -26,8 +26,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 def test_release_version_and_tag_match_project_metadata() -> None:
     version = version_from_pyproject(REPOSITORY_ROOT / "pyproject.toml")
 
-    assert version == "1.4.3"
-    validate_tag("v1.4.3", version)
+    assert version == "1.4.4"
+    validate_tag("v1.4.4", version)
     with pytest.raises(ReleasePackagingError, match="一致しません"):
         validate_tag("v1.0.0", version)
     with pytest.raises(ReleasePackagingError, match="Semantic Versioning"):
