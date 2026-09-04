@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -842,7 +842,7 @@ class WorkspaceViewModel(QObject):
         return self._perform(action, "コマを削除しました")
 
     @Slot("QVariantList", result=bool)
-    def reorderTimeSlots(self, ordered_values: list[object]) -> bool:
+    def reorderTimeSlots(self, ordered_values: Sequence[object]) -> bool:
         def action() -> None:
             self._master_data.reorder_time_slots(
                 _required_int(value, "コマID") for value in ordered_values
@@ -888,8 +888,8 @@ class WorkspaceViewModel(QObject):
     @Slot("QVariantList", "QVariantList", result=bool)
     def setOpenDateTimeSlots(
         self,
-        date_values: list[object],
-        time_slot_values: list[object],
+        date_values: Sequence[object],
+        time_slot_values: Sequence[object],
     ) -> bool:
         def action() -> None:
             days = tuple(parse_iso_date(str(value), "dates") for value in date_values)
