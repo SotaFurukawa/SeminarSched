@@ -242,10 +242,14 @@ Dialog {
 
                         Label {
                             Layout.fillWidth: true
-                            text: guideCard.modelData.description
+                            text: String(guideCard.modelData.description)
+                                  .replace("https://script.google.com/home",
+                                           "<a href=\"https://script.google.com/home\">https://script.google.com/home</a>")
                             color: theme.textSecondary
                             font.pixelSize: 12
+                            textFormat: Text.RichText
                             wrapMode: Text.WordWrap
+                            onLinkActivated: function(link) { Qt.openUrlExternally(link) }
                         }
 
                         GridLayout {

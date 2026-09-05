@@ -9,7 +9,6 @@ Item {
 
     required property var viewModel
     property var checkedDateValues: []
-    property var checkedSlotIds: []
     property var draftRows: []
     property bool draftDirty: false
     property int draftRevision: 0
@@ -42,7 +41,6 @@ Item {
     function reloadDraft() {
         root.draftRows = root.cloneRows()
         root.checkedDateValues = []
-        root.checkedSlotIds = []
         root.draftDirty = false
         root.draftRevision += 1
     }
@@ -123,12 +121,6 @@ Item {
         else if (!checked && index >= 0)
             next.splice(index, 1)
         root.checkedDateValues = next
-        if (next.length > 0) {
-            const row = root.draftRow(next[next.length - 1])
-            root.checkedSlotIds = root.rowValue(row, "enabledTimeSlotIds", []).slice()
-        } else {
-            root.checkedSlotIds = []
-        }
     }
 
     function selectAllDates() {
@@ -136,29 +128,53 @@ Item {
         for (let i = 0; i < root.draftRows.length; ++i)
             next.push(String(root.draftRows[i].date))
         root.checkedDateValues = next
-        root.checkedSlotIds = next.length > 0
-                ? root.rowValue(root.draftRows[0], "enabledTimeSlotIds", []).slice() : []
     }
 
-    function isSlotChecked(value) {
-        return root.checkedSlotIds.indexOf(Number(value)) >= 0
+    function slotCheckState(value) {
+        if (root.checkedDateValues.length === 0)
+            return Qt.Unchecked
+        const id = Number(value)
+        let selectedCount = 0
+        for (let i = 0; i < root.checkedDateValues.length; ++i) {
+            const row = root.draftRow(root.checkedDateValues[i])
+            const slots = root.rowValue(row, "enabledTimeSlotIds", [])
+            if (slots.indexOf(id) >= 0)
+                selectedCount += 1
+        }
+        if (selectedCount === 0)
+            return Qt.Unchecked
+        if (selectedCount === root.checkedDateValues.length)
+            return Qt.Checked
+        return Qt.PartiallyChecked
     }
 
     function setSlotChecked(value, checked) {
         const id = Number(value)
-        const nextSlots = root.checkedSlotIds.slice()
-        const slotIndex = nextSlots.indexOf(id)
-        if (checked && slotIndex < 0)
-            nextSlots.push(id)
-        else if (!checked && slotIndex >= 0)
-            nextSlots.splice(slotIndex, 1)
-        root.checkedSlotIds = nextSlots
+        for (let i = 0; i < root.checkedDateValues.length; ++i) {
+            const rowIndex = root.draftIndex(root.checkedDateValues[i])
+            const row = rowIndex >= 0 ? root.draftRows[rowIndex] : null
+            if (row) {
+                const nextSlots = root.rowValue(row, "enabledTimeSlotIds", []).slice()
+                const slotIndex = nextSlots.indexOf(id)
+                if (checked && slotIndex < 0)
+                    nextSlots.push(id)
+                else if (!checked && slotIndex >= 0)
+                    nextSlots.splice(slotIndex, 1)
+                root.replaceDraftRow(rowIndex, row.isOpen, nextSlots)
+            }
+        }
+        root.persistDraft()
+    }
+
+    function setAllSelectedSlots() {
+        const slots = root.allEnabledSlotIds()
         for (let i = 0; i < root.checkedDateValues.length; ++i) {
             const rowIndex = root.draftIndex(root.checkedDateValues[i])
             const row = rowIndex >= 0 ? root.draftRows[rowIndex] : null
             if (row)
-                root.replaceDraftRow(rowIndex, row.isOpen, nextSlots)
+                root.replaceDraftRow(rowIndex, row.isOpen, slots)
         }
+        root.persistDraft()
     }
 
     function setSelectedDatesOpen(isOpen) {
@@ -172,6 +188,7 @@ Item {
                                      isOpen && slots.length === 0 ? defaults : slots)
             }
         }
+        root.persistDraft()
     }
 
     function setAllDatesOpen() {
@@ -180,6 +197,7 @@ Item {
             const slots = root.rowValue(root.draftRows[i], "enabledTimeSlotIds", [])
             root.replaceDraftRow(i, true, slots.length === 0 ? defaults : slots)
         }
+        root.persistDraft()
     }
 
     function setWeekdayClosed(weekdayIndex) {
@@ -188,9 +206,12 @@ Item {
             if (day.getDay() === Number(weekdayIndex))
                 root.replaceDraftRow(i, false, root.draftRows[i].enabledTimeSlotIds)
         }
+        root.persistDraft()
     }
 
-    function saveAll() {
+    function persistDraft() {
+        if (!root.draftDirty)
+            return
         const entries = []
         for (let i = 0; i < root.draftRows.length; ++i) {
             entries.push({
@@ -224,14 +245,12 @@ Item {
                 spacing: 1
                 Label { text: qsTr("開校日・休校日カレンダー"); color: "#344054"; font.pixelSize: 15; font.weight: Font.DemiBold }
                 Label {
-                    text: qsTr("%1 ～ %2（変更は最後にまとめて保存します）")
+                    text: qsTr("%1 ～ %2（変更は自動的に保存されます）")
                           .arg(root.viewModel.currentStartDate || "----/--/--")
                           .arg(root.viewModel.currentEndDate || "----/--/--")
                     color: "#667085"; font.pixelSize: 9
                 }
             }
-            Button { text: qsTr("変更を破棄"); enabled: root.draftDirty; onClicked: { root.reloadDraft(); root.viewModel.discardDraft() } }
-            Button { text: qsTr("すべての変更を保存"); highlighted: true; enabled: root.draftDirty; onClicked: root.saveAll() }
         }
 
         Rectangle {
@@ -249,7 +268,7 @@ Item {
                 }
                 Button { text: qsTr("指定曜日を休校"); onClicked: root.setWeekdayClosed(weekdayBulk.currentIndex) }
                 Button { text: qsTr("すべて選択"); onClicked: root.selectAllDates() }
-                Button { text: qsTr("選択解除"); enabled: root.checkedDateValues.length > 0; onClicked: { root.checkedDateValues = []; root.checkedSlotIds = [] } }
+                Button { text: qsTr("選択解除"); enabled: root.checkedDateValues.length > 0; onClicked: root.checkedDateValues = [] }
                 Label { height: 36; verticalAlignment: Text.AlignVCenter; text: qsTr("%1日選択中").arg(root.checkedDateValues.length); color: root.checkedDateValues.length ? "#2767c5" : "#667085" }
                 Button { text: qsTr("選択日を休校"); enabled: root.checkedDateValues.length > 0; onClicked: root.setSelectedDatesOpen(false) }
                 Button { text: qsTr("選択日を開校"); highlighted: true; enabled: root.checkedDateValues.length > 0; onClicked: root.setSelectedDatesOpen(true) }
@@ -273,18 +292,19 @@ Item {
                         visible: Boolean(root.rowValue(slotChoice.modelData, "enabled", false))
                         enabled: root.checkedDateValues.length > 0
                         text: String(root.rowValue(slotChoice.modelData, "code", ""))
-                        checked: root.isSlotChecked(root.rowValue(slotChoice.modelData, "id", 0))
-                        onClicked: root.setSlotChecked(root.rowValue(slotChoice.modelData, "id", 0), checked)
+                        tristate: true
+                        checkState: root.slotCheckState(root.rowValue(slotChoice.modelData, "id", 0))
+                        nextCheckState: function() {
+                            return checkState === Qt.Checked ? Qt.Unchecked : Qt.Checked
+                        }
+                        onClicked: root.setSlotChecked(root.rowValue(slotChoice.modelData, "id", 0), checkState === Qt.Checked)
                     }
                 }
                 Button {
                     text: qsTr("全コマ")
                     enabled: root.checkedDateValues.length > 0
                     onClicked: {
-                        root.checkedSlotIds = []
-                        const slots = root.allEnabledSlotIds()
-                        for (let i = 0; i < slots.length; ++i)
-                            root.setSlotChecked(slots[i], true)
+                        root.setAllSelectedSlots()
                     }
                 }
             }
@@ -310,7 +330,7 @@ Item {
                 GridView {
                     id: calendarGrid
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-                    cellWidth: width / 7; cellHeight: 88; model: root.calendarRows
+                    cellWidth: Math.floor((width - 18) / 7); cellHeight: 88; model: root.calendarRows
                     boundsBehavior: Flickable.StopAtBounds
                     ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
                     delegate: Item {

@@ -97,6 +97,8 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
         *subject_groups["juniorHigh"],
         *subject_groups["highSchool"],
     ]
+    # 同じ短縮名が別学年区分に現れるのは正常で、区分をまたぐ重複では失敗させない。
+    assert len(generated_subjects) > len(set(generated_subjects))
     assert "日本史" in generated_subjects
     assert "高校・日本史" not in generated_subjects
     assert "算数（中学受験以外）" in generated_subjects
@@ -113,6 +115,8 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
         *teacher_subject_groups["highSchool"],
     ] == [subject.display_name for subject in DEFAULT_SUBJECTS]
     assert "function createStudentQuestionnaire()" in student_source
+    assert "const invalidGroup = subjectGroups.some" in student_source
+    assert "const subjects = Object.values" not in student_source
     assert 'item.createChoice("受講する", crossLevelPage)' in student_source
     assert "crossLevelPage.setGoToPage(availabilityPage)" in student_source
     assert "function createReplacementStudentQuestionnaire()" in student_source

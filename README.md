@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.6.0 (Beta)** です。v1系はすべてBeta版としてGitHubの
+現在のアプリ版は **v1.6.1 (Beta)** です。v1系はすべてBeta版としてGitHubの
 Pre-releaseで配布し、正式リリースを明示的に決定するまではv1系を継続します。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
@@ -56,16 +56,21 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 初期状態でオンですが姓が空なら取込み対象外で、入力後もワンクリックでオン・オフできます。
 セル内チェックボックスの表示と操作にはMicrosoft 365またはExcel 2024以降が必要です。
 古いExcelでは同じ値が`TRUE`／`FALSE`で表示されます。
+生徒・講師の基本情報画面はプロジェクト未選択時にも開け、そこでの追加・変更は
+共通の`生徒・講師_基本情報.xlsx`へ直接反映されます。
 時間割編集は未配置・時間割・選択詳細の3ペインです。出力は対象、形式、保存先の順に進み、詳細な帳票設定は必要な
 場合だけ開きます。詳細は[`docs/user_manual.md`](docs/user_manual.md)を参照してください。
 
-v1.6.0では集団授業の操作機能を一時的に停止しています。既存プロジェクトとの互換性を
+v1.6.0以降は集団授業の操作機能を一時的に停止しています。既存プロジェクトとの互換性を
 保つ保存構造は残し、集団授業の再導入はv2.0.0で行います。
 
 ①で開校日とコマを設定した後、②「アンケート作成」から、生徒用・講師勤務日時用・
 講師指導可能科目用のGoogle Apps Scriptと作成手順を一括出力できます。講師用ではメール
 アドレスを収集しません。アプリはGoogleへ直接接続せず、回答や個人情報もスクリプトへ
-書き出しません。
+書き出しません。Apps Scriptは画面のボタンまたは作成手順内のリンクから直接開けます。
+
+開校日・休校日と日別の使用コマは操作のたびに自動保存されます。使用コマが異なる
+複数日を選んだ場合も、混在状態のコマだけをまとめて追加・解除できます。
 
 回答後は生徒回答と講師回答のCSV／xlsxを「生徒・講師回答をまとめて取り込む」へそれぞれ
 1回ずつ指定します。基本情報にない在籍生・講師は赤、フォームで体験生と回答した生徒は
@@ -76,15 +81,15 @@ v1.6.0では集団授業の操作機能を一時的に停止しています。�
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.6.0.exe`
-- `SummerCourseScheduler-Portable-1.6.0.zip`
+- `SummerCourseScheduler-Setup-1.6.1.exe`
+- `SummerCourseScheduler-Portable-1.6.1.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.6.0.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.6.0.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.6.1.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.6.1.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -575,11 +580,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.6.0
+  -Version 1.6.1
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.6.0.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.6.1.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -591,13 +596,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.6.0 `
+  -Version 1.6.1 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.6.0.zip `
-  dist\SummerCourseScheduler-Setup-1.6.0.exe
+  dist\SummerCourseScheduler-Portable-1.6.1.zip `
+  dist\SummerCourseScheduler-Setup-1.6.1.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

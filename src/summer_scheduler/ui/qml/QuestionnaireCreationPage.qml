@@ -238,6 +238,11 @@ Item {
                             onClicked: root.viewModel.openQuestionnaireScriptDirectory()
                         }
                         AppButton {
+                            text: qsTr("Google App Script")
+                            onClicked: Qt.openUrlExternally("https://script.google.com/home")
+                            Accessible.name: qsTr("Google Apps Scriptを開く")
+                        }
+                        AppButton {
                             text: qsTr("作成手順")
                             onClicked: guideDialog.open()
                         }

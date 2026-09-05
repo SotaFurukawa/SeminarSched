@@ -77,6 +77,9 @@ class WorkspaceViewModel(QObject):
         self._student_grade = ""
         self._teacher_search = ""
         self._selected_teacher_id: int | None = None
+        self._shared_student_ids: dict[int, str] = {}
+        self._shared_teacher_ids: dict[int, str] = {}
+        self._shared_subject_codes: dict[int, str] = {}
         self._students: list[dict[str, object]] = []
         self._teachers: list[dict[str, object]] = []
         self._subjects: list[dict[str, object]] = []
@@ -90,6 +93,13 @@ class WorkspaceViewModel(QObject):
         self._excel_preview: ImportPreview | None = None
         self._excel_preview_summary: dict[str, int] | None = None
         self._excel_issues: list[dict[str, object]] = []
+        try:
+            self._shared_roster.ensure_workbook()
+            if self._projects.current is None:
+                self._refresh_shared_roster_collections()
+        except (OSError, ValueError) as exc:
+            logger.warning("共通基本情報を初期表示できませんでした（%s）", type(exc).__name__)
+            self._error_message = str(exc)
         self._refresh_recent_projects()
         self._refresh_recovery_candidates()
 
@@ -294,6 +304,7 @@ class WorkspaceViewModel(QObject):
             self._workflow_completed_step = 0
             self.workflowProgressChanged.emit()
             self._clear_project_collections()
+            self._refresh_shared_roster_collections()
             self.projectStateChanged.emit()
             self._refresh_recent_projects()
             self._refresh_recovery_candidates()
@@ -535,6 +546,7 @@ class WorkspaceViewModel(QObject):
             return False
         self._projects.close_project()
         self._clear_project_collections()
+        self._refresh_shared_roster_collections()
         self._selected_teacher_id = None
         self._workflow_completed_step = 0
         self.workflowProgressChanged.emit()
@@ -563,7 +575,10 @@ class WorkspaceViewModel(QObject):
         """開いているプロジェクトの全表示データを読み直す。"""
         if self._projects.current is None:
             self._refresh_recent_projects()
-            return True
+            return self._perform(
+                self._refresh_shared_roster_collections,
+                "基本情報を更新しました",
+            )
         return self._perform(
             self._refresh_all_collections,
             "表示データを更新しました",
@@ -573,14 +588,12 @@ class WorkspaceViewModel(QObject):
     def setStudentFilter(self, search: str, grade: str) -> None:
         self._student_search = search
         self._student_grade = grade
-        if self._projects.current is not None:
-            self._refresh_students()
+        self._refresh_students()
 
     @Slot(str)
     def setTeacherFilter(self, search: str) -> None:
         self._teacher_search = search
-        if self._projects.current is not None:
-            self._refresh_teachers()
+        self._refresh_teachers()
 
     # Students
 
@@ -597,6 +610,20 @@ class WorkspaceViewModel(QObject):
         active: bool,
     ) -> bool:
         def action() -> str:
+            if self._projects.current is None:
+                _, warnings = self._shared_roster.save_shared_student(
+                    record_external_id=self._shared_student_ids.get(record_id),
+                    external_id=external_id,
+                    name=name,
+                    grade=grade,
+                    max_consecutive_slots=max_consecutive,
+                    allow_gap=allow_gap,
+                    note=note,
+                    active=active,
+                )
+                self._refresh_students()
+                self._set_dirty(False)
+                return "、".join(warnings)
             result = self._master_data.save_student(
                 record_id=_optional_id(record_id),
                 external_id=external_id,
@@ -618,6 +645,12 @@ class WorkspaceViewModel(QObject):
     @Slot(int, result=bool)
     def deactivateStudent(self, record_id: int) -> bool:
         def action() -> None:
+            if self._projects.current is None:
+                self._shared_roster.deactivate_shared_student(
+                    self._required_shared_id(self._shared_student_ids, record_id, "生徒")
+                )
+                self._refresh_students()
+                return
             self._master_data.deactivate_student(record_id)
             self._refresh_students()
             self._shared_roster.sync_from_current_project()
@@ -627,6 +660,12 @@ class WorkspaceViewModel(QObject):
     @Slot(int, result=bool)
     def deleteStudent(self, record_id: int) -> bool:
         def action() -> None:
+            if self._projects.current is None:
+                self._shared_roster.delete_shared_student(
+                    self._required_shared_id(self._shared_student_ids, record_id, "生徒")
+                )
+                self._refresh_students()
+                return
             self._master_data.delete_student(record_id)
             self._refresh_students()
             self._refresh_lesson_requests()
@@ -686,6 +725,18 @@ class WorkspaceViewModel(QObject):
         active: bool,
     ) -> bool:
         def action() -> str:
+            if self._projects.current is None:
+                _, warnings = self._shared_roster.save_shared_teacher(
+                    record_external_id=self._shared_teacher_ids.get(record_id),
+                    external_id=external_id,
+                    name=name,
+                    allow_gap=allow_gap,
+                    note=note,
+                    active=active,
+                )
+                self._refresh_teachers()
+                self._set_dirty(False)
+                return "、".join(warnings)
             result = self._master_data.save_teacher(
                 record_id=_optional_id(record_id),
                 external_id=external_id,
@@ -705,6 +756,12 @@ class WorkspaceViewModel(QObject):
     @Slot(int, result=bool)
     def deactivateTeacher(self, record_id: int) -> bool:
         def action() -> None:
+            if self._projects.current is None:
+                self._shared_roster.deactivate_shared_teacher(
+                    self._required_shared_id(self._shared_teacher_ids, record_id, "講師")
+                )
+                self._refresh_teachers()
+                return
             self._master_data.deactivate_teacher(record_id)
             self._refresh_teachers()
             self._shared_roster.sync_from_current_project()
@@ -714,6 +771,14 @@ class WorkspaceViewModel(QObject):
     @Slot(int, result=bool)
     def deleteTeacher(self, record_id: int) -> bool:
         def action() -> None:
+            if self._projects.current is None:
+                self._shared_roster.delete_shared_teacher(
+                    self._required_shared_id(self._shared_teacher_ids, record_id, "講師")
+                )
+                self._selected_teacher_id = None
+                self._refresh_teachers()
+                self._refresh_qualifications()
+                return
             self._master_data.delete_teacher(record_id)
             self._selected_teacher_id = None
             self._qualifications = []
@@ -737,6 +802,23 @@ class WorkspaceViewModel(QObject):
             return False
 
         def action() -> None:
+            if self._projects.current is None:
+                teacher_external_id = self._required_shared_id(
+                    self._shared_teacher_ids, teacher_id, "講師"
+                )
+                subject_code = self._required_shared_id(
+                    self._shared_subject_codes, subject_id, "科目"
+                )
+                data = self._shared_roster.read_roster()
+                values = {
+                    row.subject_code: row.can_teach
+                    for row in data.qualifications
+                    if row.teacher_external_id == teacher_external_id
+                }
+                values[subject_code] = can_teach
+                self._shared_roster.replace_shared_qualifications(teacher_external_id, values)
+                self._refresh_qualifications()
+                return
             self._master_data.set_qualification(
                 teacher_id,
                 subject_id,
@@ -767,6 +849,22 @@ class WorkspaceViewModel(QObject):
             return False
 
         def action() -> None:
+            if self._projects.current is None:
+                teacher_external_id = self._required_shared_id(
+                    self._shared_teacher_ids, teacher_id, "講師"
+                )
+                shared_values = {
+                    self._required_shared_id(
+                        self._shared_subject_codes, subject_id, "科目"
+                    ): can_teach
+                    for subject_id, can_teach in qualifications.items()
+                }
+                self._shared_roster.replace_shared_qualifications(
+                    teacher_external_id, shared_values
+                )
+                self._refresh_qualifications()
+                self._set_dirty(False)
+                return
             self._master_data.replace_qualifications(
                 teacher_id,
                 qualifications,
@@ -786,6 +884,27 @@ class WorkspaceViewModel(QObject):
             return False
 
         def action() -> None:
+            if self._projects.current is None:
+                teacher_external_id = self._required_shared_id(
+                    self._shared_teacher_ids, teacher_id, "講師"
+                )
+                data = self._shared_roster.read_roster()
+                values = {
+                    row.subject_code: row.can_teach
+                    for row in data.qualifications
+                    if row.teacher_external_id == teacher_external_id
+                }
+                selected_levels = (
+                    set(SCHOOL_LEVEL_LABELS)
+                    if not school_level
+                    else {_normalize_school_level(school_level)}
+                )
+                for subject in data.subjects:
+                    if subject.school_level in selected_levels:
+                        values[subject.code] = can_teach
+                self._shared_roster.replace_shared_qualifications(teacher_external_id, values)
+                self._refresh_qualifications()
+                return
             levels = (
                 tuple(SCHOOL_LEVEL_LABELS)
                 if not school_level
@@ -811,6 +930,17 @@ class WorkspaceViewModel(QObject):
             return False
 
         def action() -> None:
+            if self._projects.current is None:
+                self._shared_roster.copy_shared_qualifications(
+                    source_teacher_external_id=self._required_shared_id(
+                        self._shared_teacher_ids, source_teacher_id, "コピー元講師"
+                    ),
+                    target_teacher_external_id=self._required_shared_id(
+                        self._shared_teacher_ids, teacher_id, "講師"
+                    ),
+                )
+                self._refresh_qualifications()
+                return
             self._master_data.copy_qualifications(
                 source_teacher_id=source_teacher_id,
                 target_teacher_id=teacher_id,
@@ -1048,6 +1178,8 @@ class WorkspaceViewModel(QObject):
             if self._projects.current is not None:
                 self._refresh_all_collections()
                 self.projectStateChanged.emit()
+            else:
+                self._refresh_shared_roster_collections()
 
         return self._perform(action, "基本情報を取り込み、現在の講習へ反映しました")
 
@@ -1152,7 +1284,40 @@ class WorkspaceViewModel(QObject):
         self._refresh_lesson_requests()
         self._refresh_qualifications()
 
+    def _refresh_shared_roster_collections(self) -> None:
+        self._refresh_students()
+        self._refresh_teachers()
+        self._refresh_subjects()
+        self._refresh_qualifications()
+
     def _refresh_students(self) -> None:
+        if self._projects.current is None:
+            data = self._shared_roster.read_roster()
+            ordered = sorted(data.students, key=lambda row: (not row.active, row.external_id))
+            self._shared_student_ids = {
+                index: row.external_id for index, row in enumerate(ordered, start=1)
+            }
+            query = self._student_search.strip().casefold()
+            self._students = [
+                {
+                    "id": index,
+                    "externalId": row.external_id,
+                    "name": row.name,
+                    "grade": row.grade,
+                    "maxConsecutive": row.max_consecutive_slots,
+                    "allowGap": row.allow_gap,
+                    "note": row.note,
+                    "active": row.active,
+                }
+                for index, row in enumerate(ordered, start=1)
+                if (
+                    not query or query in row.external_id.casefold() or query in row.name.casefold()
+                )
+                and (not self._student_grade or row.grade == self._student_grade)
+            ]
+            self.studentsChanged.emit()
+            return
+        self._shared_student_ids = {}
         rows = self._master_data.list_students(
             search=self._student_search,
             grade=self._student_grade,
@@ -1173,6 +1338,28 @@ class WorkspaceViewModel(QObject):
         self.studentsChanged.emit()
 
     def _refresh_teachers(self) -> None:
+        if self._projects.current is None:
+            data = self._shared_roster.read_roster()
+            ordered = sorted(data.teachers, key=lambda row: (not row.active, row.external_id))
+            self._shared_teacher_ids = {
+                index: row.external_id for index, row in enumerate(ordered, start=1)
+            }
+            query = self._teacher_search.strip().casefold()
+            self._teachers = [
+                {
+                    "id": index,
+                    "externalId": row.external_id,
+                    "name": row.name,
+                    "allowGap": row.allow_gap,
+                    "note": row.note,
+                    "active": row.active,
+                }
+                for index, row in enumerate(ordered, start=1)
+                if not query or query in row.external_id.casefold() or query in row.name.casefold()
+            ]
+            self.teachersChanged.emit()
+            return
+        self._shared_teacher_ids = {}
         rows = self._master_data.list_teachers(search=self._teacher_search)
         self._teachers = [
             {
@@ -1188,6 +1375,29 @@ class WorkspaceViewModel(QObject):
         self.teachersChanged.emit()
 
     def _refresh_subjects(self) -> None:
+        if self._projects.current is None:
+            data = self._shared_roster.read_roster()
+            ordered = sorted(
+                data.subjects,
+                key=lambda row: (row.school_level, row.sort_order, row.code),
+            )
+            self._shared_subject_codes = {
+                index: row.code for index, row in enumerate(ordered, start=1)
+            }
+            self._subjects = [
+                {
+                    "id": index,
+                    "code": row.code,
+                    "displayName": row.display_name,
+                    "schoolLevel": row.school_level,
+                    "sortOrder": row.sort_order,
+                    "active": row.active,
+                }
+                for index, row in enumerate(ordered, start=1)
+            ]
+            self.subjectsChanged.emit()
+            return
+        self._shared_subject_codes = {}
         rows = self._master_data.list_subjects()
         self._subjects = [
             {
@@ -1266,6 +1476,28 @@ class WorkspaceViewModel(QObject):
     def _refresh_qualifications(self) -> None:
         if self._selected_teacher_id is None:
             self._qualifications = []
+        elif self._projects.current is None:
+            data = self._shared_roster.read_roster()
+            teacher_external_id = self._shared_teacher_ids.get(self._selected_teacher_id)
+            values = {
+                row.subject_code: (row.can_teach, row.note)
+                for row in data.qualifications
+                if row.teacher_external_id == teacher_external_id
+            }
+            self._qualifications = [
+                {
+                    "teacherId": self._selected_teacher_id,
+                    "subjectId": subject_id,
+                    "code": subject.code,
+                    "displayName": subject.display_name,
+                    "schoolLevel": subject.school_level,
+                    "canTeach": values.get(subject.code, (False, ""))[0],
+                    "note": values.get(subject.code, (False, ""))[1],
+                }
+                for subject_id, subject_code in self._shared_subject_codes.items()
+                for subject in data.subjects
+                if subject.code == subject_code
+            ]
         else:
             rows = self._master_data.list_qualifications(self._selected_teacher_id)
             self._qualifications = [
@@ -1281,6 +1513,13 @@ class WorkspaceViewModel(QObject):
                 for row in rows
             ]
         self.currentTeacherQualificationsChanged.emit()
+
+    @staticmethod
+    def _required_shared_id(values: dict[int, str], record_id: int, label: str) -> str:
+        value = values.get(record_id)
+        if value is None:
+            raise ValueError(f"{label}が見つかりません")
+        return value
 
     def _refresh_recent_projects(self) -> None:
         self._recent_projects = [

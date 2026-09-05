@@ -198,6 +198,60 @@ def test_blank_ids_are_generated_and_persisted(roster_service: SharedRosterServi
         workbook.close()
 
 
+def test_shared_roster_can_be_edited_without_opening_a_project(tmp_path: Path) -> None:
+    registry = create_database(tmp_path / "registry.db")
+    upgrade_database(registry.engine)
+    projects = ProjectService(
+        registry,
+        tmp_path / "backups",
+        workspace_directory=tmp_path / "workspace",
+    )
+    service = SharedRosterService(projects)
+
+    try:
+        student_id, _ = service.save_shared_student(
+            record_external_id=None,
+            external_id="",
+            name="共通 生徒",
+            grade="中2",
+            max_consecutive_slots=2,
+            allow_gap=False,
+            note="",
+            active=True,
+        )
+        teacher_id, _ = service.save_shared_teacher(
+            record_external_id=None,
+            external_id="",
+            name="共通 講師",
+            allow_gap=True,
+            note="確認用",
+            active=True,
+        )
+        subject_code = service.read_roster().subjects[0].code
+        service.replace_shared_qualifications(teacher_id, {subject_code: True})
+
+        saved = read_shared_roster(service.path)
+        assert student_id == "S-0001"
+        assert teacher_id == "T-0001"
+        assert saved.students[0].name == "共通 生徒"
+        assert saved.teachers[0].name == "共通 講師"
+        assert saved.teachers[0].allow_gap is True
+        assert any(
+            row.teacher_external_id == teacher_id
+            and row.subject_code == subject_code
+            and row.can_teach
+            for row in saved.qualifications
+        )
+
+        service.deactivate_shared_student(student_id)
+        service.deactivate_shared_teacher(teacher_id)
+        inactive = read_shared_roster(service.path)
+        assert inactive.students[0].active is False
+        assert inactive.teachers[0].active is False
+    finally:
+        registry.dispose()
+
+
 def test_shared_roster_template_export_and_import_keep_canonical_backup(
     roster_service: SharedRosterService,
     tmp_path: Path,

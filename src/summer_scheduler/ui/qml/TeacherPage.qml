@@ -245,7 +245,7 @@ Item {
 
             AppButton {
                 text: qsTr("再読込み")
-                enabled: root.viewModel.hasOpenProject
+                enabled: true
                 onClicked: root.viewModel.refreshAll()
             }
 
@@ -259,15 +259,14 @@ Item {
             AppButton {
                 text: qsTr("＋ 講師を追加")
                 kind: "primary"
-                enabled: root.viewModel.hasOpenProject
+                enabled: true
                 onClicked: root.openTeacherWizard()
             }
         }
 
         InlineMessage {
             Layout.fillWidth: true
-            visible: root.viewModel.hasOpenProject
-                     && (root.viewModel.teachers || []).length === 0
+            visible: (root.viewModel.teachers || []).length === 0
             kind: "info"
             message: qsTr("講師が未登録です。右上の「講師を追加」から基本情報を登録できます。")
         }
@@ -275,7 +274,7 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !root.viewModel.hasOpenProject
+            visible: false
             radius: 12
             color: "#ffffff"
             border.color: "#dce2ea"
@@ -314,12 +313,12 @@ Item {
         SplitView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.viewModel.hasOpenProject
+            visible: true
             orientation: Qt.Horizontal
 
             Rectangle {
-                SplitView.preferredWidth: 330
-                SplitView.minimumWidth: 280
+                SplitView.preferredWidth: 340
+                SplitView.minimumWidth: 285
                 color: "#ffffff"
                 border.color: "#dce2ea"
                 radius: 9
@@ -374,7 +373,7 @@ Item {
                             id: teacherDelegate
 
                             required property var modelData
-                            width: ListView.view.width
+                            width: Math.max(0, ListView.view.width - 12)
                             height: 58
                             highlighted: root.editingTeacherId
                                          === Number(root.rowValue(modelData, "id", 0))
@@ -448,7 +447,7 @@ Item {
 
             Rectangle {
                 SplitView.fillWidth: true
-                SplitView.minimumWidth: 580
+                SplitView.minimumWidth: 560
                 color: "#ffffff"
                 border.color: "#dce2ea"
                 radius: 9

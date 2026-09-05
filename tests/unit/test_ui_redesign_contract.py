@@ -197,7 +197,11 @@ def test_calendar_timetable_issues_and_output_keep_operational_routes() -> None:
     for label in ("すべて選択", "選択解除", "選択日を休校", "選択日を開校"):
         assert label in open_dates
     assert "root.viewModel.saveOpenDateSchedule(entries)" in open_dates
-    assert "すべての変更を保存" in open_dates
+    assert "変更は自動的に保存されます" in open_dates
+    assert "すべての変更を保存" not in open_dates
+    assert "function slotCheckState" in open_dates
+    assert "Qt.PartiallyChecked" in open_dates
+    assert "cellWidth: Math.floor((width - 18) / 7)" in open_dates
     assert "draftRows" in open_dates
 
     schedule = _qml("ScheduleEditorPage.qml")
@@ -217,3 +221,30 @@ def test_calendar_timetable_issues_and_output_keep_operational_routes() -> None:
     assert "未配置・警告を確認" in output
     assert "openLastOutputFolder()" in output
     assert "advancedSettingsVisible" in output
+
+
+def test_project_independent_rosters_links_and_equal_import_steps() -> None:
+    main = _qml("Main.qml")
+    sidebar = _qml("Sidebar.qml")
+    students = _qml("StudentPage.qml")
+    teachers = _qml("TeacherPage.qml")
+    questionnaire = _qml("QuestionnaireCreationPage.qml")
+    guide = _qml("GoogleFormsGuideDialog.qml")
+    import_page = _qml("AvailabilityImportPage.qml")
+
+    assert "index !== 1 && index !== 2" in main
+    assert "model: [1, 2]" in sidebar
+    assert "enabled: true" in sidebar
+    assert "width: root.width - 10" in sidebar
+    assert "visible: true" in students
+    assert "visible: true" in teachers
+    assert "ListView.view.width - 12" in students
+    assert "ListView.view.width - 12" in teachers
+    assert 'text: qsTr("Google App Script")' in questionnaire
+    assert 'Qt.openUrlExternally("https://script.google.com/home")' in questionnaire
+    assert "Text.RichText" in guide
+    assert "onLinkActivated" in guide
+    assert 'href=\\"https://script.google.com/home\\"' in guide
+
+    step_delegate = import_page[import_page.index("delegate: StatusBadge {") :]
+    assert "Layout.preferredWidth: 1" in step_delegate[:700]

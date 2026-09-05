@@ -36,7 +36,7 @@ ApplicationWindow {
     color: theme.appBackground
 
     function selectPage(index) {
-        if (index !== 0 && !workspace.hasOpenProject)
+        if (index !== 0 && index !== 1 && index !== 2 && !workspace.hasOpenProject)
             return
         if (index >= 0 && index < navigationModel.count)
             currentPageIndex = index
@@ -138,7 +138,9 @@ ApplicationWindow {
                             .arg(root.activePage.title)
                             .arg(root.workspace.currentStartDate || "----/--/--")
                             .arg(root.workspace.currentEndDate || "----/--/--")
-                          : qsTr("ホーム　›　プロジェクトを選択")
+                          : root.currentPageIndex === 1 || root.currentPageIndex === 2
+                            ? qsTr("%1　›　共通基本情報").arg(root.activePage.title)
+                            : qsTr("ホーム　›　プロジェクトを選択")
                     color: theme.textSecondary
                     font.pixelSize: theme.captionSize
                     elide: Text.ElideRight

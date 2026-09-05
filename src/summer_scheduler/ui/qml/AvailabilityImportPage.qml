@@ -250,6 +250,7 @@ Item {
                     required property var modelData
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
+                    Layout.preferredWidth: 1
                     Layout.preferredHeight: 34
                     status: index < root.currentImportStep ? "complete"
                             : index === root.currentImportStep ? "current" : "neutral"

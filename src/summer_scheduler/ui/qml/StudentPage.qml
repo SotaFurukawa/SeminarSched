@@ -284,7 +284,7 @@ Item {
 
             AppButton {
                 text: qsTr("再読込み")
-                enabled: root.viewModel.hasOpenProject
+                enabled: true
                 onClicked: root.viewModel.refreshAll()
             }
 
@@ -298,15 +298,14 @@ Item {
             AppButton {
                 text: qsTr("＋ 生徒を追加")
                 kind: "primary"
-                enabled: root.viewModel.hasOpenProject
+                enabled: true
                 onClicked: root.openStudentWizard()
             }
         }
 
         InlineMessage {
             Layout.fillWidth: true
-            visible: root.viewModel.hasOpenProject
-                     && (root.viewModel.students || []).length === 0
+            visible: (root.viewModel.students || []).length === 0
             kind: "info"
             message: qsTr("生徒が未登録です。右上の「生徒を追加」から基本情報を登録できます。")
         }
@@ -314,7 +313,7 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !root.viewModel.hasOpenProject
+            visible: false
             radius: 12
             color: "#ffffff"
             border.color: "#dce2ea"
@@ -353,7 +352,7 @@ Item {
         SplitView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.viewModel.hasOpenProject
+            visible: true
             orientation: Qt.Horizontal
 
             Rectangle {
@@ -431,7 +430,7 @@ Item {
                             id: studentDelegate
 
                             required property var modelData
-                            width: ListView.view.width
+                            width: Math.max(0, ListView.view.width - 12)
                             height: 58
                             highlighted: root.editingStudentId
                                          === Number(root.rowValue(modelData, "id", 0))

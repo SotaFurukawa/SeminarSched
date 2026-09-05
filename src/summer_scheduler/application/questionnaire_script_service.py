@@ -661,8 +661,15 @@ function validateQuestionnaireConfig_() {
     QUESTIONNAIRE_CONFIG.kind === "student" ||
     QUESTIONNAIRE_CONFIG.kind === "teacher_subject"
   ) {
-    const subjects = Object.values(QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel).flat();
-    if (subjects.length === 0 || new Set(subjects).size !== subjects.length) {
+    const subjectGroups = Object.values(QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel);
+    const invalidGroup = subjectGroups.some(
+      (subjects) => subjects.length === 0 || new Set(subjects).size !== subjects.length,
+    );
+    const crossLevelSubjects = QUESTIONNAIRE_CONFIG.crossLevelSubjects || [];
+    const invalidCrossLevel = QUESTIONNAIRE_CONFIG.kind === "student" &&
+      (crossLevelSubjects.length === 0 ||
+       new Set(crossLevelSubjects).size !== crossLevelSubjects.length);
+    if (invalidGroup || invalidCrossLevel) {
       throw new Error("科目選択肢が未設定または重複しています。");
     }
   }

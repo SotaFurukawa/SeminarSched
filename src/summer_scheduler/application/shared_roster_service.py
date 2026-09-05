@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from shutil import copy2
@@ -11,6 +11,8 @@ from sqlalchemy import delete, select
 
 from summer_scheduler.application.project_service import ProjectService
 from summer_scheduler.domain.defaults import DEFAULT_SUBJECTS
+from summer_scheduler.domain.identifiers import next_person_external_id
+from summer_scheduler.domain.validation import raise_for_errors, validate_student, validate_teacher
 from summer_scheduler.infrastructure.db.models import (
     LessonRequest,
     RegularLessonProfile,
@@ -236,6 +238,229 @@ class SharedRosterService:
             reserved_teacher_ids=reserved_teachers,
         )
         return self.path
+
+    def read_roster(self) -> SharedRosterData:
+        """プロジェクトの有無にかかわらず共通基本情報を読み込む。"""
+        self.ensure_workbook()
+        return _merge_default_subjects(self._read_with_reserved_ids(self.path))
+
+    def save_shared_student(
+        self,
+        *,
+        record_external_id: str | None,
+        external_id: str,
+        name: str,
+        grade: str,
+        max_consecutive_slots: int,
+        allow_gap: bool,
+        note: str,
+        active: bool,
+    ) -> tuple[str, tuple[str, ...]]:
+        data = self.read_roster()
+        normalized_id = (
+            external_id.strip()
+            or record_external_id
+            or next_person_external_id((row.external_id for row in data.students), prefix="S")
+        )
+        normalized_name = name.strip()
+        raise_for_errors(
+            validate_student(
+                external_id=normalized_id,
+                name=normalized_name,
+                grade=grade,
+                max_consecutive_slots=max_consecutive_slots,
+            )
+        )
+        if any(
+            row.external_id == normalized_id and row.external_id != record_external_id
+            for row in data.students
+        ):
+            raise ValueError("生徒IDが重複しています")
+        warnings = tuple(
+            f"同姓同名の生徒「{normalized_name}」が登録されています"
+            for row in data.students
+            if row.external_id != record_external_id and row.name == normalized_name
+        )[:1]
+        surname, given_name = _split_name(normalized_name)
+        saved = SharedStudent(
+            normalized_id,
+            surname,
+            given_name,
+            grade.strip(),
+            max_consecutive_slots,
+            allow_gap,
+            active,
+            note.strip(),
+        )
+        students = list(data.students)
+        index = next(
+            (index for index, row in enumerate(students) if row.external_id == record_external_id),
+            None,
+        )
+        if record_external_id is not None and index is None:
+            raise ValueError("生徒が見つかりません")
+        if index is None:
+            students.append(saved)
+        else:
+            students[index] = saved
+        self._write_roster(replace(data, students=tuple(students)))
+        return normalized_id, warnings
+
+    def deactivate_shared_student(self, external_id: str) -> None:
+        data = self.read_roster()
+        if not any(row.external_id == external_id for row in data.students):
+            raise ValueError("生徒が見つかりません")
+        students = tuple(
+            replace(row, active=False) if row.external_id == external_id else row
+            for row in data.students
+        )
+        self._write_roster(replace(data, students=students))
+
+    def delete_shared_student(self, external_id: str) -> None:
+        data = self.read_roster()
+        students = tuple(row for row in data.students if row.external_id != external_id)
+        if len(students) == len(data.students):
+            raise ValueError("生徒が見つかりません")
+        regular_lessons = tuple(
+            row for row in data.regular_lessons if row.student_external_id != external_id
+        )
+        self._write_roster(replace(data, students=students, regular_lessons=regular_lessons))
+
+    def save_shared_teacher(
+        self,
+        *,
+        record_external_id: str | None,
+        external_id: str,
+        name: str,
+        allow_gap: bool,
+        note: str,
+        active: bool,
+    ) -> tuple[str, tuple[str, ...]]:
+        data = self.read_roster()
+        normalized_id = (
+            external_id.strip()
+            or record_external_id
+            or next_person_external_id((row.external_id for row in data.teachers), prefix="T")
+        )
+        normalized_name = name.strip()
+        raise_for_errors(validate_teacher(external_id=normalized_id, name=normalized_name))
+        if any(
+            row.external_id == normalized_id and row.external_id != record_external_id
+            for row in data.teachers
+        ):
+            raise ValueError("講師IDが重複しています")
+        warnings = tuple(
+            f"同姓同名の講師「{normalized_name}」が登録されています"
+            for row in data.teachers
+            if row.external_id != record_external_id and row.name == normalized_name
+        )[:1]
+        surname, given_name = _split_name(normalized_name)
+        saved = SharedTeacher(
+            normalized_id,
+            surname,
+            given_name,
+            allow_gap,
+            active,
+            note.strip(),
+        )
+        teachers = list(data.teachers)
+        index = next(
+            (index for index, row in enumerate(teachers) if row.external_id == record_external_id),
+            None,
+        )
+        if record_external_id is not None and index is None:
+            raise ValueError("講師が見つかりません")
+        if index is None:
+            teachers.append(saved)
+        else:
+            teachers[index] = saved
+        self._write_roster(replace(data, teachers=tuple(teachers)))
+        return normalized_id, warnings
+
+    def deactivate_shared_teacher(self, external_id: str) -> None:
+        data = self.read_roster()
+        if not any(row.external_id == external_id for row in data.teachers):
+            raise ValueError("講師が見つかりません")
+        teachers = tuple(
+            replace(row, active=False) if row.external_id == external_id else row
+            for row in data.teachers
+        )
+        self._write_roster(replace(data, teachers=teachers))
+
+    def delete_shared_teacher(self, external_id: str) -> None:
+        data = self.read_roster()
+        teachers = tuple(row for row in data.teachers if row.external_id != external_id)
+        if len(teachers) == len(data.teachers):
+            raise ValueError("講師が見つかりません")
+        qualifications = tuple(
+            row for row in data.qualifications if row.teacher_external_id != external_id
+        )
+        regular_lessons = tuple(
+            replace(row, regular_teacher_external_id="")
+            if row.regular_teacher_external_id == external_id
+            else row
+            for row in data.regular_lessons
+        )
+        self._write_roster(
+            replace(
+                data,
+                teachers=teachers,
+                qualifications=qualifications,
+                regular_lessons=regular_lessons,
+            )
+        )
+
+    def replace_shared_qualifications(
+        self,
+        teacher_external_id: str,
+        values: dict[str, bool],
+    ) -> None:
+        data = self.read_roster()
+        if not any(row.external_id == teacher_external_id for row in data.teachers):
+            raise ValueError("講師が見つかりません")
+        valid_codes = {row.code for row in data.subjects}
+        if not set(values).issubset(valid_codes):
+            raise ValueError("指導可能科目に不正な科目が含まれています")
+        existing_notes = {
+            row.subject_code: row.note
+            for row in data.qualifications
+            if row.teacher_external_id == teacher_external_id
+        }
+        qualifications = tuple(
+            row for row in data.qualifications if row.teacher_external_id != teacher_external_id
+        ) + tuple(
+            SharedQualification(
+                teacher_external_id,
+                subject_code,
+                can_teach,
+                existing_notes.get(subject_code, ""),
+            )
+            for subject_code, can_teach in values.items()
+        )
+        self._write_roster(replace(data, qualifications=qualifications))
+
+    def copy_shared_qualifications(
+        self,
+        *,
+        source_teacher_external_id: str,
+        target_teacher_external_id: str,
+    ) -> None:
+        data = self.read_roster()
+        copied = {
+            row.subject_code: row.can_teach
+            for row in data.qualifications
+            if row.teacher_external_id == source_teacher_external_id
+        }
+        self.replace_shared_qualifications(target_teacher_external_id, copied)
+
+    def _write_roster(self, data: SharedRosterData) -> None:
+        reserved_students, reserved_teachers = self._reserved_external_ids()
+        write_shared_roster(
+            self.path,
+            _merge_default_subjects(data),
+            reserved_student_ids=reserved_students,
+            reserved_teacher_ids=reserved_teachers,
+        )
 
     def _read_with_reserved_ids(self, source: Path) -> SharedRosterData:
         reserved_student_ids, reserved_teacher_ids = self._reserved_external_ids()

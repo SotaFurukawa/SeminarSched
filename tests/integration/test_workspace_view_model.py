@@ -16,6 +16,40 @@ from summer_scheduler.infrastructure.excel.shared_roster import read_shared_rost
 from summer_scheduler.ui.viewmodels.workspace_view_model import WorkspaceViewModel
 
 
+def test_shared_basic_information_is_available_without_an_open_project(
+    tmp_path: Path,
+) -> None:
+    registry = create_database(tmp_path / "registry.db")
+    upgrade_database(registry.engine)
+    projects = ProjectService(
+        registry,
+        tmp_path / "backups",
+        workspace_directory=tmp_path / "workspace",
+    )
+    view_model = WorkspaceViewModel(projects, MasterDataService(projects))
+
+    try:
+        assert not cast(bool, view_model.hasOpenProject)
+        assert len(cast(list[dict[str, object]], view_model.subjects)) == 26
+        assert view_model.saveStudent(0, "", "共通 生徒", "中2", 2, False, "", True)
+        assert view_model.saveTeacher(0, "", "共通 講師", False, "", True)
+
+        students = cast(list[dict[str, object]], view_model.students)
+        teachers = cast(list[dict[str, object]], view_model.teachers)
+        subjects = cast(list[dict[str, object]], view_model.subjects)
+        assert students[0]["externalId"] == "S-0001"
+        assert teachers[0]["externalId"] == "T-0001"
+
+        view_model.selectTeacher(int(str(teachers[0]["id"])))
+        assert view_model.saveQualifications({str(subjects[0]["id"]): True})
+        roster = read_shared_roster(view_model._shared_roster.path)  # noqa: SLF001
+        assert roster.students[0].name == "共通 生徒"
+        assert roster.teachers[0].name == "共通 講師"
+        assert any(row.can_teach for row in roster.qualifications)
+    finally:
+        registry.dispose()
+
+
 def test_unicode_file_url_project_lifecycle_and_qml_weekday_mapping(
     tmp_path: Path,
 ) -> None:

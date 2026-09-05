@@ -83,7 +83,7 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.leftMargin: 10
                         Layout.rightMargin: 10
-                        enabled: root.projectOpen
+                        enabled: true
                         itemTitle: root.itemsModel.get(modelData).title
                         iconText: root.itemsModel.get(modelData).shortLabel
                         selected: root.currentIndex === modelData
@@ -93,12 +93,12 @@ Rectangle {
 
                 Item {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: root.width
                     implicitHeight: workflowColumn.implicitHeight
 
                     ColumnLayout {
                         id: workflowColumn
-                        anchors.left: parent.left
-                        anchors.right: parent.right
+                        width: root.width
                         spacing: 3
 
                         Label {
@@ -139,12 +139,9 @@ Rectangle {
                     }
 
                     Rectangle {
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: 5
-                        anchors.rightMargin: 5
+                        x: 5
+                        width: root.width - 10
+                        height: parent.height
                         visible: !root.projectOpen
                         z: 10
                         radius: 7
