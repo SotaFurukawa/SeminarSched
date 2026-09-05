@@ -26,6 +26,30 @@ Item {
 
     UiTheme { id: theme }
 
+    component TeacherDetailTab: TabButton {
+        id: detailTab
+
+        implicitHeight: 38
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+
+        background: Rectangle {
+            radius: 6
+            color: detailTab.checked ? "#0f6cbd"
+                                     : detailTab.hovered ? "#f4f7fb" : "#ffffff"
+            border.width: 1
+            border.color: detailTab.checked ? "#0f6cbd" : "#c5ccd8"
+        }
+
+        contentItem: Text {
+            text: detailTab.text
+            color: detailTab.checked ? "#ffffff" : "#344054"
+            font: detailTab.font
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+    }
+
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
             return row[key]
@@ -202,8 +226,36 @@ Item {
     }
 
     function saveQualifications() {
-        if (root.viewModel.saveQualifications(root.qualificationDraft))
+        const saved = root.viewModel.saveQualifications(root.qualificationDraft)
+        if (saved)
             root.qualificationsDirty = false
+        return saved
+    }
+
+    function saveTeacherEditor() {
+        root.teacherSaveAttempted = true
+        if (teacherName.text.trim() === "")
+            return false
+        return root.viewModel.saveTeacher(
+                    root.editingTeacherId,
+                    teacherExternalId.text.trim(),
+                    teacherName.text.trim(),
+                    teacherAllowGap.checked,
+                    teacherNote.text,
+                    teacherActive.checked)
+    }
+
+    function savePendingChanges() {
+        if (!root.viewModel.isDirty && !root.qualificationsDirty)
+            return true
+        const hadWorkspaceDraft = root.viewModel.isDirty
+        // 共通名簿で講師IDを変更した場合も対象を取り違えないよう、
+        // 現在選択中のIDが有効なうちに指導可能科目を確定する。
+        if (root.qualificationsDirty && !root.saveQualifications())
+            return false
+        if (hadWorkspaceDraft)
+            return root.saveTeacherEditor()
+        return true
     }
 
     function openTeacherWizard() {
@@ -462,10 +514,10 @@ Item {
 
                         Layout.fillWidth: true
 
-                        TabButton {
+                        TeacherDetailTab {
                             text: qsTr("基本情報")
                         }
-                        TabButton {
+                        TeacherDetailTab {
                             text: root.qualificationsDirty
                                   ? qsTr("指導可能科目 ● 未保存")
                                   : qsTr("指導可能科目")
@@ -629,18 +681,7 @@ Item {
                                     Button {
                                         text: qsTr("保存")
                                         highlighted: true
-                                        onClicked: {
-                                            root.teacherSaveAttempted = true
-                                            if (teacherName.text.trim() === "")
-                                                return
-                                            root.viewModel.saveTeacher(
-                                                        root.editingTeacherId,
-                                                        teacherExternalId.text.trim(),
-                                                        teacherName.text.trim(),
-                                                        teacherAllowGap.checked,
-                                                        teacherNote.text,
-                                                        teacherActive.checked)
-                                        }
+                                        onClicked: root.saveTeacherEditor()
                                     }
                                 }
                             }
@@ -1031,6 +1072,8 @@ Item {
                         required property int index
                         required property string modelData
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 1
                         status: index < root.teacherWizardStep ? "complete"
                                 : index === root.teacherWizardStep ? "current" : "neutral"
                         symbol: index < root.teacherWizardStep ? "✓" : String(index + 1)

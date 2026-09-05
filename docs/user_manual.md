@@ -43,7 +43,7 @@ Excelでは`TRUE`／`FALSE`と表示されますが、アプリは同じ在籍�
 生徒画面の「在籍中」を外すと卒業・退会扱いとなり、一覧の末尾へ移動して灰色表示されます。
 講師も同様に、在籍中を外すと退職・休止として末尾へ表示されます。
 
-対象: `1.6.1 (Beta)`
+対象: `1.6.2 (Beta)`
 最終更新: 2026-09-05
 
 初めて利用する場合は、先に
@@ -89,8 +89,8 @@ Releaseページ以外から受け取った実行ファイルを安易に実行�
 公開版では`SHA256SUMS.txt`とダウンロードしたファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Portable-1.6.1.zip -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Setup-1.6.1.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.6.2.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.6.2.exe -Algorithm SHA256
 ```
 
 表示されたhashがReleaseページの値と1文字でも異なる場合は使用しません。
@@ -230,6 +230,7 @@ appのbackup機能で同期先へ複製する運用を推奨します。
 - 空きコマを許可するか（既定は許可しない）
 - 備考
 - 使用中／停止
+- 通常授業の科目と担当講師（共通基本情報Excelの登録内容）
 
 内部では名前だけで生徒を識別せず、同姓同名でも区別できる自動IDを使います。
 Excelでは小学を`S`、中学を`J`、高校を`H`で表し、例えば高2は`H2`と入力します。
@@ -590,8 +591,10 @@ Excelは編集可能です。PDFはA3 / A4、縦横に対応します。過密�
 
 ## 17. 保存、別名保存、複製、backup
 
-時間割の編集は操作ごとに自動保存されます。「手動保存」は未保存queueをcommitする
-操作ではなく、現在の整合したSQLiteを別fileへbackupする明示保存点です。
+時間割の編集は操作ごとに自動保存されます。画面右上の「すべて保存」は、
+現在表示中の基本情報や設定の未確定入力を検証・保存し、整合したSQLiteの
+復旧用backupも更新する、アプリ全体の明示保存点です。入力エラーがある場合は
+その画面に留まり、修正後にもう一度押します。
 
 - 名前を付けて保存: copyを作り、現在projectを新しいfileへ切り替える。
 - 複製: copyを作るが、現在projectは切り替えない。
@@ -649,7 +652,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 
 ## 20. 現在の既知の制限
 
-- `1.6.1`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
+- `1.6.2`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
   すべてBeta版（Pre-release）です。成果物は
   方針どおり未署名です。
 - clean Windows、実installer / portable、SmartScreen、install / uninstallの受入結果は

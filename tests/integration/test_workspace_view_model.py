@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import cast
@@ -12,7 +13,11 @@ from PySide6.QtCore import QUrl
 from summer_scheduler.application.master_data_service import MasterDataService
 from summer_scheduler.application.project_service import ProjectFileError, ProjectService
 from summer_scheduler.infrastructure.db import create_database, upgrade_database
-from summer_scheduler.infrastructure.excel.shared_roster import read_shared_roster
+from summer_scheduler.infrastructure.excel.shared_roster import (
+    SharedRegularLesson,
+    read_shared_roster,
+    write_shared_roster,
+)
 from summer_scheduler.ui.viewmodels.workspace_view_model import WorkspaceViewModel
 
 
@@ -46,6 +51,34 @@ def test_shared_basic_information_is_available_without_an_open_project(
         assert roster.students[0].name == "共通 生徒"
         assert roster.teachers[0].name == "共通 講師"
         assert any(row.can_teach for row in roster.qualifications)
+
+        write_shared_roster(
+            view_model._shared_roster.path,  # noqa: SLF001
+            replace(
+                roster,
+                regular_lessons=(
+                    SharedRegularLesson(
+                        "S-0001",
+                        roster.subjects[0].code,
+                        "T-0001",
+                    ),
+                ),
+            ),
+        )
+        assert view_model.refreshAll()
+        student = cast(list[dict[str, object]], view_model.students)[0]
+        lessons = cast(list[dict[str, object]], student["regularLessons"])
+        assert lessons == [
+            {
+                "subjectCode": roster.subjects[0].code,
+                "subjectName": roster.subjects[0].display_name,
+                "teacherExternalId": "T-0001",
+                "teacherName": "共通 講師",
+                "teacherPriority": 3,
+                "oneToOneRequired": False,
+            }
+        ]
+        assert view_model.saveAllData()
     finally:
         registry.dispose()
 
@@ -120,10 +153,51 @@ def test_unicode_file_url_project_lifecycle_and_qml_weekday_mapping(
         )
         assert configured_day["enabledTimeSlotIds"] == selected_slot_ids
         assert configured_day["enabledSlotCodes"]
+
+        # QMLのNumberはQVariant経由でfloatとして渡ることがある。複数日の
+        # コマ構成が異なる状態でも、チェックの追加・保存を受け付ける。
+        first_mixed = [float(value) for value in reversed_ids[:3]]
+        second_mixed = [float(value) for value in reversed_ids[1:4]]
+        assert view_model.saveOpenDateSchedule(
+            [
+                {
+                    "date": "2026-08-01",
+                    "isOpen": True,
+                    "enabledTimeSlotIds": first_mixed,
+                },
+                {
+                    "date": "2026-08-02",
+                    "isOpen": True,
+                    "enabledTimeSlotIds": second_mixed,
+                },
+                {"date": "2026-08-03", "isOpen": False, "enabledTimeSlotIds": []},
+            ]
+        )
+        all_four = [float(value) for value in reversed_ids[:4]]
+        assert view_model.saveOpenDateSchedule(
+            [
+                {
+                    "date": "2026-08-01",
+                    "isOpen": True,
+                    "enabledTimeSlotIds": all_four,
+                },
+                {
+                    "date": "2026-08-02",
+                    "isOpen": True,
+                    "enabledTimeSlotIds": all_four,
+                },
+                {"date": "2026-08-03", "isOpen": False, "enabledTimeSlotIds": []},
+            ]
+        )
+        assert not cast(str, view_model.errorMessage)
         assert not view_model.saveOpenDateSchedule(
             [{"date": "2026-08-01", "isOpen": True, "enabledTimeSlotIds": []}]
         )
         assert "使用するコマ" in cast(str, view_model.errorMessage)
+
+        assert view_model.saveAllData()
+        recovery_candidates = cast(list[dict[str, object]], view_model.recoveryCandidates)
+        assert any(row["kind"] == "automatic" for row in recovery_candidates)
 
         view_model.markWorkflowStepComplete(3)
         assert cast(int, view_model.workflowCompletedStep) == 3

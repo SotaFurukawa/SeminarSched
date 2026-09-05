@@ -42,6 +42,21 @@ ApplicationWindow {
             currentPageIndex = index
     }
 
+    // Loader.itemの具体型は実行時に決まるため、ページ共通の保存hookは動的に呼ぶ。
+    // qmllint disable missing-property
+    function saveEverything() {
+        const activeItem = pageLoader.item
+        const savePendingChanges = activeItem
+                                   ? activeItem["savePendingChanges"] : null
+        if (typeof savePendingChanges === "function"
+                && savePendingChanges.call(activeItem) === false)
+            return false
+        if (root.output.settingsDirty && !root.output.saveSettings())
+            return false
+        return root.workspace.saveAllData()
+    }
+    // qmllint enable missing-property
+
     ListModel {
         id: navigationModel
 
@@ -168,6 +183,13 @@ ApplicationWindow {
                 font.pixelSize: theme.captionSize
             }
 
+            AppButton {
+                text: qsTr("すべて保存")
+                kind: "primary"
+                Accessible.name: qsTr("アプリ内の変更をすべて保存")
+                onClicked: root.saveEverything()
+            }
+
             ToolButton {
                 text: qsTr("このアプリについて")
                 Accessible.name: qsTr("アプリ情報を表示")
@@ -266,6 +288,7 @@ ApplicationWindow {
                 color: theme.appBackground
 
                 Loader {
+                    id: pageLoader
                     anchors.fill: parent
                     active: true
                     asynchronous: false

@@ -224,6 +224,11 @@ Item {
             root.draftDirty = false
     }
 
+    function savePendingChanges() {
+        root.persistDraft()
+        return !root.draftDirty
+    }
+
     Component.onCompleted: reloadDraft()
 
     Connections {

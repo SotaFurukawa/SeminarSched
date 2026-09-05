@@ -36,6 +36,17 @@ ScrollView {
         root.saveAttempted = false
     }
 
+    function savePendingChanges() {
+        root.saveAttempted = true
+        if (startDate.dateText > endDate.dateText)
+            return false
+        return root.viewModel.saveProjectInfo(
+                    root.generatedTitle,
+                    root.viewModel.currentCampusName || "既定校舎",
+                    startDate.dateText,
+                    endDate.dateText)
+    }
+
     Component.onCompleted: reload()
 
     ColumnLayout {
@@ -216,16 +227,7 @@ ScrollView {
                     Button {
                         text: qsTr("変更を保存")
                         highlighted: true
-                        onClicked: {
-                            root.saveAttempted = true
-                            if (startDate.dateText > endDate.dateText)
-                                return
-                            root.viewModel.saveProjectInfo(
-                                        root.generatedTitle,
-                                        root.viewModel.currentCampusName || "既定校舎",
-                                        startDate.dateText,
-                                        endDate.dateText)
-                        }
+                        onClicked: root.savePendingChanges()
                     }
                 }
             }

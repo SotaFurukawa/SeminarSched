@@ -248,3 +248,32 @@ def test_project_independent_rosters_links_and_equal_import_steps() -> None:
 
     step_delegate = import_page[import_page.index("delegate: StatusBadge {") :]
     assert "Layout.preferredWidth: 1" in step_delegate[:700]
+
+
+def test_v162_global_save_regular_lessons_and_equal_wizard_steps() -> None:
+    main = _qml("Main.qml")
+    students = _qml("StudentPage.qml")
+    teachers = _qml("TeacherPage.qml")
+    settings = _qml("SettingsPage.qml")
+
+    assert 'text: qsTr("すべて保存")' in main
+    assert "function saveEverything()" in main
+    assert 'activeItem["savePendingChanges"]' in main
+    assert "root.workspace.saveAllData()" in main
+    assert "function savePendingChanges()" in students
+    assert "function savePendingChanges()" in teachers
+    assert "function savePendingChanges()" in settings
+
+    assert 'text: qsTr("通常授業")' in students
+    assert 'text: qsTr("担当：%1")' in students
+    assert '"regularLessons", []' in students
+
+    assert "component TeacherDetailTab: TabButton" in teachers
+    assert 'color: detailTab.checked ? "#0f6cbd"' in teachers
+    assert ': detailTab.hovered ? "#f4f7fb" : "#ffffff"' in teachers
+    assert 'color: detailTab.checked ? "#ffffff" : "#344054"' in teachers
+
+    for source in (students, teachers):
+        wizard = source[source.index("追加　%1/3") :]
+        assert "Layout.minimumWidth: 0" in wizard
+        assert "Layout.preferredWidth: 1" in wizard

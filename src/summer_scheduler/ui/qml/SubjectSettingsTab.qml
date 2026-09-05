@@ -9,6 +9,20 @@ Item {
     id: root
 
     required property var viewModel
+
+    function savePendingChanges() {
+        root.saveAttempted = true
+        if (subjectCode.text.trim() === ""
+                || subjectName.text.trim() === "")
+            return false
+        return root.viewModel.saveSubject(
+                    root.editingId,
+                    subjectCode.text.trim(),
+                    subjectName.text.trim(),
+                    subjectLevel.currentValue,
+                    subjectOrder.value,
+                    subjectActive.checked)
+    }
     property int editingId: 0
     property var selectedRow: null
     property bool saveAttempted: false
@@ -442,19 +456,7 @@ Item {
                     Button {
                         text: qsTr("保存")
                         highlighted: true
-                        onClicked: {
-                            root.saveAttempted = true
-                            if (subjectCode.text.trim() === ""
-                                    || subjectName.text.trim() === "")
-                                return
-                            root.viewModel.saveSubject(
-                                        root.editingId,
-                                        subjectCode.text.trim(),
-                                        subjectName.text.trim(),
-                                        subjectLevel.currentValue,
-                                        subjectOrder.value,
-                                        subjectActive.checked)
-                        }
+                        onClicked: root.savePendingChanges()
                     }
                 }
             }

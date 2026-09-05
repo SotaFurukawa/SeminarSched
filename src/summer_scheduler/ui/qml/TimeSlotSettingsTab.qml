@@ -9,6 +9,23 @@ Item {
     id: root
 
     required property var viewModel
+
+    function savePendingChanges() {
+        root.saveAttempted = true
+        if (slotCode.text.trim() === ""
+                || slotDisplayName.text.trim() === ""
+                || slotStart.text.trim() === ""
+                || slotEnd.text.trim() === "")
+            return false
+        return root.viewModel.saveTimeSlot(
+                    root.editingId,
+                    slotCode.text.trim(),
+                    slotDisplayName.text.trim(),
+                    slotStart.text.trim(),
+                    slotEnd.text.trim(),
+                    root.editingSortOrder,
+                    slotEnabled.checked)
+    }
     property int editingId: 0
     property int editingSortOrder: 1
     property var selectedRow: null
@@ -408,22 +425,7 @@ Item {
                     Button {
                         text: qsTr("保存")
                         highlighted: true
-                        onClicked: {
-                            root.saveAttempted = true
-                            if (slotCode.text.trim() === ""
-                                    || slotDisplayName.text.trim() === ""
-                                    || slotStart.text.trim() === ""
-                                    || slotEnd.text.trim() === "")
-                                return
-                            root.viewModel.saveTimeSlot(
-                                        root.editingId,
-                                        slotCode.text.trim(),
-                                        slotDisplayName.text.trim(),
-                                        slotStart.text.trim(),
-                                        slotEnd.text.trim(),
-                                        root.editingSortOrder,
-                                        slotEnabled.checked)
-                        }
+                        onClicked: root.savePendingChanges()
                     }
                 }
             }

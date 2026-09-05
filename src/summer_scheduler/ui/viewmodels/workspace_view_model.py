@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable, Sequence
 from datetime import date
 from pathlib import Path
@@ -30,6 +31,7 @@ from summer_scheduler.infrastructure.excel import (
     IssueSeverity,
     MasterDataExcelService,
 )
+from summer_scheduler.infrastructure.excel.shared_roster import SharedRosterData
 
 logger = logging.getLogger(__name__)
 
@@ -485,6 +487,30 @@ class WorkspaceViewModel(QObject):
         self._refresh_recovery_candidates()
         return True
 
+    @Slot(result=bool)
+    def saveAllData(self) -> bool:
+        """現在画面で確定済みの全データへ、安全な保存点を作成する。"""
+
+        def action() -> None:
+            if self._dirty:
+                raise ValueError(
+                    "現在の画面に保存できていない入力があります。"
+                    "入力内容を確認して、もう一度「すべて保存」を押してください"
+                )
+            if self._projects.current is None:
+                self._shared_roster.ensure_workbook()
+                self._refresh_shared_roster_collections()
+                return
+            self._projects.create_automatic_backup()
+            self._refresh_recovery_candidates()
+
+        message = (
+            "生徒・講師の基本情報を保存しました"
+            if self._projects.current is None
+            else "すべてのデータを保存し、安全な復旧用バックアップを更新しました"
+        )
+        return self._perform(action, message)
+
     @Slot(str, result=bool)
     def restoreProject(self, backup_path_value: str) -> bool:
         """確認済みのbackup選択を、現在または失敗したopen先へ安全に復元する。"""
@@ -559,9 +585,8 @@ class WorkspaceViewModel(QObject):
 
     @Slot()
     def markDirty(self) -> None:
-        """QML上の未保存編集をプロジェクト状態へ反映する。"""
-        if self._projects.current is not None:
-            self._set_dirty(True)
+        """QML上の未保存編集を作業状態へ反映する。"""
+        self._set_dirty(True)
 
     @Slot()
     def discardDraft(self) -> None:
@@ -1308,6 +1333,7 @@ class WorkspaceViewModel(QObject):
                     "allowGap": row.allow_gap,
                     "note": row.note,
                     "active": row.active,
+                    "regularLessons": _shared_regular_lessons(data, row.external_id),
                 }
                 for index, row in enumerate(ordered, start=1)
                 if (
@@ -1318,6 +1344,7 @@ class WorkspaceViewModel(QObject):
             self.studentsChanged.emit()
             return
         self._shared_student_ids = {}
+        shared_data = self._shared_roster.read_roster()
         rows = self._master_data.list_students(
             search=self._student_search,
             grade=self._student_grade,
@@ -1332,6 +1359,7 @@ class WorkspaceViewModel(QObject):
                 "allowGap": row.allow_gap,
                 "note": row.note,
                 "active": row.active,
+                "regularLessons": _shared_regular_lessons(shared_data, row.external_id),
             }
             for row in rows
         ]
@@ -1680,11 +1708,56 @@ def _optional_id(value: int) -> int | None:
 def _optional_int(value: object) -> int | None:
     if value is None or value == "":
         return None
+    if isinstance(value, bool):
+        raise ValueError("選択値が不正です")
+    if isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer():
+            raise ValueError("選択値が不正です")
+        parsed = int(value)
+        return parsed if parsed > 0 else None
     try:
         parsed = int(str(value))
     except (TypeError, ValueError) as exc:
         raise ValueError("選択値が不正です") from exc
     return parsed if parsed > 0 else None
+
+
+def _shared_regular_lessons(
+    data: SharedRosterData,
+    student_external_id: str,
+) -> list[dict[str, object]]:
+    """共通基本情報の通常授業を、生徒画面用の表示辞書へ変換する。"""
+    subjects = {row.code: row for row in data.subjects}
+    teachers = {row.external_id: row for row in data.teachers}
+    rows = [
+        {
+            "subjectCode": row.subject_code,
+            "subjectName": (
+                subjects[row.subject_code].display_name
+                if row.subject_code in subjects
+                else row.subject_code
+            ),
+            "teacherExternalId": row.regular_teacher_external_id,
+            "teacherName": (
+                teachers[row.regular_teacher_external_id].name
+                if row.regular_teacher_external_id in teachers
+                else "未設定"
+            ),
+            "teacherPriority": row.regular_teacher_priority,
+            "oneToOneRequired": row.one_to_one_required,
+        }
+        for row in data.regular_lessons
+        if row.student_external_id == student_external_id
+    ]
+    rows.sort(
+        key=lambda row: (
+            subjects[str(row["subjectCode"])].sort_order
+            if str(row["subjectCode"]) in subjects
+            else 9999,
+            str(row["subjectName"]),
+        )
+    )
+    return rows
 
 
 def _required_int(value: object, label: str) -> int:

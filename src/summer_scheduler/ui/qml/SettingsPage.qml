@@ -8,6 +8,18 @@ Item {
     required property var viewModel
     signal openHomeRequested
 
+    function savePendingChanges() {
+        if (!root.viewModel.isDirty)
+            return true
+        if (settingsTabs.currentIndex === 0)
+            return projectSettingsTab.savePendingChanges()
+        if (settingsTabs.currentIndex === 1)
+            return timeSlotSettingsTab.savePendingChanges()
+        if (settingsTabs.currentIndex === 2)
+            return openDateSettingsTab.savePendingChanges()
+        return subjectSettingsTab.savePendingChanges()
+    }
+
     component SettingsTabButton: TabButton {
         id: tabButton
 
@@ -149,18 +161,22 @@ Item {
                     currentIndex: settingsTabs.currentIndex
 
                     ProjectSettingsTab {
+                        id: projectSettingsTab
                         viewModel: root.viewModel
                     }
 
                     TimeSlotSettingsTab {
+                        id: timeSlotSettingsTab
                         viewModel: root.viewModel
                     }
 
                     OpenDateSettingsTab {
+                        id: openDateSettingsTab
                         viewModel: root.viewModel
                     }
 
                     SubjectSettingsTab {
+                        id: subjectSettingsTab
                         viewModel: root.viewModel
                     }
 

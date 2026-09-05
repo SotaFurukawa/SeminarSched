@@ -1,6 +1,6 @@
 # はじめて使う人のための簡単操作ガイド
 
-対象: SummerCourseScheduler `1.6.1 (Beta)`
+対象: SummerCourseScheduler `1.6.2 (Beta)`
 
 この文書は、初めて時間割を作る担当者が、作業の順番を迷わないための簡易版です。
 各画面の詳しい説明は[利用者マニュアル](user_manual.md)、問題が起きた場合は

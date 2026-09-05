@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.6.1 (Beta)** です。v1系はすべてBeta版としてGitHubの
+現在のアプリ版は **v1.6.2 (Beta)** です。v1系はすべてBeta版としてGitHubの
 Pre-releaseで配布し、正式リリースを明示的に決定するまではv1系を継続します。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
@@ -57,7 +57,10 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 セル内チェックボックスの表示と操作にはMicrosoft 365またはExcel 2024以降が必要です。
 古いExcelでは同じ値が`TRUE`／`FALSE`で表示されます。
 生徒・講師の基本情報画面はプロジェクト未選択時にも開け、そこでの追加・変更は
-共通の`生徒・講師_基本情報.xlsx`へ直接反映されます。
+共通の`生徒・講師_基本情報.xlsx`へ直接反映されます。生徒の詳細では、
+同Excelの「通常授業」に登録された科目と担当講師も確認できます。
+画面右上の「すべて保存」は、表示中の入力を確定し、プロジェクト使用中は
+復旧用バックアップも更新します。
 時間割編集は未配置・時間割・選択詳細の3ペインです。出力は対象、形式、保存先の順に進み、詳細な帳票設定は必要な
 場合だけ開きます。詳細は[`docs/user_manual.md`](docs/user_manual.md)を参照してください。
 
@@ -81,15 +84,15 @@ v1.6.0以降は集団授業の操作機能を一時的に停止しています�
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.6.1.exe`
-- `SummerCourseScheduler-Portable-1.6.1.zip`
+- `SummerCourseScheduler-Setup-1.6.2.exe`
+- `SummerCourseScheduler-Portable-1.6.2.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.6.1.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.6.1.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.6.2.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.6.2.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -580,11 +583,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.6.1
+  -Version 1.6.2
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.6.1.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.6.2.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -596,13 +599,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.6.1 `
+  -Version 1.6.2 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.6.1.zip `
-  dist\SummerCourseScheduler-Setup-1.6.1.exe
+  dist\SummerCourseScheduler-Portable-1.6.2.zip `
+  dist\SummerCourseScheduler-Setup-1.6.2.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

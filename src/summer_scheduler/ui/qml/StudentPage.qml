@@ -148,6 +148,27 @@ Item {
         studentWizard.open()
     }
 
+    function saveStudentEditor() {
+        root.studentSaveAttempted = true
+        if (studentName.text.trim() === "" || studentGrade.currentIndex < 0)
+            return false
+        return root.viewModel.saveStudent(
+                    root.editingStudentId,
+                    studentExternalId.text.trim(),
+                    studentName.text.trim(),
+                    studentGrade.currentText,
+                    maxConsecutive.value,
+                    allowGap.checked,
+                    studentNote.text,
+                    studentActive.checked)
+    }
+
+    function savePendingChanges() {
+        if (!root.viewModel.isDirty)
+            return true
+        return root.saveStudentEditor()
+    }
+
     function loadStudent(row) {
         root.loadingStudentDraft = true
         root.selectedStudent = row
@@ -671,6 +692,73 @@ Item {
                                     onClicked: root.viewModel.markDirty()
                                 }
 
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    visible: root.editingStudentId > 0
+                                    spacing: 6
+
+                                    Label {
+                                        text: qsTr("通常授業")
+                                        color: "#344054"
+                                        font.pixelSize: 13
+                                        font.weight: Font.DemiBold
+                                    }
+
+                                    Label {
+                                        Layout.fillWidth: true
+                                        visible: root.rowValue(root.selectedStudent,
+                                                               "regularLessons", []).length === 0
+                                        text: qsTr("通常授業の科目・担当講師は登録されていません。")
+                                        color: "#7a8493"
+                                        font.pixelSize: 10
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Repeater {
+                                        model: root.rowValue(root.selectedStudent,
+                                                             "regularLessons", [])
+
+                                        delegate: Rectangle {
+                                            id: regularLessonCard
+                                            required property var modelData
+                                            Layout.fillWidth: true
+                                            implicitHeight: regularLessonContent.implicitHeight + 16
+                                            radius: 6
+                                            color: "#f5f8fc"
+                                            border.color: "#d9e1ec"
+
+                                            RowLayout {
+                                                id: regularLessonContent
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                anchors.margins: 8
+                                                spacing: 12
+
+                                                Label {
+                                                    Layout.fillWidth: true
+                                                    text: root.rowValue(regularLessonCard.modelData,
+                                                                        "subjectName", "")
+                                                    color: "#344054"
+                                                    font.pixelSize: 11
+                                                    font.weight: Font.DemiBold
+                                                    elide: Text.ElideRight
+                                                }
+                                                Label {
+                                                    Layout.preferredWidth: 190
+                                                    text: qsTr("担当：%1").arg(
+                                                              root.rowValue(
+                                                                  regularLessonCard.modelData,
+                                                                  "teacherName", qsTr("未設定")))
+                                                    color: "#475467"
+                                                    font.pixelSize: 11
+                                                    elide: Text.ElideRight
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
                                 CheckBox {
                                     id: studentActive
                                     text: qsTr("在籍中（外すと卒業・退会として末尾に表示）")
@@ -742,21 +830,7 @@ Item {
                                     Button {
                                         text: qsTr("保存")
                                         highlighted: true
-                                        onClicked: {
-                                            root.studentSaveAttempted = true
-                                            if (studentName.text.trim() === ""
-                                                    || studentGrade.currentIndex < 0)
-                                                return
-                                            root.viewModel.saveStudent(
-                                                        root.editingStudentId,
-                                                        studentExternalId.text.trim(),
-                                                        studentName.text.trim(),
-                                                        studentGrade.currentText,
-                                                        maxConsecutive.value,
-                                                        allowGap.checked,
-                                                        studentNote.text,
-                                                        studentActive.checked)
-                                        }
+                                        onClicked: root.saveStudentEditor()
                                     }
                                 }
                             }
@@ -1264,6 +1338,8 @@ Item {
                         required property int index
                         required property string modelData
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 1
                         status: index < root.studentWizardStep ? "complete"
                                 : index === root.studentWizardStep ? "current" : "neutral"
                         symbol: index < root.studentWizardStep ? "✓" : String(index + 1)
