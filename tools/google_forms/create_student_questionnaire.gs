@@ -311,6 +311,7 @@ function createStudentQuestionnaire() {
 
   const spreadsheet = SpreadsheetApp.create(`${QUESTIONNAIRE_CONFIG.title} 回答原本`);
   form.setDestination(FormApp.DestinationType.SPREADSHEET, spreadsheet.getId());
+  prepareStudentResponseSheets_(spreadsheet);
   installStudentResponseNormalizer_(spreadsheet.getId());
 
   properties.setProperty(FORM_ID_PROPERTY, form.getId());
@@ -364,46 +365,171 @@ function studentSubjectChoicesForLevel_(schoolLevelKey) {
   );
 }
 
-/** 通常学年ルートの回答では、選択済み科目の学校区分を回答表へ自動補完する。 */
+const STUDENT_COMPACT_SHEET_NAME = "Form Responses 1";
+const STUDENT_RAW_SHEET_NAME = "回答原本（システム用）";
+
+/**
+ * フォーム固有の分岐列を非表示の原本へ残し、利用者向け回答表を44列へ統一する。
+ * Googleフォームは分岐ごとに別列を作るため、原本の列を削除せず転記先を用意する。
+ */
+function prepareStudentResponseSheets_(spreadsheet) {
+  const rawSheet = findStudentRawResponseSheet_(spreadsheet);
+  const compactSheet = spreadsheet
+    .getSheets()
+    .find((sheet) => sheet.getSheetId() !== rawSheet.getSheetId());
+  if (!compactSheet) {
+    throw new Error("回答を整形するためのシートを準備できませんでした。");
+  }
+
+  rawSheet.setName(STUDENT_RAW_SHEET_NAME);
+  compactSheet.clear();
+  compactSheet.setName(STUDENT_COMPACT_SHEET_NAME);
+  const headers = studentCompactResponseHeaders_();
+  compactSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  compactSheet.setFrozenRows(1);
+  compactSheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+  spreadsheet.setActiveSheet(compactSheet);
+  spreadsheet.moveActiveSheet(1);
+  rawSheet.hideSheet();
+}
+
+function findStudentRawResponseSheet_(spreadsheet) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    SpreadsheetApp.flush();
+    const rawSheet = spreadsheet.getSheets().find((sheet) => {
+      const lastColumn = sheet.getLastColumn();
+      if (lastColumn < 1) return false;
+      const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
+      return headers.includes("学年（必須）") && headers.includes("在籍区分（必須）");
+    });
+    if (rawSheet) return rawSheet;
+    Utilities.sleep(500);
+  }
+  throw new Error("Googleフォームの回答シートを確認できませんでした。もう一度実行してください。");
+}
+
+function studentCompactResponseHeaders_() {
+  const headers = [
+    "Timestamp",
+    "Email Address",
+    "個人情報の利用目的への同意（必須）",
+    "姓（苗字）（必須）",
+    "名（必須）",
+    "学年（必須）",
+    "在籍区分（必須）",
+    "中高一貫などで他学年の授業を受講される際はこちらにチェックを入れてください",
+  ];
+  for (let index = 1; index <= 4; index += 1) {
+    headers.push(`学校区分（${index}教科目）`);
+    headers.push(`受講教科（${index}教科目）${index === 1 ? "（必須）" : ""}`);
+    headers.push(`受講回数（${index}教科目）${index === 1 ? "（必須）" : ""}`);
+  }
+  headers.push("受講不可日時の確認（必須）", "特記事項", "夏期講習学力テスト");
+  QUESTIONNAIRE_CONFIG.openDates.forEach((isoDate) => {
+    headers.push(
+      `受講不可日時（チェックしたコマは受講不可） [${formatDateLabel_(isoDate)}]`,
+    );
+  });
+  return headers;
+}
+
+/** フォーム回答を、アプリが読み込む共通の学校区分・科目・回数列へ転記する。 */
 function installStudentResponseNormalizer_(spreadsheetId) {
   ScriptApp.getProjectTriggers()
-    .filter((trigger) => trigger.getHandlerFunction() === "fillAutomaticStudentSchoolLevels_")
+    .filter((trigger) =>
+      ["fillAutomaticStudentSchoolLevels_", "writeCompactStudentResponse_"].includes(
+        trigger.getHandlerFunction(),
+      ),
+    )
     .forEach((trigger) => ScriptApp.deleteTrigger(trigger));
-  ScriptApp.newTrigger("fillAutomaticStudentSchoolLevels_")
+  ScriptApp.newTrigger("writeCompactStudentResponse_")
     .forSpreadsheet(spreadsheetId)
     .onFormSubmit()
     .create();
 }
 
-function fillAutomaticStudentSchoolLevels_(event) {
+function writeCompactStudentResponse_(event) {
+  const rawSheet = event.range.getSheet();
+  if (rawSheet.getName() !== STUDENT_RAW_SHEET_NAME) return;
+  const compactSheet = event.source.getSheetByName(STUDENT_COMPACT_SHEET_NAME);
+  if (!compactSheet) throw new Error("整形済み回答シートが見つかりません。");
+
+  const headers = rawSheet
+    .getRange(1, 1, 1, rawSheet.getLastColumn())
+    .getDisplayValues()[0];
+  const values = event.range.getValues()[0];
   const otherGradeTitle =
     "中高一貫などで他学年の授業を受講される際はこちらにチェックを入れてください";
-  const otherGradeAnswer = (event.namedValues[otherGradeTitle] || []).join("");
-  if (otherGradeAnswer) return;
+  const otherGradeAnswer = responseValue_(headers, values, [otherGradeTitle]);
+  const grade = String(responseValue_(headers, values, ["学年（必須）"])).trim();
+  const automaticSchoolLevel = schoolLevelForStudentGrade_(grade);
+  const compactValues = [
+    responseValue_(headers, values, ["Timestamp", "タイムスタンプ"]),
+    responseValue_(headers, values, ["Email Address", "メールアドレス"]),
+    responseValue_(headers, values, ["個人情報の利用目的への同意（必須）"]),
+    responseValue_(headers, values, ["姓（苗字）（必須）"]),
+    responseValue_(headers, values, ["名（必須）"]),
+    grade,
+    responseValue_(headers, values, ["在籍区分（必須）"]),
+    otherGradeAnswer,
+  ];
 
-  const grade = (event.namedValues["学年（必須）"] || []).join("").trim();
-  const schoolLevel = /^小[1-6]$/.test(grade)
-    ? "小学校"
-    : /^中[1-3]$/.test(grade)
-      ? "中学校"
-      : /^高[1-3]$/.test(grade)
-        ? "高校"
-        : "";
-  if (!schoolLevel) return;
-
-  const sheet = event.range.getSheet();
-  const row = event.range.getRow();
-  const headers = sheet
-    .getRange(1, 1, 1, sheet.getLastColumn())
-    .getDisplayValues()[0];
   for (let index = 1; index <= 4; index += 1) {
-    const subjectPrefix = `受講教科（${schoolLevel}・${index}教科目）`;
-    const subjectColumn = headers.findIndex((header) => header.startsWith(subjectPrefix));
-    const schoolColumn = headers.indexOf(`学校区分（${index}教科目）`);
-    if (subjectColumn < 0 || schoolColumn < 0) continue;
-    const subject = sheet.getRange(row, subjectColumn + 1).getDisplayValue().trim();
-    if (subject) sheet.getRange(row, schoolColumn + 1).setValue(schoolLevel);
+    const prefix = otherGradeAnswer ? "" : `${automaticSchoolLevel}・`;
+    const subject = responseValueStartingWith_(
+      headers,
+      values,
+      `受講教科（${prefix}${index}教科目）`,
+    );
+    const count = responseValueStartingWith_(
+      headers,
+      values,
+      `受講回数（${prefix}${index}教科目）`,
+    );
+    const schoolLevel = otherGradeAnswer
+      ? responseValue_(headers, values, [`学校区分（${index}教科目）`])
+      : subject
+        ? automaticSchoolLevel
+        : "";
+    compactValues.push(schoolLevel, subject, count);
   }
+
+  compactValues.push(
+    responseValue_(headers, values, ["受講不可日時の確認（必須）"]),
+    responseValue_(headers, values, ["特記事項"]),
+    responseValue_(headers, values, ["夏期講習学力テスト"]),
+  );
+  QUESTIONNAIRE_CONFIG.openDates.forEach((isoDate) => {
+    compactValues.push(
+      responseValue_(headers, values, [
+        `受講不可日時（チェックしたコマは受講不可） [${formatDateLabel_(isoDate)}]`,
+      ]),
+    );
+  });
+  const targetRow = event.range.getRow();
+  compactSheet
+    .getRange(targetRow, 1, 1, compactValues.length)
+    .setValues([compactValues]);
+}
+
+function schoolLevelForStudentGrade_(grade) {
+  if (/^小[1-6]$/.test(grade)) return "小学校";
+  if (/^中[1-3]$/.test(grade)) return "中学校";
+  if (/^高[1-3]$/.test(grade)) return "高校";
+  return "";
+}
+
+function responseValue_(headers, values, candidates) {
+  for (const candidate of candidates) {
+    const column = headers.indexOf(candidate);
+    if (column >= 0) return values[column];
+  }
+  return "";
+}
+
+function responseValueStartingWith_(headers, values, prefix) {
+  const column = headers.findIndex((header) => header.startsWith(prefix));
+  return column >= 0 ? values[column] : "";
 }
 
 /** 作成済みフォームのURLをもう一度表示する。 */

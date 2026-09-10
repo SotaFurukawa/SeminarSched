@@ -135,8 +135,13 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
     assert 'otherGradeItem.createChoice("他学年の授業を受講する", otherGradePage)' in student_source
     assert "juniorHighPage.setGoToPage(availabilityPage)" in student_source
     assert "elementaryPage.setGoToPage(availabilityPage)" not in student_source
-    assert "function fillAutomaticStudentSchoolLevels_(event)" in student_source
-    assert "headers.indexOf(`学校区分（${index}教科目）`)" in student_source
+    assert "function prepareStudentResponseSheets_(spreadsheet)" in student_source
+    assert 'const STUDENT_COMPACT_SHEET_NAME = "Form Responses 1"' in student_source
+    assert 'const STUDENT_RAW_SHEET_NAME = "回答原本（システム用）"' in student_source
+    assert "rawSheet.hideSheet()" in student_source
+    assert "function writeCompactStudentResponse_(event)" in student_source
+    assert "compactValues.push(schoolLevel, subject, count)" in student_source
+    assert "function fillAutomaticStudentSchoolLevels_(event)" not in student_source
     assert "function createReplacementStudentQuestionnaire()" in student_source
     assert "function createTeacherQuestionnaire()" in teacher_source
     assert "function createReplacementTeacherQuestionnaire()" in teacher_source

@@ -70,9 +70,25 @@ def test_google_form_generator_routes_grade_to_school_specific_subjects() -> Non
     assert "elementaryPage.setGoToPage(availabilityPage)" not in source
     assert "addSubjectRequestSection_(form, QUESTIONNAIRE_CONFIG.studentSubjectChoices);" in source
     assert "automaticSchoolLevel" in source
-    assert "function fillAutomaticStudentSchoolLevels_(event)" in source
-    assert "headers.indexOf(`学校区分（${index}教科目）`)" in source
+    assert "function prepareStudentResponseSheets_(spreadsheet)" in source
+    assert 'const STUDENT_COMPACT_SHEET_NAME = "Form Responses 1"' in source
+    assert 'const STUDENT_RAW_SHEET_NAME = "回答原本（システム用）"' in source
+    assert "rawSheet.hideSheet()" in source
+    assert "function writeCompactStudentResponse_(event)" in source
+    assert "compactValues.push(schoolLevel, subject, count)" in source
+    assert "function fillAutomaticStudentSchoolLevels_(event)" not in source
     assert ".forSpreadsheet(spreadsheetId)" in source
+
+
+def test_google_form_generator_places_confirmation_before_availability_columns() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    start = source.index("function studentCompactResponseHeaders_()")
+    end = source.index("/** フォーム回答を", start)
+    header_function = source[start:end]
+
+    assert header_function.index('headers.push("受講不可日時の確認（必須）"') < (
+        header_function.index("QUESTIONNAIRE_CONFIG.openDates.forEach")
+    )
 
 
 def test_google_form_generator_can_safely_create_a_replacement() -> None:
