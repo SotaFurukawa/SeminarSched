@@ -95,6 +95,24 @@ def test_xlsx_multiple_sheets_can_be_enumerated_selected_and_previewed(
     assert preview.rows[0].row_number == 2
 
 
+def test_xlsx_inspection_accepts_a_blank_trailing_sheet(tmp_path: Path) -> None:
+    destination = tmp_path / "Googleフォーム回答原本.xlsx"
+    workbook = Workbook()
+    response = workbook.worksheets[0]
+    response.title = "Form Responses 1"
+    response.append(["Timestamp", "学年（必須）"])
+    response.append(["2026/09/10 12:00:00", "高1"])
+    workbook.create_sheet("シート1")
+    workbook.save(destination)
+    workbook.close()
+
+    inspection = inspect_source(destination)
+
+    assert tuple(sheet.name for sheet in inspection.sheets) == ("Form Responses 1", "シート1")
+    assert inspection.sheets[0].data_row_count == 1
+    assert inspection.sheets[1].data_row_count == 0
+
+
 def test_mapping_skips_example_and_reports_invalid_values_and_duplicate(
     tmp_path: Path,
 ) -> None:

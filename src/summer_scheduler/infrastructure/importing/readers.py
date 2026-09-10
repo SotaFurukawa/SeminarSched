@@ -72,7 +72,7 @@ def inspect_source(
                 SheetSummary(
                     name=str(worksheet.title),
                     headers=headers,
-                    data_row_count=max(int(worksheet.max_row) - 1, 0),
+                    data_row_count=max(int(worksheet.max_row or 0) - 1, 0),
                 ),
             )
     finally:

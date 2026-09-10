@@ -2,5 +2,5 @@
 
 __all__ = ["__release_channel__", "__version__"]
 
-__version__ = "1.6.4"
+__version__ = "1.6.5"
 __release_channel__ = "Beta"
