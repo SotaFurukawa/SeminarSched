@@ -17,10 +17,12 @@ from PySide6.QtCore import (
 )
 
 from summer_scheduler.application.optimization_run_service import (
+    OptimizationPreparationError,
     OptimizationRunService,
     OptimizationRunServiceError,
     PreparedOptimization,
 )
+from summer_scheduler.application.phase3_dto import ValidationIssueDto
 from summer_scheduler.application.project_service import ProjectFileError, ProjectService
 from summer_scheduler.optimization.dto import (
     OptimizationInput,
@@ -116,6 +118,7 @@ class OptimizationViewModel(QObject):
         self._objective_breakdown = _empty_objective_breakdown()
         self._unassigned_lessons: list[dict[str, object]] = []
         self._warnings: list[str] = []
+        self._preparation_issues: list[dict[str, object]] = []
         self._status_message = ""
         self._error_message = ""
 
@@ -196,6 +199,15 @@ class OptimizationViewModel(QObject):
 
     warnings = Property(list, _get_warnings, notify=resultChanged)
 
+    def _get_preparation_issues(self) -> list[dict[str, object]]:
+        return self._preparation_issues
+
+    preparationIssues = Property(
+        list,
+        _get_preparation_issues,
+        notify=resultChanged,
+    )
+
     def _get_log_path(self) -> str:
         return str(self._log_path)
 
@@ -236,6 +248,7 @@ class OptimizationViewModel(QObject):
             return False
 
         self._clear_messages()
+        self._set_preparation_issues(())
         try:
             prepared = self._service.prepare(
                 preset,
@@ -246,6 +259,8 @@ class OptimizationViewModel(QObject):
                 "最適化prepareを完了できませんでした（%s）",
                 type(exc).__name__,
             )
+            if isinstance(exc, OptimizationPreparationError):
+                self._set_preparation_issues(exc.issues)
             self._set_error(str(exc))
             return False
         except Exception as exc:
@@ -544,6 +559,20 @@ class OptimizationViewModel(QObject):
         self._objective_breakdown = _empty_objective_breakdown()
         self._unassigned_lessons = []
         self._warnings = []
+        self.resultChanged.emit()
+
+    def _set_preparation_issues(self, issues: tuple[ValidationIssueDto, ...]) -> None:
+        self._preparation_issues = [
+            {
+                "severity": issue.severity,
+                "type": issue.issue_type,
+                "entityType": issue.entity_type,
+                "entityId": issue.entity_id or "",
+                "message": issue.message,
+                "details": issue.details,
+            }
+            for issue in issues
+        ]
         self.resultChanged.emit()
 
     def _current_elapsed(self) -> float:

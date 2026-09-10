@@ -21,6 +21,7 @@ from summer_scheduler.application.optimization_run_service import (
     OptimizationRunService,
     PreparedOptimization,
 )
+from summer_scheduler.application.phase3_dto import ValidationIssueDto
 from summer_scheduler.application.project_service import ProjectFileError, ProjectService
 from summer_scheduler.optimization.dto import (
     AvailabilityData,
@@ -239,6 +240,39 @@ def test_prepare_error_log_does_not_include_exception_value(
     assert "OptimizationPreparationError" in caplog.text
     assert view_model._get_error_message() == sensitive
     core_app.processEvents()
+
+
+def test_validation_prepare_error_exposes_actionable_issue_messages(
+    tmp_path: Path,
+) -> None:
+    service = _FakeOptimizationService(_prepared(tmp_path))
+    issue = ValidationIssueDto(
+        id=1,
+        severity="error",
+        issue_type="regular_teacher_unqualified",
+        entity_type="lesson_request",
+        entity_id="10",
+        message="架空生徒／架空科目: 通常担当講師を確認してください",
+        details={"student": "架空生徒"},
+        resolved=False,
+    )
+    service.prepare_error = OptimizationPreparationError(
+        "入力検証エラーが1件あります",
+        issues=(issue,),
+    )
+    view_model = _view_model(service, _FakeProjects(), tmp_path)
+
+    assert not view_model.runOptimization("fast")
+    assert view_model._get_preparation_issues() == [
+        {
+            "severity": "error",
+            "type": "regular_teacher_unqualified",
+            "entityType": "lesson_request",
+            "entityId": "10",
+            "message": "架空生徒／架空科目: 通常担当講師を確認してください",
+            "details": {"student": "架空生徒"},
+        }
+    ]
 
 
 def test_invalid_preset_and_missing_project_are_rejected(

@@ -10,6 +10,7 @@ Item {
     required property var viewModel
     signal openHomeRequested
     signal openOptimizationRequested
+    property bool unassignedDragActive: false
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -437,8 +438,11 @@ Item {
             orientation: Qt.Horizontal
 
             Rectangle {
+                id: unassignedPane
+
                 SplitView.preferredWidth: 238
                 SplitView.minimumWidth: 210
+                z: root.unassignedDragActive ? 100 : 0
                 color: "#ffffff"
                 border.color: "#dce2ea"
                 radius: 7
@@ -476,7 +480,7 @@ Item {
 
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        clip: true
+                        clip: !root.unassignedDragActive
                         spacing: 5
                         model: root.viewModel.unassignedLessons
                         boundsBehavior: Flickable.StopAtBounds
@@ -500,9 +504,14 @@ Item {
                             opacity: root.rowValue(modelData, "matchesFilter", true)
                                      ? 1 : 0.35
                             border.color: "#e1aaa5"
+                            z: unassignedRailDrag.drag.active ? 200 : 1
                             Drag.active: unassignedRailDrag.drag.active
                             Drag.source: unassignedRailCard
                             Drag.keys: ["scheduleLesson"]
+                            Drag.hotSpot.x: unassignedRailCard.dragHotSpotX
+                            Drag.hotSpot.y: unassignedRailCard.dragHotSpotY
+                            property real dragHotSpotX: width / 2
+                            property real dragHotSpotY: height / 2
 
                             ColumnLayout {
                                 anchors.fill: parent
@@ -552,9 +561,12 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.OpenHandCursor
                                 drag.target: unassignedRailCard
-                                onPressed: {
+                                onPressed: function (mouse) {
                                     unassignedRailCard.homeX = unassignedRailCard.x
                                     unassignedRailCard.homeY = unassignedRailCard.y
+                                    unassignedRailCard.dragHotSpotX = mouse.x
+                                    unassignedRailCard.dragHotSpotY = mouse.y
+                                    root.unassignedDragActive = true
                                 }
                                 onClicked: root.viewModel.selectLesson(
                                                Number(root.rowValue(
@@ -567,6 +579,12 @@ Item {
                                     unassignedRailCard.Drag.drop()
                                     unassignedRailCard.x = unassignedRailCard.homeX
                                     unassignedRailCard.y = unassignedRailCard.homeY
+                                    root.unassignedDragActive = false
+                                }
+                                onCanceled: {
+                                    unassignedRailCard.x = unassignedRailCard.homeX
+                                    unassignedRailCard.y = unassignedRailCard.homeY
+                                    root.unassignedDragActive = false
                                 }
                             }
                         }
@@ -897,6 +915,8 @@ Item {
 
                                     anchors.fill: parent
                                     keys: ["scheduleLesson"]
+                                    enabled: root.rowValue(scheduleCell.cellData,
+                                                           "teacherActive", false)
                                     onEntered: function (drag) {
                                         const lesson = root.rowValue(
                                                          drag.source,
@@ -1093,8 +1113,11 @@ Item {
             }
 
             Rectangle {
+                id: detailPane
+
                 SplitView.preferredWidth: 350
                 SplitView.minimumWidth: 300
+                z: root.unassignedDragActive ? 100 : 0
                 color: "#ffffff"
                 border.color: "#dce2ea"
                 radius: 7
@@ -1132,7 +1155,7 @@ Item {
                         ListView {
                             id: unassignedList
 
-                            clip: true
+                            clip: !root.unassignedDragActive
                             spacing: 4
                             model: root.viewModel.unassignedLessons
                             boundsBehavior: Flickable.StopAtBounds
@@ -1159,9 +1182,14 @@ Item {
                                              unassignedCard.modelData,
                                              "matchesFilter", true) ? 1 : 0.35
                                 border.color: "#e1aaa5"
+                                z: unassignedDrag.drag.active ? 200 : 1
                                 Drag.active: unassignedDrag.drag.active
                                 Drag.source: unassignedCard
                                 Drag.keys: ["scheduleLesson"]
+                                Drag.hotSpot.x: unassignedCard.dragHotSpotX
+                                Drag.hotSpot.y: unassignedCard.dragHotSpotY
+                                property real dragHotSpotX: width / 2
+                                property real dragHotSpotY: height / 2
 
                                 ColumnLayout {
                                     anchors.fill: parent
@@ -1225,9 +1253,12 @@ Item {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     drag.target: unassignedCard
-                                    onPressed: {
+                                    onPressed: function (mouse) {
                                         unassignedCard.homeX = unassignedCard.x
                                         unassignedCard.homeY = unassignedCard.y
+                                        unassignedCard.dragHotSpotX = mouse.x
+                                        unassignedCard.dragHotSpotY = mouse.y
+                                        root.unassignedDragActive = true
                                     }
                                     onClicked: root.viewModel.selectLesson(
                                                    Number(root.rowValue(
@@ -1240,6 +1271,12 @@ Item {
                                         unassignedCard.Drag.drop()
                                         unassignedCard.x = unassignedCard.homeX
                                         unassignedCard.y = unassignedCard.homeY
+                                        root.unassignedDragActive = false
+                                    }
+                                    onCanceled: {
+                                        unassignedCard.x = unassignedCard.homeX
+                                        unassignedCard.y = unassignedCard.homeY
+                                        root.unassignedDragActive = false
                                     }
                                 }
                             }

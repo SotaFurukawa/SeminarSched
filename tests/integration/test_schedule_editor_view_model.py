@@ -143,6 +143,23 @@ def test_date_navigation_multiple_summary_and_filters_keep_grid_shape(
     assert view_model._get_unassigned_lessons()[0]["matchesFilter"] is True
 
 
+def test_inactive_teacher_without_assignments_is_not_a_drop_column(
+    core_app: QCoreApplication,
+) -> None:
+    del core_app
+    board = _small_board()
+    inactive = ScheduleTeacherDto(id=99, name="架空 無効講師", active=False)
+    view_model = _view_model(
+        _FakeScheduleEditService(replace(board, teachers=(*board.teachers, inactive)))
+    )
+    grid = cast(ScheduleGridModel, view_model._get_grid_model())
+
+    assert grid.columnCount() == 2
+    first = grid.data(grid.index(0, 0), ScheduleGridModel.CellDataRole)
+    assert isinstance(first, dict)
+    assert first["teacherActive"] is True
+
+
 def test_drag_preview_rejects_red_confirms_yellow_and_applies_green(
     core_app: QCoreApplication,
 ) -> None:

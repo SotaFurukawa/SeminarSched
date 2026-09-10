@@ -550,11 +550,28 @@ def _lesson_request_issues(
                     )
                 )
             if not qualifications.get((regular_teacher_id, request.subject_id), False):
+                student_name = student.name if student is not None else f"ID {request.student_id}"
+                subject_name = (
+                    subject.display_name if subject is not None else f"ID {request.subject_id}"
+                )
+                teacher_name = (
+                    regular_teacher.name
+                    if regular_teacher is not None
+                    else f"ID {regular_teacher_id}"
+                )
                 issues.append(
                     _request_issue(
                         request,
                         "regular_teacher_unqualified",
-                        "通常担当講師はこの科目の資格がありません",
+                        (
+                            f"{student_name}／{subject_name}: 通常担当の{teacher_name}は"
+                            "この科目の指導可能講師に登録されていません"
+                        ),
+                        details={
+                            "student": student_name,
+                            "subject": subject_name,
+                            "teacher": teacher_name,
+                        },
                     )
                 )
         for rank, teacher_id in enumerate(

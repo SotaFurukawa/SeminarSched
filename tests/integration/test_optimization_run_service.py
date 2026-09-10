@@ -422,11 +422,13 @@ def test_prepare_rejects_validation_errors_without_creating_run(
         )
 
     service = OptimizationRunService(project_service, _app_settings())
-    with pytest.raises(OptimizationPreparationError, match="入力検証エラー"):
+    with pytest.raises(OptimizationPreparationError, match="入力検証エラー") as error:
         service.prepare(
             "fast",
             log_directory=_log_directory(project_service),
         )
+    assert error.value.issues
+    assert all(issue.severity == "error" for issue in error.value.issues)
     assert _runs(project_service, project_id) == []
 
 

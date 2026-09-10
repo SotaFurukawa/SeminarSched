@@ -1023,7 +1023,18 @@ class ScheduleEditorViewModel(QObject):
         if board is None or current_date is None:
             self._grid_model.replace(cells=[], teacher_labels=[], slot_labels=[])
             return
-        teachers = list(board.teachers)
+        referenced_teacher_ids = {card.teacher_id for card in board.cards}
+        referenced_teacher_ids.update(
+            group.teacher_id for group in board.group_blocks if group.teacher_id is not None
+        )
+        # Inactive teachers are retained in master data for history, but an empty
+        # column for them is not a valid drop target.  Keep a referenced inactive
+        # teacher visible only while an existing lesson still needs to be moved away.
+        teachers = [
+            teacher
+            for teacher in board.teachers
+            if teacher.active or teacher.id in referenced_teacher_ids
+        ]
         slots = list(board.slots)
         cards = {(card.lesson_request_id, card.session_index): card for card in board.cards}
         groups = {group.id: group for group in board.group_blocks}
@@ -1062,6 +1073,7 @@ class ScheduleEditorViewModel(QObject):
                         "timeSlotCode": slot.code,
                         "teacherId": teacher.id,
                         "teacherName": teacher.name,
+                        "teacherActive": teacher.active,
                         "lessonCards": card_rows,
                         "groupLessons": group_rows,
                     }
@@ -1069,7 +1081,10 @@ class ScheduleEditorViewModel(QObject):
             rows.append(row)
         self._grid_model.replace(
             cells=rows,
-            teacher_labels=[teacher.name for teacher in teachers],
+            teacher_labels=[
+                teacher.name if teacher.active else f"{teacher.name}（無効）"
+                for teacher in teachers
+            ],
             slot_labels=[slot.display_name for slot in slots],
         )
 

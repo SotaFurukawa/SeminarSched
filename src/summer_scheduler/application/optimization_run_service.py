@@ -15,6 +15,7 @@ from pathlib import Path
 from summer_scheduler.application.optimization_input_builder import (
     build_optimization_input,
 )
+from summer_scheduler.application.phase3_dto import ValidationIssueDto
 from summer_scheduler.application.project_service import ProjectService
 from summer_scheduler.application.project_validation_service import (
     ProjectValidationService,
@@ -52,6 +53,15 @@ class OptimizationRunServiceError(RuntimeError):
 
 class OptimizationPreparationError(OptimizationRunServiceError):
     """入力検証またはprepareに失敗した場合の例外。"""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        issues: tuple[ValidationIssueDto, ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.issues = issues
 
 
 class OptimizationFinalizationError(OptimizationRunServiceError):
@@ -119,7 +129,8 @@ class OptimizationRunService:
         error_count = sum(issue.severity == "error" for issue in issues)
         if error_count:
             raise OptimizationPreparationError(
-                f"入力検証エラーが{error_count}件あるため最適化を開始できません"
+                f"入力検証エラーが{error_count}件あるため最適化を開始できません",
+                issues=tuple(issue for issue in issues if issue.severity == "error"),
             )
 
         settings = _optimization_settings(self._app_settings, preset)

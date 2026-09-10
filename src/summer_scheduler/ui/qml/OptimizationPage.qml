@@ -9,6 +9,7 @@ Item {
 
     required property var viewModel
     signal openHomeRequested
+    signal openIssuesRequested
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -113,6 +114,60 @@ Item {
         StatusBanner {
             Layout.fillWidth: true
             viewModel: root.viewModel
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            visible: (root.viewModel.preparationIssues || []).length > 0
+            implicitHeight: visible ? preparationIssueContent.implicitHeight + 18 : 0
+            radius: 8
+            color: "#fffaf0"
+            border.color: "#e4c56d"
+
+            ColumnLayout {
+                id: preparationIssueContent
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 5
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("最適化を止めている入力エラー")
+                        color: "#7a5100"
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                    }
+                    Button {
+                        text: qsTr("エラーの詳細と修正先を開く")
+                        highlighted: true
+                        onClicked: root.openIssuesRequested()
+                    }
+                }
+
+                Repeater {
+                    model: root.viewModel.preparationIssues || []
+                    delegate: Label {
+                        id: preparationIssueDelegate
+
+                        required property int index
+                        required property var modelData
+                        Layout.fillWidth: true
+                        text: qsTr("%1. %2")
+                              .arg(index + 1)
+                              .arg(root.rowValue(preparationIssueDelegate.modelData,
+                                                 "message", ""))
+                        color: "#6f3f00"
+                        font.pixelSize: 9
+                        wrapMode: Text.Wrap
+                    }
+                }
+            }
         }
 
         Rectangle {

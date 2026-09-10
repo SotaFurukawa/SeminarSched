@@ -36,6 +36,8 @@ def test_optimization_page_exposes_presets_run_cancel_and_result_details() -> No
     assert "logPath" in source
     assert "最適化専用ログ保存先" in source
     assert "本格的な時間割グリッド編集は次Phase" not in source
+    assert "preparationIssues" in source
+    assert "エラーの詳細と修正先を開く" in source
 
 
 def test_worker_uses_cooperative_cancellation_without_thread_termination() -> None:
@@ -75,6 +77,8 @@ def test_main_and_application_wire_phase4_page_and_shutdown_guard() -> None:
     assert "? optimizationComponent" in main_source
     assert "ScheduleEditorPage {" in main_source
     assert "OptimizationPage {" in main_source
+    assert "onOpenIssuesRequested" in main_source
+    assert "root.phase3.refreshPhase3()" in main_source
     assert 'phaseLabel: "Phase 5"' in main_source
     assert "ロック済み授業を保持して再最適化" in main_source
     assert '"optimizationViewModel"' in app_source

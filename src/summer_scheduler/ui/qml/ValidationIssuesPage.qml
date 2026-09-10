@@ -56,6 +56,10 @@ Item {
     function targetPageForIssue(row) {
         const entity = String(root.rowValue(row, "entityType", ""))
                           .toLocaleLowerCase()
+        const issueType = String(root.rowValue(row, "type", ""))
+                              .toLocaleLowerCase()
+        if (issueType.indexOf("teacher_unqualified") >= 0)
+            return 2
         if (entity === "student")
             return 1
         if (entity === "teacher")

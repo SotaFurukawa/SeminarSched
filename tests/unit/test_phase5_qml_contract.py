@@ -66,6 +66,9 @@ def test_drag_preview_is_not_color_only_and_soft_requires_confirmation() -> None
 
     assert "DropArea {" in source
     assert 'Drag.keys: ["scheduleLesson"]' in source
+    assert "Drag.hotSpot.x" in source
+    assert "clip: !root.unassignedDragActive" in source
+    assert '"teacherActive", false' in source
     assert "previewMove(" in source
     assert "dropMove(" in source
     assert 'decision === "green"' in source

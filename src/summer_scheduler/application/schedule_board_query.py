@@ -360,11 +360,18 @@ def _unassigned(
                 )
             )
         )
-        primary_reason = (
-            diagnostic.reasons[0].message
-            if diagnostic is not None and diagnostic.reasons
-            else "現在の時間割では未配置です"
-        )
+        # Candidate diagnostics also contain aggregate reasons for targets that were
+        # excluded while other valid targets remain.  Showing the first aggregate
+        # reason as the lesson's primary reason made a usable lesson look blocked by
+        # an inactive teacher merely because one inactive teacher existed in master
+        # data.  Once at least one candidate remains, the actionable state is simply
+        # that the lesson can be placed manually or by optimization.
+        if candidate_count > 0:
+            primary_reason = "配置可能な候補があります"
+        elif diagnostic is not None and diagnostic.reasons:
+            primary_reason = diagnostic.reasons[0].message
+        else:
+            primary_reason = "現在の時間割では未配置です"
         result.append(
             UnassignedSessionDto(
                 lesson_request_id=request.id,

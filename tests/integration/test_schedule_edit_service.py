@@ -420,6 +420,13 @@ def test_unassign_assign_lock_note_and_detailed_edit_are_undoable(
     assert any(
         row.lesson_request_id == graph.request_1_id for row in service.load_board().unassigned
     )
+    unassigned = next(
+        row
+        for row in service.load_board().unassigned
+        if row.lesson_request_id == graph.request_1_id
+    )
+    assert unassigned.candidate_count > 0
+    assert unassigned.primary_reason == "配置可能な候補があります"
     service.undo()
     assert _assignment(project_service, graph, graph.request_1_id) is not None
     service.redo()

@@ -54,7 +54,10 @@ _MESSAGES: dict[DiagnosticCode, str] = {
     DiagnosticCode.SESSION_DUPLICATE: "授業セッションが複数回結果へ含まれています",
     DiagnosticCode.UNEXPECTED_SESSION: "入力に存在しない授業セッションが結果に含まれています",
     DiagnosticCode.RESULT_REFERENCE_MISMATCH: "結果の生徒または科目参照が入力と一致しません",
-    DiagnosticCode.ASSIGNMENT_NOT_CANDIDATE: "候補生成を通過していない割当です",
+    DiagnosticCode.ASSIGNMENT_NOT_CANDIDATE: (
+        "この日時・講師は配置条件を満たしていません。"
+        "開校日・使用コマ・参加可否・講師の指導可能科目を確認してください"
+    ),
     DiagnosticCode.LOCKED_ASSIGNMENT_NOT_PRESERVED: "固定済み授業が同じ日時・講師で保持されていません",
     DiagnosticCode.STUDENT_TIME_CONFLICT: "生徒が同じ日時に重複します",
     DiagnosticCode.TEACHER_CAPACITY_EXCEEDED: "同一講師・同一コマの生徒数が2名を超えます",

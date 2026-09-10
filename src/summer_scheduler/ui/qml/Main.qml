@@ -427,6 +427,10 @@ ApplicationWindow {
                     Layout.fillHeight: true
                     viewModel: root.optimization
                     onOpenHomeRequested: root.selectPage(0)
+                    onOpenIssuesRequested: {
+                        root.phase3.refreshPhase3()
+                        root.selectPage(5)
+                    }
                 }
             }
         }
@@ -437,6 +441,7 @@ ApplicationWindow {
 
         ValidationIssuesPage {
             viewModel: root.phase3
+            Component.onCompleted: root.phase3.refreshPhase3()
             onOpenHomeRequested: root.selectPage(0)
             onNavigateRequested: function (pageIndex) {
                 root.selectPage(pageIndex)

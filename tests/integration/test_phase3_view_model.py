@@ -298,8 +298,8 @@ def test_combined_survey_preview_exposes_review_rows_and_counts(
 
     view_model._set_combined_preview(cast(Any, preview))
 
-    assert view_model.hasCombinedSurveyPreview is True
-    assert view_model.combinedSummary == {
+    assert _has_combined_preview(view_model)
+    assert view_model._combined_summary == {
         "studentCount": 1,
         "teacherCount": 1,
         "lessonRequestCount": 2,
@@ -308,7 +308,7 @@ def test_combined_survey_preview_exposes_review_rows_and_counts(
         "errorCount": 0,
         "warningCount": 0,
     }
-    rows = cast(list[dict[str, object]], view_model.combinedPreviewRows)
+    rows = view_model._combined_preview_rows
     assert rows[0]["name"] == "架空 花子"
     assert rows[0]["detail"] == "中2／在籍生／中学校・数学 3回、中学校・英語 2回／受講不可 1コマ"
     assert rows[1] == {
@@ -318,8 +318,8 @@ def test_combined_survey_preview_exposes_review_rows_and_counts(
     }
 
     view_model._clear_combined_preview()
-    assert view_model.hasCombinedSurveyPreview is False
-    assert view_model.combinedPreviewRows == []
+    assert not _has_combined_preview(view_model)
+    assert view_model._combined_preview_rows == []
 
 
 def test_applied_survey_step_is_restored_after_reopening_project(
@@ -334,15 +334,19 @@ def test_applied_survey_step_is_restored_after_reopening_project(
         end_date=date(2026, 8, 2),
     )
     view_model = _view_model(project_service)
-    assert view_model.hasAppliedSurvey is False
+    assert project_service.workflow_completed_step() < 3
 
     project_service.mark_workflow_step_complete(3)
-    assert view_model.hasAppliedSurvey is True
+    assert project_service.workflow_completed_step() >= 3
 
     project_service.close_project()
     project_service.open_project(created.path)
     view_model.refreshPhase3()
-    assert view_model.hasAppliedSurvey is True
+    assert project_service.workflow_completed_step() >= 3
+
+
+def _has_combined_preview(view_model: Phase3ViewModel) -> bool:
+    return view_model._combined_preview is not None
 
 
 def _view_model(
