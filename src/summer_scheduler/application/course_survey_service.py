@@ -429,34 +429,7 @@ def _parse_student_responses(
         ((surname_header, "姓"), (given_header, "名"), (grade_header, "学年")),
         "生徒回答",
     )
-    request_headers = [header for header in table.headers if "受講教科（" in header]
-    count_headers = [header for header in table.headers if "受講回数（" in header]
-    if not request_headers or len(request_headers) != len(count_headers):
-        raise CourseSurveyError("生徒回答の受講教科・受講回数列を判別できません。")
-    school_headers = [header for header in table.headers if "学校区分（" in header]
-    request_columns: list[tuple[str, str, str]]
-    if school_headers:
-        subjects_by_number = {_question_number(header): header for header in request_headers}
-        counts_by_number = {_question_number(header): header for header in count_headers}
-        schools_by_number = {_question_number(header): header for header in school_headers}
-        if (
-            None in subjects_by_number
-            or None in counts_by_number
-            or None in schools_by_number
-            or set(subjects_by_number) != set(counts_by_number)
-            or set(subjects_by_number) != set(schools_by_number)
-        ):
-            raise CourseSurveyError("生徒回答の学校区分・受講教科・受講回数列の組合せが不正です。")
-        request_columns = [
-            (subjects_by_number[number], counts_by_number[number], schools_by_number[number])
-            for number in sorted(value for value in subjects_by_number if value is not None)
-        ]
-    else:
-        # v1.6.2以前の校種別列も取込み可能なままにする。
-        request_columns = [
-            (subject_header, count_header, "")
-            for subject_header, count_header in zip(request_headers, count_headers, strict=True)
-        ]
+    request_columns = _student_request_columns(table.headers)
     date_headers = _date_headers(table, "受講不可日時")
     _validate_dates(date_headers, open_dates, "生徒回答", issues)
     known_students = {(_name_key(row.name), grade_from_excel(row.grade)) for row in master_students}
@@ -510,11 +483,27 @@ def _parse_student_responses(
                 )
         requests: list[tuple[str, int]] = []
         request_keys: set[str] = set()
+        automatic_request_numbers = {
+            _question_number(subject_header)
+            for subject_header, count_header, school_header in request_columns
+            if not school_header
+            and _school_level_in_header(subject_header)
+            and (_text(values.get(subject_header)) or _text(values.get(count_header)))
+        }
         for subject_header, count_header, school_header in request_columns:
             subject_name = _text(values.get(subject_header))
             count_text = _text(values.get(count_header))
             school_level = _text(values.get(school_header)) if school_header else ""
             if not subject_name and not count_text and not school_level:
+                continue
+            if (
+                not subject_name
+                and not count_text
+                and school_level
+                and _question_number(subject_header) in automatic_request_numbers
+            ):
+                # 通常学年ルートではApps Scriptが共通の学校区分列だけを補完する。
+                # 実際の科目・回数は校種付き列から読み取るため、この空の組は無視する。
                 continue
             if not subject_name or not count_text:
                 issues.append(
@@ -918,6 +907,62 @@ def _canonical_questionnaire_subject(
         if marker in header:
             return prefix + normalized
     return normalized
+
+
+def _student_request_columns(headers: tuple[str, ...]) -> list[tuple[str, str, str]]:
+    """分岐フォームと旧フォームの科目・回数・校種列を対応付ける。"""
+    subject_headers = [header for header in headers if "受講教科（" in header]
+    count_headers = [header for header in headers if "受講回数（" in header]
+    school_headers = [header for header in headers if "学校区分（" in header]
+    if not subject_headers or not count_headers:
+        raise CourseSurveyError("生徒回答の受講教科・受講回数列を判別できません。")
+
+    def signature(header: str) -> tuple[int | None, str]:
+        return (_question_number(header), _school_level_in_header(header))
+
+    counts_by_signature: dict[tuple[int | None, str], list[str]] = {}
+    for header in count_headers:
+        counts_by_signature.setdefault(signature(header), []).append(header)
+    schools_by_number: dict[int | None, list[str]] = {}
+    for header in school_headers:
+        schools_by_number.setdefault(_question_number(header), []).append(header)
+
+    columns: list[tuple[str, str, str]] = []
+    used_counts: set[str] = set()
+    used_schools: set[str] = set()
+    for subject_header in subject_headers:
+        number, automatic_school_level = signature(subject_header)
+        matching_counts = counts_by_signature.get((number, automatic_school_level), [])
+        if number is None or len(matching_counts) != 1:
+            raise CourseSurveyError("生徒回答の受講教科・受講回数列の組合せが不正です。")
+        count_header = matching_counts[0]
+        if count_header in used_counts:
+            raise CourseSurveyError("生徒回答の受講教科・受講回数列の組合せが不正です。")
+        used_counts.add(count_header)
+
+        school_header = ""
+        if not automatic_school_level and school_headers:
+            matching_schools = schools_by_number.get(number, [])
+            if len(matching_schools) != 1:
+                raise CourseSurveyError(
+                    "生徒回答の学校区分・受講教科・受講回数列の組合せが不正です。"
+                )
+            school_header = matching_schools[0]
+            used_schools.add(school_header)
+        columns.append((subject_header, count_header, school_header))
+
+    if used_counts != set(count_headers) or (
+        school_headers and used_schools != set(school_headers)
+    ):
+        raise CourseSurveyError("生徒回答の学校区分・受講教科・受講回数列の組合せが不正です。")
+    return columns
+
+
+def _school_level_in_header(header: str) -> str:
+    for school_level in ("小学校", "中学校", "高校"):
+        if school_level in header:
+            return school_level
+    return ""
 
 
 def _question_number(header: str) -> int | None:

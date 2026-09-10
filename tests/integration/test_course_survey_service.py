@@ -14,6 +14,7 @@ from sqlalchemy import select
 from summer_scheduler.application.course_survey_service import (
     CourseSurveyService,
     _canonical_questionnaire_subject,
+    _student_request_columns,
 )
 from summer_scheduler.application.project_service import ProjectService
 from summer_scheduler.infrastructure.db import create_database, upgrade_database
@@ -199,6 +200,85 @@ def test_compact_questionnaire_subject_uses_school_level_column() -> None:
         )
         == "小学校・算数（中学受験以外なら可能）"
     )
+
+
+def test_branched_and_other_grade_subject_columns_are_all_paired() -> None:
+    headers = (
+        "受講教科（小学校・1教科目）（必須）",
+        "受講回数（小学校・1教科目）（必須）",
+        "受講教科（中学校・1教科目）（必須）",
+        "受講回数（中学校・1教科目）（必須）",
+        "受講教科（高校・1教科目）（必須）",
+        "受講回数（高校・1教科目）（必須）",
+        "学校区分（1教科目）",
+        "受講教科（1教科目）（必須）",
+        "受講回数（1教科目）（必須）",
+    )
+
+    assert _student_request_columns(headers) == [
+        (
+            "受講教科（小学校・1教科目）（必須）",
+            "受講回数（小学校・1教科目）（必須）",
+            "",
+        ),
+        (
+            "受講教科（中学校・1教科目）（必須）",
+            "受講回数（中学校・1教科目）（必須）",
+            "",
+        ),
+        (
+            "受講教科（高校・1教科目）（必須）",
+            "受講回数（高校・1教科目）（必須）",
+            "",
+        ),
+        (
+            "受講教科（1教科目）（必須）",
+            "受講回数（1教科目）（必須）",
+            "学校区分（1教科目）",
+        ),
+    ]
+
+
+def test_normal_grade_branch_imports_subject_with_automatic_school_level(
+    survey_service: CourseSurveyService,
+    tmp_path: Path,
+) -> None:
+    student_csv = tmp_path / "校種自動補完_生徒回答.csv"
+    teacher_csv = tmp_path / "校種自動補完_講師回答.csv"
+    _write_csv(
+        student_csv,
+        (
+            "姓（苗字）（必須）",
+            "名（必須）",
+            "学年（必須）",
+            "在籍区分（必須）",
+            "受講教科（小学校・1教科目）（必須）",
+            "受講回数（小学校・1教科目）（必須）",
+            "受講教科（中学校・1教科目）（必須）",
+            "受講回数（中学校・1教科目）（必須）",
+            "受講教科（高校・1教科目）（必須）",
+            "受講回数（高校・1教科目）（必須）",
+            "学校区分（1教科目）",
+            "受講教科（1教科目）（必須）",
+            "受講回数（1教科目）（必須）",
+            "受講不可日時 [2026-08-01（土）]",
+        ),
+        (("山田", "花子", "中2", "在籍生", "", "", "数学", "3", "", "", "中学校", "", "", ""),),
+    )
+    _write_csv(
+        teacher_csv,
+        (
+            "姓（苗字）（必須）",
+            "名（必須）",
+            "出勤不可日時 [2026-08-01（土）]",
+        ),
+        (("田中", "太郎", ""),),
+    )
+
+    preview = survey_service.prepare(student_csv, teacher_csv)
+
+    assert not preview.has_errors
+    assert preview.students[0].requests == (("中学校・数学", 3),)
 
 
 def test_missing_trial_student_is_warning_and_project_local(

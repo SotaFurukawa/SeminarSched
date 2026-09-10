@@ -190,33 +190,69 @@ function createStudentQuestionnaire() {
     .setTitle("名（必須）")
     .setHelpText("お子様の名をご記入ください。例: 太郎")
     .setRequired(true);
-  form
+  const gradeItem = form
     .addListItem()
     .setTitle("学年（必須）")
-    .setChoiceValues([
-      ...QUESTIONNAIRE_CONFIG.gradeGroups.elementary,
-      ...QUESTIONNAIRE_CONFIG.gradeGroups.juniorHigh,
-      ...QUESTIONNAIRE_CONFIG.gradeGroups.highSchool,
-    ])
     .setRequired(true);
   form
     .addListItem()
     .setTitle("在籍区分（必須）")
     .setChoiceValues(QUESTIONNAIRE_CONFIG.enrollmentTypes)
     .setRequired(true);
-  form
-    .addCheckboxItem()
+  const otherGradeItem = form
+    .addMultipleChoiceItem()
     .setTitle("中高一貫などで他学年の授業を受講される際はこちらにチェックを入れてください")
-    .setChoiceValues(["他学年の授業を受講する"])
+    .setHelpText(
+      "他学年の科目も選ぶ場合だけ選択してください。" +
+        "該当しない場合は未回答のまま進んでください。",
+    )
     .setRequired(false);
 
-  form
+  const elementaryPage = form
     .addPageBreakItem()
-    .setTitle("受講教科・回数")
-    .setHelpText("最大4教科まで、各教科の学校区分・受講教科・受講回数を回答してください。");
+    .setTitle("受講教科・回数（小学校）")
+    .setHelpText(
+      "最大4教科まで回答してください。学校区分は小学校として自動的に扱います。",
+    );
+  addSubjectRequestSection_(
+    form,
+    studentSubjectChoicesForLevel_("elementary"),
+    "小学校",
+  );
+
+  const juniorHighPage = form
+    .addPageBreakItem()
+    .setTitle("受講教科・回数（中学校）")
+    .setHelpText(
+      "最大4教科まで回答してください。学校区分は中学校として自動的に扱います。",
+    );
+  addSubjectRequestSection_(
+    form,
+    studentSubjectChoicesForLevel_("juniorHigh"),
+    "中学校",
+  );
+
+  const highSchoolPage = form
+    .addPageBreakItem()
+    .setTitle("受講教科・回数（高校）")
+    .setHelpText(
+      "最大4教科まで回答してください。学校区分は高校として自動的に扱います。",
+    );
+  addSubjectRequestSection_(
+    form,
+    studentSubjectChoicesForLevel_("highSchool"),
+    "高校",
+  );
+
+  const otherGradePage = form
+    .addPageBreakItem()
+    .setTitle("受講教科・回数（他学年を含む）")
+    .setHelpText(
+      "最大4教科まで、各教科の学校区分・受講教科・受講回数を回答してください。",
+    );
   addSubjectRequestSection_(form, QUESTIONNAIRE_CONFIG.studentSubjectChoices);
 
-  form
+  const availabilityPage = form
     .addPageBreakItem()
     .setTitle("受講できない日時")
     .setHelpText(
@@ -252,8 +288,30 @@ function createStudentQuestionnaire() {
     .setChoiceValues(QUESTIONNAIRE_CONFIG.summerTestChoices)
     .setRequired(false);
 
+  // 各PageBreakItemは直前のページの遷移先を設定する。最後の他学年ページは
+  // 直後のavailabilityPageへ通常遷移するため、追加設定は不要。
+  juniorHighPage.setGoToPage(availabilityPage);
+  highSchoolPage.setGoToPage(availabilityPage);
+  otherGradePage.setGoToPage(availabilityPage);
+  gradeItem.setChoices([
+    ...QUESTIONNAIRE_CONFIG.gradeGroups.elementary.map((grade) =>
+      gradeItem.createChoice(grade, elementaryPage),
+    ),
+    ...QUESTIONNAIRE_CONFIG.gradeGroups.juniorHigh.map((grade) =>
+      gradeItem.createChoice(grade, juniorHighPage),
+    ),
+    ...QUESTIONNAIRE_CONFIG.gradeGroups.highSchool.map((grade) =>
+      gradeItem.createChoice(grade, highSchoolPage),
+    ),
+  ]);
+  // 同じページの最後のナビゲーション質問を優先し、選択時だけ全校種ページへ進める。
+  otherGradeItem.setChoices([
+    otherGradeItem.createChoice("他学年の授業を受講する", otherGradePage),
+  ]);
+
   const spreadsheet = SpreadsheetApp.create(`${QUESTIONNAIRE_CONFIG.title} 回答原本`);
   form.setDestination(FormApp.DestinationType.SPREADSHEET, spreadsheet.getId());
+  installStudentResponseNormalizer_(spreadsheet.getId());
 
   properties.setProperty(FORM_ID_PROPERTY, form.getId());
   properties.setProperty(SPREADSHEET_ID_PROPERTY, spreadsheet.getId());
@@ -261,18 +319,21 @@ function createStudentQuestionnaire() {
 }
 
 /** 最大4教科分の学校区分・教科・回数を追加する。 */
-function addSubjectRequestSection_(form, subjects) {
+function addSubjectRequestSection_(form, subjects, automaticSchoolLevel = "") {
   for (let index = 1; index <= 4; index += 1) {
     const required = index === 1;
-    form
-      .addListItem()
-      .setTitle(`学校区分（${index}教科目）`)
-      .setChoiceValues(QUESTIONNAIRE_CONFIG.schoolLevels)
-      .setRequired(required);
+    if (!automaticSchoolLevel) {
+      form
+        .addListItem()
+        .setTitle(`学校区分（${index}教科目）`)
+        .setChoiceValues(QUESTIONNAIRE_CONFIG.schoolLevels)
+        .setRequired(required);
+    }
+    const schoolLabel = automaticSchoolLevel ? `${automaticSchoolLevel}・` : "";
     form
       .addListItem()
       .setTitle(
-        `受講教科（${index}教科目）${required ? "（必須）" : ""}`,
+        `受講教科（${schoolLabel}${index}教科目）${required ? "（必須）" : ""}`,
       )
       .setHelpText(
         index === 1
@@ -284,11 +345,64 @@ function addSubjectRequestSection_(form, subjects) {
     form
       .addListItem()
       .setTitle(
-        `受講回数（${index}教科目）${required ? "（必須）" : ""}`,
+        `受講回数（${schoolLabel}${index}教科目）${required ? "（必須）" : ""}`,
       )
       .setHelpText("直前の受講教科について、希望する授業回数を選択してください。")
       .setChoiceValues(QUESTIONNAIRE_CONFIG.sessionCounts)
       .setRequired(required);
+  }
+}
+
+/** 校種別ページでは学校接頭辞を表示せず、回答列名から校種を自動判定する。 */
+function studentSubjectChoicesForLevel_(schoolLevelKey) {
+  return QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel[schoolLevelKey].map((subject) =>
+    subject
+      .replace(/^小学校・/, "")
+      .replace(/^中学校・/, "")
+      .replace(/^高校・/, "")
+      .replace("（中学受験以外なら可能）", "（中学受験以外）"),
+  );
+}
+
+/** 通常学年ルートの回答では、選択済み科目の学校区分を回答表へ自動補完する。 */
+function installStudentResponseNormalizer_(spreadsheetId) {
+  ScriptApp.getProjectTriggers()
+    .filter((trigger) => trigger.getHandlerFunction() === "fillAutomaticStudentSchoolLevels_")
+    .forEach((trigger) => ScriptApp.deleteTrigger(trigger));
+  ScriptApp.newTrigger("fillAutomaticStudentSchoolLevels_")
+    .forSpreadsheet(spreadsheetId)
+    .onFormSubmit()
+    .create();
+}
+
+function fillAutomaticStudentSchoolLevels_(event) {
+  const otherGradeTitle =
+    "中高一貫などで他学年の授業を受講される際はこちらにチェックを入れてください";
+  const otherGradeAnswer = (event.namedValues[otherGradeTitle] || []).join("");
+  if (otherGradeAnswer) return;
+
+  const grade = (event.namedValues["学年（必須）"] || []).join("").trim();
+  const schoolLevel = /^小[1-6]$/.test(grade)
+    ? "小学校"
+    : /^中[1-3]$/.test(grade)
+      ? "中学校"
+      : /^高[1-3]$/.test(grade)
+        ? "高校"
+        : "";
+  if (!schoolLevel) return;
+
+  const sheet = event.range.getSheet();
+  const row = event.range.getRow();
+  const headers = sheet
+    .getRange(1, 1, 1, sheet.getLastColumn())
+    .getDisplayValues()[0];
+  for (let index = 1; index <= 4; index += 1) {
+    const subjectPrefix = `受講教科（${schoolLevel}・${index}教科目）`;
+    const subjectColumn = headers.findIndex((header) => header.startsWith(subjectPrefix));
+    const schoolColumn = headers.indexOf(`学校区分（${index}教科目）`);
+    if (subjectColumn < 0 || schoolColumn < 0) continue;
+    const subject = sheet.getRange(row, subjectColumn + 1).getDisplayValue().trim();
+    if (subject) sheet.getRange(row, schoolColumn + 1).setValue(schoolLevel);
   }
 }
 

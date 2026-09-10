@@ -121,14 +121,22 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
     assert "const subjects = Object.values" not in student_source
     assert (
         student_source.count(
-            "中高一貫などで他学年の授業を受講される際はこちらにチェックを入れてください"
+            '.setTitle("中高一貫などで他学年の授業を受講される際はこちらにチェックを入れてください")'
         )
         == 1
     )
     assert "他学年の内容も受講しますか（必須）" not in student_source
     assert "学校区分（${index}教科目）" in student_source
-    assert "受講教科（${index}教科目）" in student_source
-    assert "受講回数（${index}教科目）" in student_source
+    assert "受講教科（${schoolLabel}${index}教科目）" in student_source
+    assert "受講回数（${schoolLabel}${index}教科目）" in student_source
+    assert "gradeItem.createChoice(grade, elementaryPage)" in student_source
+    assert "gradeItem.createChoice(grade, juniorHighPage)" in student_source
+    assert "gradeItem.createChoice(grade, highSchoolPage)" in student_source
+    assert 'otherGradeItem.createChoice("他学年の授業を受講する", otherGradePage)' in student_source
+    assert "juniorHighPage.setGoToPage(availabilityPage)" in student_source
+    assert "elementaryPage.setGoToPage(availabilityPage)" not in student_source
+    assert "function fillAutomaticStudentSchoolLevels_(event)" in student_source
+    assert "headers.indexOf(`学校区分（${index}教科目）`)" in student_source
     assert "function createReplacementStudentQuestionnaire()" in student_source
     assert "function createTeacherQuestionnaire()" in teacher_source
     assert "function createReplacementTeacherQuestionnaire()" in teacher_source
