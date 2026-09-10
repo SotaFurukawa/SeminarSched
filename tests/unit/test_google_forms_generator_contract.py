@@ -36,27 +36,29 @@ def test_google_form_generator_has_stable_response_contract() -> None:
     assert 'setTitle("学年（必須）")' in source
     assert 'setTitle("在籍区分（必須）")' in source
     assert "for (let index = 1; index <= 4; index += 1)" in source
-    assert "受講教科（${schoolLabel}・${index}教科目）" in source
-    assert "受講回数（${schoolLabel}・${index}教科目）" in source
-    assert source.count(".addPageBreakItem()") == 5
+    assert "学校区分（${index}教科目）" in source
+    assert "受講教科（${index}教科目）" in source
+    assert "受講回数（${index}教科目）" in source
+    assert (
+        source.count("中高一貫などで他学年の授業を受講される際はこちらにチェックを入れてください")
+        == 1
+    )
+    assert "他学年の内容も受講しますか（必須）" not in source
+    assert source.count(".addPageBreakItem()") == 3
     assert ".addCheckboxGridItem()" in source
     assert 'setTitle("受講不可日時（チェックしたコマは受講不可）")' in source
     assert "FormApp.DestinationType.SPREADSHEET" in source
 
 
-def test_google_form_generator_routes_grades_to_school_subject_sections() -> None:
+def test_google_form_generator_uses_one_compact_subject_section() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
 
     assert "subjectsBySchoolLevel" in source
-    assert "gradeItem.createChoice(grade, elementaryPage)" in source
-    assert "gradeItem.createChoice(grade, juniorHighPage)" in source
-    assert "gradeItem.createChoice(grade, highSchoolPage)" in source
-    assert "elementaryPage.setGoToPage(availabilityPage)" in source
-    assert "juniorHighPage.setGoToPage(availabilityPage)" in source
-    assert "highSchoolPage.setGoToPage(availabilityPage)" in source
-    assert 'setTitle("小学生の受講教科・回数")' in source
-    assert 'setTitle("中学生の受講教科・回数")' in source
-    assert 'setTitle("高校生の受講教科・回数")' in source
+    assert 'schoolLevels: ["小学校", "中学校", "高校"]' in source
+    assert "studentSubjectChoices" in source
+    assert 'setTitle("受講教科・回数")' in source
+    assert "gradeItem.createChoice" not in source
+    assert "elementaryPage" not in source
 
 
 def test_google_form_generator_can_safely_create_a_replacement() -> None:

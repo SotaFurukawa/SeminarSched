@@ -433,6 +433,30 @@ def _parse_student_responses(
     count_headers = [header for header in table.headers if "受講回数（" in header]
     if not request_headers or len(request_headers) != len(count_headers):
         raise CourseSurveyError("生徒回答の受講教科・受講回数列を判別できません。")
+    school_headers = [header for header in table.headers if "学校区分（" in header]
+    request_columns: list[tuple[str, str, str]]
+    if school_headers:
+        subjects_by_number = {_question_number(header): header for header in request_headers}
+        counts_by_number = {_question_number(header): header for header in count_headers}
+        schools_by_number = {_question_number(header): header for header in school_headers}
+        if (
+            None in subjects_by_number
+            or None in counts_by_number
+            or None in schools_by_number
+            or set(subjects_by_number) != set(counts_by_number)
+            or set(subjects_by_number) != set(schools_by_number)
+        ):
+            raise CourseSurveyError("生徒回答の学校区分・受講教科・受講回数列の組合せが不正です。")
+        request_columns = [
+            (subjects_by_number[number], counts_by_number[number], schools_by_number[number])
+            for number in sorted(value for value in subjects_by_number if value is not None)
+        ]
+    else:
+        # v1.6.2以前の校種別列も取込み可能なままにする。
+        request_columns = [
+            (subject_header, count_header, "")
+            for subject_header, count_header in zip(request_headers, count_headers, strict=True)
+        ]
     date_headers = _date_headers(table, "受講不可日時")
     _validate_dates(date_headers, open_dates, "生徒回答", issues)
     known_students = {(_name_key(row.name), grade_from_excel(row.grade)) for row in master_students}
@@ -486,10 +510,11 @@ def _parse_student_responses(
                 )
         requests: list[tuple[str, int]] = []
         request_keys: set[str] = set()
-        for subject_header, count_header in zip(request_headers, count_headers, strict=True):
+        for subject_header, count_header, school_header in request_columns:
             subject_name = _text(values.get(subject_header))
             count_text = _text(values.get(count_header))
-            if not subject_name and not count_text:
+            school_level = _text(values.get(school_header)) if school_header else ""
+            if not subject_name and not count_text and not school_level:
                 continue
             if not subject_name or not count_text:
                 issues.append(
@@ -499,6 +524,18 @@ def _parse_student_responses(
                         source_row.row_number,
                         name,
                         "受講教科と受講回数は組で入力してください。",
+                        "フォーム回答を修正",
+                    )
+                )
+                continue
+            if school_header and school_level not in {"小学校", "中学校", "高校"}:
+                issues.append(
+                    _issue(
+                        "error",
+                        "生徒回答",
+                        source_row.row_number,
+                        name,
+                        "学校区分は小学校・中学校・高校から選択してください。",
                         "フォーム回答を修正",
                     )
                 )
@@ -521,6 +558,7 @@ def _parse_student_responses(
             canonical_subject_name = _canonical_questionnaire_subject(
                 subject_name,
                 subject_header,
+                school_level,
             )
             key = _text_key(canonical_subject_name)
             if key not in known_subjects:
@@ -709,9 +747,18 @@ def _combined_workbook(preview: CourseSurveyPreview) -> bytes:
 
 
 def _read_first_table(path: Path) -> SourceTable:
-    inspection = inspect_source(path, csv_encoding=CsvEncoding.AUTO)
+    inspection = inspect_source(
+        path,
+        csv_encoding=CsvEncoding.AUTO,
+        allow_duplicate_headers=True,
+    )
     sheet_name = inspection.sheets[0].name if inspection.sheets else None
-    return read_source_table(path, sheet_name=sheet_name, csv_encoding=CsvEncoding.AUTO)
+    return read_source_table(
+        path,
+        sheet_name=sheet_name,
+        csv_encoding=CsvEncoding.AUTO,
+        allow_duplicate_headers=True,
+    )
 
 
 def _date_headers(table: SourceTable, marker: str) -> dict[str, date]:
@@ -838,9 +885,24 @@ def _text_key(value: str) -> str:
     return "".join(value.split()).casefold()
 
 
-def _canonical_questionnaire_subject(value: str, header: str) -> str:
+def _canonical_questionnaire_subject(
+    value: str,
+    header: str,
+    school_level: str = "",
+) -> str:
     """短縮したフォーム選択肢をDB・統合xlsxの正式科目名へ戻す。"""
     normalized = value.replace("（中学受験以外）", "（中学受験以外なら可能）")
+    selected_prefix = {
+        "小学校": "小学校・",
+        "中学校": "中学校・",
+        "高校": "高校・",
+    }.get(school_level)
+    if selected_prefix is not None:
+        for existing_prefix in ("小学校・", "中学校・", "高校・"):
+            if normalized.startswith(existing_prefix):
+                normalized = normalized.removeprefix(existing_prefix)
+                break
+        return selected_prefix + normalized
     if normalized.startswith(("小学校・", "中学校・", "高校・")):
         return normalized
     if "他学年" in header:
@@ -856,6 +918,11 @@ def _canonical_questionnaire_subject(value: str, header: str) -> str:
         if marker in header:
             return prefix + normalized
     return normalized
+
+
+def _question_number(header: str) -> int | None:
+    match = re.search(r"(\d+)教科目", header)
+    return int(match.group(1)) if match else None
 
 
 def _text(value: object) -> str:

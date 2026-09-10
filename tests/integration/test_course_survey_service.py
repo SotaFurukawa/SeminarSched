@@ -81,8 +81,9 @@ def test_generated_google_forms_answers_are_combined_and_stored(
             "名（必須）",
             "学年（必須）",
             "在籍区分（必須）",
-            "受講教科（中学校・1教科目）（必須）",
-            "受講回数（中学校・1教科目）（必須）",
+            "学校区分（1教科目）",
+            "受講教科（1教科目）（必須）",
+            "受講回数（1教科目）（必須）",
             "受講不可日時（チェックしたコマは受講不可） [2026-08-01（土）]",
             "特記事項",
         ),
@@ -93,6 +94,7 @@ def test_generated_google_forms_answers_are_combined_and_stored(
                 "花子",
                 "中2",
                 "在籍生",
+                "中学校",
                 "数学",
                 "3",
                 "Z, A, B, C",
@@ -180,6 +182,25 @@ def test_short_questionnaire_subjects_restore_canonical_names(
     assert _canonical_questionnaire_subject(value, header) == expected
 
 
+def test_compact_questionnaire_subject_uses_school_level_column() -> None:
+    assert (
+        _canonical_questionnaire_subject(
+            "日本史",
+            "受講教科（1教科目）（必須）",
+            "高校",
+        )
+        == "高校・日本史"
+    )
+    assert (
+        _canonical_questionnaire_subject(
+            "算数（中学受験以外）",
+            "受講教科（1教科目）（必須）",
+            "小学校",
+        )
+        == "小学校・算数（中学受験以外なら可能）"
+    )
+
+
 def test_missing_trial_student_is_warning_and_project_local(
     survey_service: CourseSurveyService,
     tmp_path: Path,
@@ -193,11 +214,27 @@ def test_missing_trial_student_is_warning_and_project_local(
             "名（必須）",
             "学年（必須）",
             "在籍区分（必須）",
+            "他学年の内容も受講しますか（必須）",
+            "他学年の内容も受講しますか（必須）",
+            "他学年の内容も受講しますか（必須）",
             "受講教科（中学校・1教科目）（必須）",
             "受講回数（中学校・1教科目）（必須）",
             "受講不可日時 [2026-08-01（土）]",
         ),
-        (("鈴木", "体験", "中1", "体験生", "中学校・数学", "1", ""),),
+        (
+            (
+                "鈴木",
+                "体験",
+                "中1",
+                "体験生",
+                "",
+                "受講しない",
+                "",
+                "中学校・数学",
+                "1",
+                "",
+            ),
+        ),
     )
     _write_csv(
         teacher_csv,

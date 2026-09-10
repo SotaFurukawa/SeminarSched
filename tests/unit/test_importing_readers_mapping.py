@@ -139,6 +139,23 @@ def test_missing_required_column_is_reported_once_at_header_level(tmp_path: Path
     assert missing[0].row_number == 1
 
 
+def test_duplicate_headers_are_strict_by_default_and_can_be_disambiguated(
+    tmp_path: Path,
+) -> None:
+    destination = tmp_path / "Googleフォーム回答.csv"
+    destination.write_text(
+        "姓,他学年の回答,他学年の回答\n山田,,受講する\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ImportSourceError, match="重複"):
+        read_source_table(destination)
+
+    table = read_source_table(destination, allow_duplicate_headers=True)
+    assert table.headers == ("姓", "他学年の回答", "他学年の回答 [重複2]")
+    assert table.rows[0].raw_values["他学年の回答 [重複2]"] == "受講する"
+
+
 def test_group_time_order_is_a_basic_mapping_error(tmp_path: Path) -> None:
     destination = tmp_path / "集団.csv"
     destination.write_text(

@@ -20,11 +20,7 @@ _GRADE_GROUPS = {
     "juniorHigh": ["中1", "中2", "中3"],
     "highSchool": ["高1", "高2", "高3"],
 }
-_SCHOOL_LEVEL_SUFFIXES = {
-    "elementary": "小",
-    "junior_high": "中",
-    "high_school": "高",
-}
+_SCHOOL_LEVEL_CHOICES = ["小学校", "中学校", "高校"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,15 +92,11 @@ class QuestionnaireScriptService:
 
         subjects_by_level: dict[str, list[str]] = {level: [] for level in _SCHOOL_LEVELS}
         student_subjects_by_level: dict[str, list[str]] = {level: [] for level in _SCHOOL_LEVELS}
-        cross_level_subjects: list[str] = []
         for subject in subjects:
             if subject.school_level in subjects_by_level:
                 subjects_by_level[subject.school_level].append(subject.display_name)
                 short_label = _student_subject_label(subject.display_name)
                 student_subjects_by_level[subject.school_level].append(short_label)
-                cross_level_subjects.append(
-                    f"{short_label}({_SCHOOL_LEVEL_SUFFIXES[subject.school_level]})"
-                )
         missing_levels = [level for level, values in subjects_by_level.items() if not values]
         if missing_levels:
             raise ValueError(
@@ -127,12 +119,17 @@ class QuestionnaireScriptService:
             "timeSlots": time_slots,
             "gradeGroups": _GRADE_GROUPS,
             "enrollmentTypes": ["在籍生", "体験生"],
+            "schoolLevels": _SCHOOL_LEVEL_CHOICES,
             "subjectsBySchoolLevel": {
                 "elementary": student_subjects_by_level["elementary"],
                 "juniorHigh": student_subjects_by_level["junior_high"],
                 "highSchool": student_subjects_by_level["high_school"],
             },
-            "crossLevelSubjects": cross_level_subjects,
+            "studentSubjectChoices": list(
+                dict.fromkeys(
+                    value for level in _SCHOOL_LEVELS for value in student_subjects_by_level[level]
+                )
+            ),
             "sessionCounts": [str(value) for value in range(1, 21)],
             "summerTestChoices": [
                 "夏期学力テストを受験する",
@@ -420,79 +417,35 @@ function __CREATE_FUNCTION__() {
 }
 
 function addStudentQuestions_(form) {
-  const gradeItem = form.addListItem().setTitle("学年（必須）").setRequired(true);
+  form
+    .addListItem()
+    .setTitle("学年（必須）")
+    .setChoiceValues([
+      ...QUESTIONNAIRE_CONFIG.gradeGroups.elementary,
+      ...QUESTIONNAIRE_CONFIG.gradeGroups.juniorHigh,
+      ...QUESTIONNAIRE_CONFIG.gradeGroups.highSchool,
+    ])
+    .setRequired(true);
   form
     .addListItem()
     .setTitle("在籍区分（必須）")
     .setChoiceValues(QUESTIONNAIRE_CONFIG.enrollmentTypes)
     .setRequired(true);
+  form
+    .addCheckboxItem()
+    .setTitle("中高一貫などで他学年の授業を受講される際はこちらにチェックを入れてください")
+    .setChoiceValues(["他学年の授業を受講する"])
+    .setRequired(false);
 
-  const elementaryPage = form
+  form
     .addPageBreakItem()
-    .setTitle("小学生の受講教科・回数")
-    .setHelpText("小学校の科目だけが表示されます。最大4教科まで回答できます。");
+    .setTitle("受講教科・回数")
+    .setHelpText("最大4教科まで、各教科の学校区分・受講教科・受講回数を回答してください。");
   addSubjectRequestSection_(
     form,
-    "小学校",
-    QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.elementary,
+    QUESTIONNAIRE_CONFIG.studentSubjectChoices,
   );
-  const elementaryCrossLevelItem = form
-    .addMultipleChoiceItem()
-    .setTitle("他学年の内容も受講しますか（必須）")
-    .setRequired(true);
-  const juniorHighPage = form
-    .addPageBreakItem()
-    .setTitle("中学生の受講教科・回数")
-    .setHelpText("中学校の科目だけが表示されます。最大4教科まで回答できます。");
-  addSubjectRequestSection_(
-    form,
-    "中学校",
-    QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.juniorHigh,
-  );
-  const juniorHighCrossLevelItem = form
-    .addMultipleChoiceItem()
-    .setTitle("他学年の内容も受講しますか（必須）")
-    .setRequired(true);
-  const highSchoolPage = form
-    .addPageBreakItem()
-    .setTitle("高校生の受講教科・回数")
-    .setHelpText("高校の科目だけが表示されます。最大4教科まで回答できます。");
-  addSubjectRequestSection_(
-    form,
-    "高校",
-    QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.highSchool,
-  );
-  const highSchoolCrossLevelItem = form
-    .addMultipleChoiceItem()
-    .setTitle("他学年の内容も受講しますか（必須）")
-    .setRequired(true);
-  const crossLevelPage = form
-    .addPageBreakItem()
-    .setTitle("他学年の受講教科・回数")
-    .setHelpText("小・中・高の科目を選択できます。科目名末尾の(小)(中)(高)で内容を区別します。");
-  addSubjectRequestSection_(
-    form,
-    "他学年",
-    QUESTIONNAIRE_CONFIG.crossLevelSubjects,
-  );
-  const availabilityPage = addAvailabilityPage_(form, "受講");
-  [elementaryCrossLevelItem, juniorHighCrossLevelItem, highSchoolCrossLevelItem]
-    .forEach((item) => item.setChoices([
-      item.createChoice("受講しない", availabilityPage),
-      item.createChoice("受講する", crossLevelPage),
-    ]));
-  crossLevelPage.setGoToPage(availabilityPage);
-  gradeItem.setChoices([
-    ...QUESTIONNAIRE_CONFIG.gradeGroups.elementary.map((grade) =>
-      gradeItem.createChoice(grade, elementaryPage),
-    ),
-    ...QUESTIONNAIRE_CONFIG.gradeGroups.juniorHigh.map((grade) =>
-      gradeItem.createChoice(grade, juniorHighPage),
-    ),
-    ...QUESTIONNAIRE_CONFIG.gradeGroups.highSchool.map((grade) =>
-      gradeItem.createChoice(grade, highSchoolPage),
-    ),
-  ]);
+  addAvailabilityPage_(form, "受講");
   addAvailabilityGrid_(form, "受講不可日時（チェックしたコマは受講不可）");
   form.addPageBreakItem().setTitle("確認・特記事項");
   form
@@ -582,17 +535,22 @@ function addTeacherSubjectCheckbox_(form, title, subjects) {
     .setRequired(false);
 }
 
-function addSubjectRequestSection_(form, schoolLabel, subjects) {
+function addSubjectRequestSection_(form, subjects) {
   for (let index = 1; index <= 4; index += 1) {
     const required = index === 1;
     form
       .addListItem()
-      .setTitle(`受講教科（${schoolLabel}・${index}教科目）${required ? "（必須）" : ""}`)
+      .setTitle(`学校区分（${index}教科目）`)
+      .setChoiceValues(QUESTIONNAIRE_CONFIG.schoolLevels)
+      .setRequired(required);
+    form
+      .addListItem()
+      .setTitle(`受講教科（${index}教科目）${required ? "（必須）" : ""}`)
       .setChoiceValues(subjects)
       .setRequired(required);
     form
       .addListItem()
-      .setTitle(`受講回数（${schoolLabel}・${index}教科目）${required ? "（必須）" : ""}`)
+      .setTitle(`受講回数（${index}教科目）${required ? "（必須）" : ""}`)
       .setChoiceValues(QUESTIONNAIRE_CONFIG.sessionCounts)
       .setRequired(required);
   }
@@ -665,11 +623,12 @@ function validateQuestionnaireConfig_() {
     const invalidGroup = subjectGroups.some(
       (subjects) => subjects.length === 0 || new Set(subjects).size !== subjects.length,
     );
-    const crossLevelSubjects = QUESTIONNAIRE_CONFIG.crossLevelSubjects || [];
-    const invalidCrossLevel = QUESTIONNAIRE_CONFIG.kind === "student" &&
-      (crossLevelSubjects.length === 0 ||
-       new Set(crossLevelSubjects).size !== crossLevelSubjects.length);
-    if (invalidGroup || invalidCrossLevel) {
+    const studentSubjects = QUESTIONNAIRE_CONFIG.studentSubjectChoices || [];
+    const invalidStudentSubjects = QUESTIONNAIRE_CONFIG.kind === "student" &&
+      (studentSubjects.length === 0 ||
+       new Set(studentSubjects).size !== studentSubjects.length ||
+       QUESTIONNAIRE_CONFIG.schoolLevels.join("・") !== "小学校・中学校・高校");
+    if (invalidGroup || invalidStudentSubjects) {
       throw new Error("科目選択肢が未設定または重複しています。");
     }
   }

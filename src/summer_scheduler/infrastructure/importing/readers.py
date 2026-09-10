@@ -30,13 +30,19 @@ def inspect_source(
     path: Path,
     *,
     csv_encoding: CsvEncoding = CsvEncoding.AUTO,
+    allow_duplicate_headers: bool = False,
 ) -> SourceInspection:
     """シート候補、ヘッダー、CSV文字コードを列挙する。"""
     source = _existing_source(path)
     source_format = _source_format(source)
     if source_format is SourceFormat.CSV:
         encoding = detect_csv_encoding(source, requested=csv_encoding)
-        headers, rows = _read_csv_rows(source, encoding, preview_limit=None)
+        headers, rows = _read_csv_rows(
+            source,
+            encoding,
+            preview_limit=None,
+            allow_duplicate_headers=allow_duplicate_headers,
+        )
         return SourceInspection(
             source_path=source,
             source_format=source_format,
@@ -58,7 +64,10 @@ def inspect_source(
                 worksheet.iter_rows(min_row=1, max_row=1, values_only=True),
                 (),
             )
-            headers = _headers_from_values(first_row)
+            headers = _headers_from_values(
+                first_row,
+                allow_duplicate_headers=allow_duplicate_headers,
+            )
             sheets.append(
                 SheetSummary(
                     name=str(worksheet.title),
@@ -77,6 +86,7 @@ def read_source_table(
     sheet_name: str | None = None,
     csv_encoding: CsvEncoding = CsvEncoding.AUTO,
     preview_limit: int | None = None,
+    allow_duplicate_headers: bool = False,
 ) -> SourceTable:
     """選択したシートまたはCSVを読み、先頭行previewにも利用できる表を返す。"""
     if preview_limit is not None and preview_limit < 0:
@@ -88,7 +98,12 @@ def read_source_table(
         if sheet_name not in (None, source.stem):
             raise ImportSourceError("CSVではシートを選択できません。")
         encoding = detect_csv_encoding(source, requested=csv_encoding)
-        headers, rows = _read_csv_rows(source, encoding, preview_limit=preview_limit)
+        headers, rows = _read_csv_rows(
+            source,
+            encoding,
+            preview_limit=preview_limit,
+            allow_duplicate_headers=allow_duplicate_headers,
+        )
         return SourceTable(
             source_path=source,
             source_format=source_format,
@@ -106,7 +121,10 @@ def read_source_table(
             worksheet.iter_rows(min_row=1, max_row=1, values_only=True),
             (),
         )
-        headers = _headers_from_values(first_row)
+        headers = _headers_from_values(
+            first_row,
+            allow_duplicate_headers=allow_duplicate_headers,
+        )
         rows = _xlsx_rows(worksheet, headers, preview_limit)
     finally:
         workbook.close()
@@ -202,12 +220,17 @@ def _read_csv_rows(
     source: Path,
     encoding: CsvEncoding,
     preview_limit: int | None,
+    *,
+    allow_duplicate_headers: bool = False,
 ) -> tuple[tuple[str, ...], tuple[SourceRow, ...]]:
     try:
         with source.open("r", encoding=encoding.value, newline="") as stream:
             reader = csv.reader(stream)
             header_values = next(reader, ())
-            headers = _headers_from_values(header_values)
+            headers = _headers_from_values(
+                header_values,
+                allow_duplicate_headers=allow_duplicate_headers,
+            )
             rows = _source_rows(
                 ((row_number, values) for row_number, values in enumerate(reader, start=2)),
                 headers,
@@ -254,7 +277,11 @@ def _source_rows(
     return tuple(rows)
 
 
-def _headers_from_values(values: Sequence[object]) -> tuple[str, ...]:
+def _headers_from_values(
+    values: Sequence[object],
+    *,
+    allow_duplicate_headers: bool = False,
+) -> tuple[str, ...]:
     headers: list[str] = []
     seen: set[str] = set()
     for column_number, value in enumerate(values, start=1):
@@ -262,7 +289,14 @@ def _headers_from_values(values: Sequence[object]) -> tuple[str, ...]:
         if not header:
             header = f"__column_{column_number}"
         if header in seen:
-            raise ImportSourceError(f"ヘッダー「{header}」が重複しています。")
+            if not allow_duplicate_headers:
+                raise ImportSourceError(f"ヘッダー「{header}」が重複しています。")
+            duplicate_number = 2
+            candidate = f"{header} [重複{duplicate_number}]"
+            while candidate in seen:
+                duplicate_number += 1
+                candidate = f"{header} [重複{duplicate_number}]"
+            header = candidate
         seen.add(header)
         headers.append(header)
     return tuple(headers)

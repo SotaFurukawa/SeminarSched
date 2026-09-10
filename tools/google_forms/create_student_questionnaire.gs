@@ -27,6 +27,7 @@ const QUESTIONNAIRE_CONFIG = Object.freeze({
     highSchool: ["高1", "高2", "高3"],
   },
   enrollmentTypes: ["在籍生", "体験生"],
+  schoolLevels: ["小学校", "中学校", "高校"],
   subjectsBySchoolLevel: {
     elementary: [
       "小学校・英語",
@@ -61,6 +62,30 @@ const QUESTIONNAIRE_CONFIG = Object.freeze({
       "高校・情報",
     ],
   },
+  studentSubjectChoices: [
+    "英語",
+    "算数（中学受験）",
+    "算数（中学受験以外）",
+    "国語（中学受験）",
+    "国語（中学受験以外）",
+    "理科",
+    "社会",
+    "数学",
+    "国語",
+    "現代文",
+    "古文",
+    "数学IA",
+    "数学IIBC",
+    "数学III",
+    "物理",
+    "化学",
+    "生物",
+    "日本史",
+    "世界史",
+    "地理",
+    "政治経済",
+    "情報",
+  ],
   sessionCounts: [
     "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
     "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
@@ -165,47 +190,33 @@ function createStudentQuestionnaire() {
     .setTitle("名（必須）")
     .setHelpText("お子様の名をご記入ください。例: 太郎")
     .setRequired(true);
-  const gradeItem = form
+  form
     .addListItem()
     .setTitle("学年（必須）")
+    .setChoiceValues([
+      ...QUESTIONNAIRE_CONFIG.gradeGroups.elementary,
+      ...QUESTIONNAIRE_CONFIG.gradeGroups.juniorHigh,
+      ...QUESTIONNAIRE_CONFIG.gradeGroups.highSchool,
+    ])
     .setRequired(true);
   form
     .addListItem()
     .setTitle("在籍区分（必須）")
     .setChoiceValues(QUESTIONNAIRE_CONFIG.enrollmentTypes)
     .setRequired(true);
+  form
+    .addCheckboxItem()
+    .setTitle("中高一貫などで他学年の授業を受講される際はこちらにチェックを入れてください")
+    .setChoiceValues(["他学年の授業を受講する"])
+    .setRequired(false);
 
-  const elementaryPage = form
+  form
     .addPageBreakItem()
-    .setTitle("小学生の受講教科・回数")
-    .setHelpText("小学校の科目だけが表示されています。最大4教科まで回答できます。");
-  addSubjectRequestSection_(
-    form,
-    "小学校",
-    QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.elementary,
-  );
+    .setTitle("受講教科・回数")
+    .setHelpText("最大4教科まで、各教科の学校区分・受講教科・受講回数を回答してください。");
+  addSubjectRequestSection_(form, QUESTIONNAIRE_CONFIG.studentSubjectChoices);
 
-  const juniorHighPage = form
-    .addPageBreakItem()
-    .setTitle("中学生の受講教科・回数")
-    .setHelpText("中学校の科目だけが表示されています。最大4教科まで回答できます。");
-  addSubjectRequestSection_(
-    form,
-    "中学校",
-    QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.juniorHigh,
-  );
-
-  const highSchoolPage = form
-    .addPageBreakItem()
-    .setTitle("高校生の受講教科・回数")
-    .setHelpText("高校の科目だけが表示されています。最大4教科まで回答できます。");
-  addSubjectRequestSection_(
-    form,
-    "高校",
-    QUESTIONNAIRE_CONFIG.subjectsBySchoolLevel.highSchool,
-  );
-
-  const availabilityPage = form
+  form
     .addPageBreakItem()
     .setTitle("受講できない日時")
     .setHelpText(
@@ -213,22 +224,6 @@ function createStudentQuestionnaire() {
       "受講できる日時にはチェックを入れないでください。",
     );
 
-  // 各校種の科目回答後は、他校種の科目を飛ばして共通の日程欄へ進む。
-  elementaryPage.setGoToPage(availabilityPage);
-  juniorHighPage.setGoToPage(availabilityPage);
-  highSchoolPage.setGoToPage(availabilityPage);
-
-  gradeItem.setChoices([
-    ...QUESTIONNAIRE_CONFIG.gradeGroups.elementary.map((grade) =>
-      gradeItem.createChoice(grade, elementaryPage),
-    ),
-    ...QUESTIONNAIRE_CONFIG.gradeGroups.juniorHigh.map((grade) =>
-      gradeItem.createChoice(grade, juniorHighPage),
-    ),
-    ...QUESTIONNAIRE_CONFIG.gradeGroups.highSchool.map((grade) =>
-      gradeItem.createChoice(grade, highSchoolPage),
-    ),
-  ]);
   form
     .addCheckboxGridItem()
     .setTitle("受講不可日時（チェックしたコマは受講不可）")
@@ -265,14 +260,19 @@ function createStudentQuestionnaire() {
   logQuestionnaireUrls_(form, spreadsheet.getId());
 }
 
-/** 指定校種だけを候補にした、最大4教科分の質問を追加する。 */
-function addSubjectRequestSection_(form, schoolLabel, subjects) {
+/** 最大4教科分の学校区分・教科・回数を追加する。 */
+function addSubjectRequestSection_(form, subjects) {
   for (let index = 1; index <= 4; index += 1) {
     const required = index === 1;
     form
       .addListItem()
+      .setTitle(`学校区分（${index}教科目）`)
+      .setChoiceValues(QUESTIONNAIRE_CONFIG.schoolLevels)
+      .setRequired(required);
+    form
+      .addListItem()
       .setTitle(
-        `受講教科（${schoolLabel}・${index}教科目）${required ? "（必須）" : ""}`,
+        `受講教科（${index}教科目）${required ? "（必須）" : ""}`,
       )
       .setHelpText(
         index === 1
@@ -284,7 +284,7 @@ function addSubjectRequestSection_(form, schoolLabel, subjects) {
     form
       .addListItem()
       .setTitle(
-        `受講回数（${schoolLabel}・${index}教科目）${required ? "（必須）" : ""}`,
+        `受講回数（${index}教科目）${required ? "（必須）" : ""}`,
       )
       .setHelpText("直前の受講教科について、希望する授業回数を選択してください。")
       .setChoiceValues(QUESTIONNAIRE_CONFIG.sessionCounts)
@@ -337,6 +337,14 @@ function validateQuestionnaireConfig_() {
   }
   if (new Set(subjects).size !== subjects.length) {
     throw new Error("科目選択肢が重複しています。");
+  }
+  if (
+    QUESTIONNAIRE_CONFIG.schoolLevels.join(",") !== "小学校,中学校,高校" ||
+    QUESTIONNAIRE_CONFIG.studentSubjectChoices.length === 0 ||
+    new Set(QUESTIONNAIRE_CONFIG.studentSubjectChoices).size !==
+      QUESTIONNAIRE_CONFIG.studentSubjectChoices.length
+  ) {
+    throw new Error("生徒用の学校区分または受講教科選択肢が不正です。");
   }
   if (new Set(QUESTIONNAIRE_CONFIG.openDates).size !== QUESTIONNAIRE_CONFIG.openDates.length) {
     throw new Error("開校日が重複しています。");
