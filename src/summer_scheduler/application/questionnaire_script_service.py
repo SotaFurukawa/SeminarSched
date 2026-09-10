@@ -628,8 +628,7 @@ function prepareStudentResponseSheets_(spreadsheet) {
   compactSheet.setName(STUDENT_COMPACT_SHEET_NAME);
   const headers = studentCompactResponseHeaders_();
   compactSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  compactSheet.setFrozenRows(1);
-  compactSheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+  styleStudentCompactSheet_(compactSheet, headers.length);
   spreadsheet.setActiveSheet(compactSheet);
   spreadsheet.moveActiveSheet(1);
   rawSheet.hideSheet();
@@ -673,6 +672,56 @@ function studentCompactResponseHeaders_() {
     );
   });
   return headers;
+}
+
+function styleStudentCompactSheet_(sheet, columnCount) {
+  const header = sheet.getRange(1, 1, 1, columnCount);
+  header
+    .setBackground("#5B3F86")
+    .setFontColor("#FFFFFF")
+    .setFontFamily("Arial")
+    .setFontSize(10)
+    .setFontWeight("normal")
+    .setHorizontalAlignment("left")
+    .setVerticalAlignment("middle")
+    .setWrap(false);
+  sheet.setFrozenRows(1);
+  sheet.setRowHeight(1, 23);
+  const body = sheet.getRange(2, 1, sheet.getMaxRows() - 1, columnCount);
+  body
+    .setFontColor("#202124")
+    .setFontFamily("Arial")
+    .setFontSize(10)
+    .setFontWeight("normal")
+    .setVerticalAlignment("middle")
+    .setWrap(false);
+  const stripeRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied("=AND(COUNTA(2:2)>0,ISODD(ROW()))")
+    .setBackground("#F8F9FA")
+    .setRanges([body])
+    .build();
+  sheet.setConditionalFormatRules([stripeRule]);
+
+  const widths = [135, 180, 220, 110, 110, 90, 110, 240];
+  for (let index = 1; index <= 4; index += 1) {
+    widths.push(120, 160, 130);
+  }
+  widths.push(180, 240, 180);
+  QUESTIONNAIRE_CONFIG.openDates.forEach(() => widths.push(230));
+  widths.forEach((width, index) => sheet.setColumnWidth(index + 1, width));
+}
+
+function styleStudentCompactRow_(sheet, row, columnCount) {
+  sheet
+    .getRange(row, 1, 1, columnCount)
+    .setBackground(row % 2 === 0 ? "#FFFFFF" : "#F8F9FA")
+    .setFontColor("#202124")
+    .setFontFamily("Arial")
+    .setFontSize(10)
+    .setFontWeight("normal")
+    .setVerticalAlignment("middle")
+    .setWrap(false);
+  sheet.setRowHeight(row, 21);
 }
 
 /** フォーム回答を、アプリが読み込む共通の学校区分・科目・回数列へ転記する。 */
@@ -748,10 +797,21 @@ function writeCompactStudentResponse_(event) {
       ]),
     );
   });
-  const targetRow = event.range.getRow();
-  compactSheet
-    .getRange(targetRow, 1, 1, compactValues.length)
-    .setValues([compactValues]);
+  appendCompactStudentResponse_(compactSheet, compactValues);
+}
+
+function appendCompactStudentResponse_(compactSheet, compactValues) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const targetRow = Math.max(compactSheet.getLastRow() + 1, 2);
+    compactSheet
+      .getRange(targetRow, 1, 1, compactValues.length)
+      .setValues([compactValues]);
+    styleStudentCompactRow_(compactSheet, targetRow, compactValues.length);
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function schoolLevelForStudentGrade_(grade) {

@@ -141,6 +141,8 @@ def test_scripts_use_current_open_dates_slots_and_subjects(
     assert "rawSheet.hideSheet()" in student_source
     assert "function writeCompactStudentResponse_(event)" in student_source
     assert "compactValues.push(schoolLevel, subject, count)" in student_source
+    assert "function styleStudentCompactSheet_(sheet, columnCount)" in student_source
+    assert "compactSheet.getLastRow() + 1" in student_source
     assert "function fillAutomaticStudentSchoolLevels_(event)" not in student_source
     assert "function createReplacementStudentQuestionnaire()" in student_source
     assert "function createTeacherQuestionnaire()" in teacher_source

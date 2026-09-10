@@ -43,8 +43,8 @@ Excelでは`TRUE`／`FALSE`と表示されますが、アプリは同じ在籍�
 生徒画面の「在籍中」を外すと卒業・退会扱いとなり、一覧の末尾へ移動して灰色表示されます。
 講師も同様に、在籍中を外すと退職・休止として末尾へ表示されます。
 
-対象: `1.6.6 (Beta)`
-最終更新: 2026-09-10
+対象: `1.6.7 (Beta)`
+最終更新: 2026-09-11
 
 初めて利用する場合は、先に
 [はじめて使う人のための簡単操作ガイド](quick_start_guide.md)を参照してください。
@@ -89,8 +89,8 @@ Releaseページ以外から受け取った実行ファイルを安易に実行�
 公開版では`SHA256SUMS.txt`とダウンロードしたファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Portable-1.6.6.zip -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Setup-1.6.6.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.6.7.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.6.7.exe -Algorithm SHA256
 ```
 
 表示されたhashがReleaseページの値と1文字でも異なる場合は使用しません。
@@ -362,10 +362,12 @@ Googleフォームの共有範囲と回答原本の閲覧者は、組織の運�
    選び、生徒用・講師用をそれぞれ保存します。
 2. 「生徒・講師回答をまとめて取り込む」の左右へ各ファイルを選択します。
 3. 「2ファイルを検証」を押します。
-4. 赤い行があれば、共通名簿またはフォーム回答を修正して再検証します。未登録の生徒が
+4. 表示された生徒・講師ごとの氏名、学年、在籍区分、受講科目・回数、不可コマ数を
+   確認します。赤い行があれば、共通名簿またはフォーム回答を修正して再検証します。
+   未登録の生徒が
    体験生の場合は、赤い行の選択欄を「体験生として登録」へ変更します。黄色へ変わり、
    共通名簿を変更せず、当該プロジェクト内だけへ体験生として登録できます。
-5. エラー0件を確認し「検証済み内容を反映」を押します。
+5. エラー0件を確認し、青い「確認した内容を反映」を押します。
 
 xlsxでダウンロードした場合も同じように取り込めます。回答ブックに空の`シート1`が
 残っていても削除する必要はなく、先頭の`Form Responses 1`を回答シートとして使用します。
@@ -668,7 +670,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 
 ## 20. 現在の既知の制限
 
-- `1.6.6`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
+- `1.6.7`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
   すべてBeta版（Pre-release）です。成果物は
   方針どおり未署名です。
 - clean Windows、実installer / portable、SmartScreen、install / uninstallの受入結果は

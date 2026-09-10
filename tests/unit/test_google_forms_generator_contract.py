@@ -91,6 +91,20 @@ def test_google_form_generator_places_confirmation_before_availability_columns()
     )
 
 
+def test_google_form_generator_styles_output_and_appends_after_manual_rows() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+
+    assert "function styleStudentCompactSheet_(sheet, columnCount)" in source
+    assert '.setBackground("#5B3F86")' in source
+    assert '.setFontColor("#FFFFFF")' in source
+    assert '.setBackground("#F8F9FA")' in source
+    assert "sheet.setFrozenRows(1)" in source
+    assert "function appendCompactStudentResponse_(compactSheet, compactValues)" in source
+    assert "LockService.getScriptLock()" in source
+    assert "compactSheet.getLastRow() + 1" in source
+    assert "const targetRow = event.range.getRow()" not in source
+
+
 def test_google_form_generator_can_safely_create_a_replacement() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
 

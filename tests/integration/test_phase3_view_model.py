@@ -6,7 +6,8 @@ import logging
 from collections.abc import Callable, Iterator
 from datetime import date
 from pathlib import Path
-from typing import cast
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from openpyxl import Workbook
@@ -270,6 +271,78 @@ def test_unexpected_error_log_keeps_location_without_exception_value(
     assert "RuntimeError" in caplog.text
     assert "fail_unexpectedly" in caplog.text
     assert sensitive_value not in caplog.text
+
+
+def test_combined_survey_preview_exposes_review_rows_and_counts(
+    project_service: ProjectService,
+) -> None:
+    view_model = _view_model(project_service)
+    preview = SimpleNamespace(
+        students=(
+            SimpleNamespace(
+                name="架空 花子",
+                grade="中2",
+                enrollment_type="在籍生",
+                requests=(("中学校・数学", 3), ("中学校・英語", 2)),
+                unavailable=frozenset({(date(2026, 8, 1), "A")}),
+            ),
+        ),
+        teachers=(
+            SimpleNamespace(
+                name="架空 一郎",
+                unavailable=frozenset({(date(2026, 8, 1), "B"), (date(2026, 8, 2), "C")}),
+            ),
+        ),
+        issues=(),
+    )
+
+    view_model._set_combined_preview(cast(Any, preview))
+
+    assert view_model.hasCombinedSurveyPreview is True
+    assert view_model.combinedSummary == {
+        "studentCount": 1,
+        "teacherCount": 1,
+        "lessonRequestCount": 2,
+        "studentUnavailableCount": 1,
+        "teacherUnavailableCount": 2,
+        "errorCount": 0,
+        "warningCount": 0,
+    }
+    rows = cast(list[dict[str, object]], view_model.combinedPreviewRows)
+    assert rows[0]["name"] == "架空 花子"
+    assert rows[0]["detail"] == "中2／在籍生／中学校・数学 3回、中学校・英語 2回／受講不可 1コマ"
+    assert rows[1] == {
+        "kind": "講師",
+        "name": "架空 一郎",
+        "detail": "出勤不可 2コマ",
+    }
+
+    view_model._clear_combined_preview()
+    assert view_model.hasCombinedSurveyPreview is False
+    assert view_model.combinedPreviewRows == []
+
+
+def test_applied_survey_step_is_restored_after_reopening_project(
+    project_service: ProjectService,
+    tmp_path: Path,
+) -> None:
+    created = project_service.create_project(
+        tmp_path / "アンケート進捗.jukuschedule",
+        title="アンケート進捗",
+        campus_name="架空校",
+        start_date=date(2026, 8, 1),
+        end_date=date(2026, 8, 2),
+    )
+    view_model = _view_model(project_service)
+    assert view_model.hasAppliedSurvey is False
+
+    project_service.mark_workflow_step_complete(3)
+    assert view_model.hasAppliedSurvey is True
+
+    project_service.close_project()
+    project_service.open_project(created.path)
+    view_model.refreshPhase3()
+    assert view_model.hasAppliedSurvey is True
 
 
 def _view_model(

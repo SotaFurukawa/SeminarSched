@@ -74,6 +74,9 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
 
     for label in ("回答ファイルを選ぶ", "内容を確認する", "反映完了"):
         assert label in questionnaire
+    assert "2つの回答ファイルを選択しました" in questionnaire
+    assert "確認した内容を反映…" in questionnaire
+    assert "combinedPreviewRows" in questionnaire
     assert "列名が合わない場合の設定" in questionnaire
     for label in (
         "Googleフォーム作成キット",

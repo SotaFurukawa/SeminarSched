@@ -38,6 +38,13 @@ def test_availability_import_page_exposes_complete_safe_workflow() -> None:
     assert "2ファイルを検証" in source
     assert "カンマ区切り形式（csv）" in source
     assert "enabled: root.viewModel.canApplyCombinedSurvey" in source
+    assert "hasCombinedSurveyPreview" in source
+    assert "hasAppliedSurvey" in source
+    assert "root.viewModel.combinedPreviewRows" in source
+    assert "下の氏名・学年・受講科目・回数と不可コマ数を確認してください" in source
+    assert "確認した内容を反映…" in source
+    assert "反映済みxlsxを保存…" in source
+    assert "visible: root.mappingExpanded || root.hasValidatedPreview" in source
     assert "Dialogs.MessageDialog" in source
 
 

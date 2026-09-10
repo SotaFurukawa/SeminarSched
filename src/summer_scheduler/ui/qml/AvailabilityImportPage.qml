@@ -23,11 +23,16 @@ Item {
                                                  || summaryValue("deleteCandidateCount") > 0
                                                  || summaryValue("errorCount") > 0
                                                  || summaryValue("warningCount") > 0
-    readonly property bool justApplied: String(viewModel.statusMessage || "")
-                                        .indexOf("アンケートを反映しました") >= 0
-    readonly property int currentImportStep: justApplied ? 2
-                                             : Boolean(viewModel.combinedStudentPath)
-                                               || Boolean(viewModel.combinedTeacherPath) ? 1 : 0
+    readonly property bool hasAppliedSurvey: Boolean(viewModel.hasAppliedSurvey)
+    readonly property bool hasCombinedPreview: Boolean(
+                                                   viewModel.hasCombinedSurveyPreview)
+    readonly property bool hasSelectedCombinedFiles: Boolean(
+                                                        viewModel.combinedStudentPath)
+                                                     || Boolean(
+                                                        viewModel.combinedTeacherPath)
+    readonly property int currentImportStep: hasCombinedPreview ? 1
+                                             : hasSelectedCombinedFiles ? 0
+                                             : hasAppliedSurvey ? 2 : 0
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -262,7 +267,7 @@ Item {
 
         InlineMessage {
             Layout.fillWidth: true
-            visible: root.justApplied
+            visible: root.hasAppliedSurvey && !root.hasSelectedCombinedFiles
             kind: "success"
             message: qsTr("回答をプロジェクトへ反映し、原本を.jukuschedule内に保管しました。再取込み時は新しい原本へ差し替えます。")
         }
@@ -374,19 +379,20 @@ Item {
 
                     AppButton {
                         text: qsTr("2ファイルを検証")
-                        kind: "primary"
+                        kind: root.hasCombinedPreview ? "secondary" : "primary"
                         enabled: root.viewModel.canValidateCombinedSurvey
                         onClicked: root.viewModel.validateCombinedSurvey()
                     }
 
                     AppButton {
-                        text: qsTr("検証済み内容を反映…")
+                        text: qsTr("確認した内容を反映…")
+                        kind: root.viewModel.canApplyCombinedSurvey ? "primary" : "secondary"
                         enabled: root.viewModel.canApplyCombinedSurvey
                         onClicked: combinedApplyConfirmation.open()
                     }
 
                     AppButton {
-                        text: qsTr("統合xlsxを保存…")
+                        text: qsTr("反映済みxlsxを保存…")
                         onClicked: combinedExportDialog.open()
                     }
                 }
@@ -449,13 +455,13 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    visible: Number(root.rowValue(root.viewModel.combinedSummary, "studentCount", 0)) > 0
-                             || Number(root.rowValue(root.viewModel.combinedSummary, "errorCount", 0)) > 0
+                    visible: root.hasCombinedPreview
                     spacing: 12
                     Label {
-                        text: qsTr("生徒 %1名　講師 %2名")
+                        text: qsTr("生徒 %1名　講師 %2名　受講希望 %3件")
                               .arg(root.rowValue(root.viewModel.combinedSummary, "studentCount", 0))
                               .arg(root.rowValue(root.viewModel.combinedSummary, "teacherCount", 0))
+                              .arg(root.rowValue(root.viewModel.combinedSummary, "lessonRequestCount", 0))
                         color: "#344054"
                         font.pixelSize: 10
                         font.weight: Font.DemiBold
@@ -474,6 +480,114 @@ Item {
                         font.pixelSize: 9
                         horizontalAlignment: Text.AlignRight
                     }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: Boolean(root.viewModel.combinedStudentPath)
+                             && Boolean(root.viewModel.combinedTeacherPath)
+                             && !root.hasCombinedPreview
+                    implicitHeight: waitingForValidation.implicitHeight + 16
+                    radius: 6
+                    color: "#eef6ff"
+                    border.color: "#9fc5e8"
+
+                    Label {
+                        id: waitingForValidation
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.margins: 8
+                        text: qsTr("2つの回答ファイルを選択しました。右上の「2ファイルを検証」を押してください。")
+                        color: "#184f7a"
+                        font.pixelSize: 10
+                        wrapMode: Text.Wrap
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: root.hasCombinedPreview
+                    implicitHeight: validationResultMessage.implicitHeight + 16
+                    radius: 6
+                    color: Number(root.rowValue(root.viewModel.combinedSummary,
+                                                "errorCount", 0)) > 0
+                           ? "#fff6f5" : "#ecfdf3"
+                    border.color: Number(root.rowValue(root.viewModel.combinedSummary,
+                                                       "errorCount", 0)) > 0
+                                  ? "#e5aaa6" : "#a9dec0"
+
+                    Label {
+                        id: validationResultMessage
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.margins: 8
+                        text: Number(root.rowValue(root.viewModel.combinedSummary,
+                                                   "errorCount", 0)) > 0
+                              ? qsTr("赤いエラー内容を確認して回答ファイルを修正し、もう一度「2ファイルを検証」を押してください。")
+                              : qsTr("下の氏名・学年・受講科目・回数と不可コマ数を確認してください。問題がなければ右上の「確認した内容を反映」を押します。")
+                        color: Number(root.rowValue(root.viewModel.combinedSummary,
+                                                   "errorCount", 0)) > 0
+                               ? "#a23b3b" : "#176b40"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                        wrapMode: Text.Wrap
+                    }
+                }
+
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(contentHeight, 176)
+                    visible: root.hasCombinedPreview && count > 0
+                    clip: true
+                    spacing: 3
+                    model: root.viewModel.combinedPreviewRows || []
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    delegate: Rectangle {
+                        id: combinedPreviewRow
+                        required property int index
+                        required property var modelData
+                        width: ListView.view.width
+                        height: 42
+                        radius: 4
+                        color: index % 2 === 0 ? "#ffffff" : "#f8fafc"
+                        border.color: "#dce2ea"
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 7
+                            spacing: 9
+
+                            Label {
+                                Layout.preferredWidth: 42
+                                text: root.rowValue(combinedPreviewRow.modelData,
+                                                    "kind", "")
+                                color: "#176b40"
+                                font.pixelSize: 9
+                                font.weight: Font.DemiBold
+                            }
+                            Label {
+                                Layout.preferredWidth: 150
+                                text: root.rowValue(combinedPreviewRow.modelData,
+                                                    "name", "")
+                                color: "#344054"
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                text: root.rowValue(combinedPreviewRow.modelData,
+                                                    "detail", "")
+                                color: "#475467"
+                                font.pixelSize: 9
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
                 }
 
                 ListView {
@@ -680,6 +794,7 @@ Item {
         }
 
         SplitView {
+            visible: root.mappingExpanded || root.hasValidatedPreview
             Layout.fillWidth: true
             Layout.fillHeight: true
             orientation: Qt.Horizontal
@@ -1265,7 +1380,7 @@ Item {
 
     Dialogs.FileDialog {
         id: combinedExportDialog
-        title: qsTr("統合アンケートを保存")
+        title: qsTr("反映済みの統合アンケートを保存")
         fileMode: Dialogs.FileDialog.SaveFile
         nameFilters: [qsTr("Excelブック (*.xlsx)")]
         onAccepted: root.viewModel.exportCombinedSurvey(selectedFile.toString())

@@ -87,9 +87,13 @@ class Phase3ViewModel(QObject):
         self._combined_trial_student_rows: set[int] = set()
         self._combined_preview: CourseSurveyPreview | None = None
         self._combined_issues: list[dict[str, object]] = []
+        self._combined_preview_rows: list[dict[str, object]] = []
         self._combined_summary: dict[str, int] = {
             "studentCount": 0,
             "teacherCount": 0,
+            "lessonRequestCount": 0,
+            "studentUnavailableCount": 0,
+            "teacherUnavailableCount": 0,
             "errorCount": 0,
             "warningCount": 0,
         }
@@ -189,9 +193,26 @@ class Phase3ViewModel(QObject):
         lambda self: self._combined_issues,
         notify=availabilityStateChanged,
     )
+    combinedPreviewRows = Property(
+        list,
+        lambda self: self._combined_preview_rows,
+        notify=availabilityStateChanged,
+    )
     combinedSummary = Property(
         object,
         lambda self: self._combined_summary,
+        notify=availabilityStateChanged,
+    )
+    hasCombinedSurveyPreview = Property(
+        bool,
+        lambda self: self._combined_preview is not None,
+        notify=availabilityStateChanged,
+    )
+    hasAppliedSurvey = Property(
+        bool,
+        lambda self: (
+            self._projects.current is not None and self._projects.workflow_completed_step() >= 3
+        ),
         notify=availabilityStateChanged,
     )
     canValidateCombinedSurvey = Property(
@@ -478,10 +499,14 @@ class Phase3ViewModel(QObject):
             )
             self._combined_trial_student_rows.clear()
             self._clear_combined_preview()
+            self._combined_student_path = ""
+            self._combined_teacher_path = ""
             self._refresh_stored_source_name()
             self._refresh_student_availability_editor_options()
+            self._projects.mark_workflow_step_complete(3)
             self.availabilityStateChanged.emit()
             self._refresh_validation_after_data_change()
+            self.workflowStepCompleted.emit(3)
 
         result = self._perform(action, "アンケートを統合しました")
         if result:
@@ -495,7 +520,7 @@ class Phase3ViewModel(QObject):
 
         return self._perform(
             action,
-            "プロジェクト内の統合アンケートを保存しました",
+            "反映済みの統合アンケートxlsxを指定先へ保存しました",
         )
 
     @Slot(str)
@@ -976,9 +1001,36 @@ class Phase3ViewModel(QObject):
             }
             for issue in preview.issues
         ]
+        student_preview_rows: list[dict[str, object]] = [
+            {
+                "kind": "生徒",
+                "name": row.name,
+                "detail": (
+                    f"{row.grade}／{row.enrollment_type}／"
+                    + "、".join(
+                        f"{subject_name} {required_sessions}回"
+                        for subject_name, required_sessions in row.requests
+                    )
+                    + f"／受講不可 {len(row.unavailable)}コマ"
+                ),
+            }
+            for row in preview.students
+        ]
+        teacher_preview_rows: list[dict[str, object]] = [
+            {
+                "kind": "講師",
+                "name": row.name,
+                "detail": f"出勤不可 {len(row.unavailable)}コマ",
+            }
+            for row in preview.teachers
+        ]
+        self._combined_preview_rows = student_preview_rows + teacher_preview_rows
         self._combined_summary = {
             "studentCount": len(preview.students),
             "teacherCount": len(preview.teachers),
+            "lessonRequestCount": sum(len(row.requests) for row in preview.students),
+            "studentUnavailableCount": sum(len(row.unavailable) for row in preview.students),
+            "teacherUnavailableCount": sum(len(row.unavailable) for row in preview.teachers),
             "errorCount": sum(issue.severity == "error" for issue in preview.issues),
             "warningCount": sum(issue.severity == "warning" for issue in preview.issues),
         }
@@ -1099,9 +1151,13 @@ class Phase3ViewModel(QObject):
     def _clear_combined_preview(self) -> None:
         self._combined_preview = None
         self._combined_issues = []
+        self._combined_preview_rows = []
         self._combined_summary = {
             "studentCount": 0,
             "teacherCount": 0,
+            "lessonRequestCount": 0,
+            "studentUnavailableCount": 0,
+            "teacherUnavailableCount": 0,
             "errorCount": 0,
             "warningCount": 0,
         }
