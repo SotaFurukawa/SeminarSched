@@ -23,7 +23,7 @@ from summer_scheduler.application.project_service import (
     ProjectFileError,
     ProjectService,
 )
-from summer_scheduler.domain.defaults import SCHOOL_LEVEL_LABELS
+from summer_scheduler.domain.defaults import SCHOOL_LEVEL_LABELS, default_subject_short_name
 from summer_scheduler.domain.grades import grade_from_excel
 from summer_scheduler.domain.identifiers import next_person_external_id
 from summer_scheduler.domain.validation import (
@@ -729,6 +729,7 @@ class MasterDataService:
         school_level: str,
         sort_order: int,
         active: bool,
+        short_name: str = "",
     ) -> SaveResult:
         raise_for_errors(
             validate_subject(
@@ -736,9 +737,13 @@ class MasterDataService:
                 display_name=display_name,
                 school_level=school_level,
                 sort_order=sort_order,
+                short_name=short_name,
             )
         )
         normalized_code = code.strip().upper()
+        normalized_short_name = short_name.strip() or default_subject_short_name(
+            normalized_code, display_name
+        )
         database = self._projects.require_database()
         with database.session_factory.begin() as session:
             repository = MasterRepository(session)
@@ -748,6 +753,7 @@ class MasterDataService:
             values = {
                 "code": normalized_code,
                 "display_name": display_name.strip(),
+                "short_name": normalized_short_name,
                 "school_level": school_level,
                 "sort_order": sort_order,
                 "active": active,
@@ -1060,6 +1066,7 @@ def _subject_dto(row: Subject) -> SubjectDto:
         row.school_level,
         row.sort_order,
         row.active,
+        row.short_name,
     )
 
 

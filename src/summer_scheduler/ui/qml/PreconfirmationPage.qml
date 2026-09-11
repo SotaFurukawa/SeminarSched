@@ -10,6 +10,7 @@ Item {
     required property var viewModel
     signal openHomeRequested
     signal openTimetableRequested
+    signal openOptimizationRequested
 
     UiTheme { id: theme }
 
@@ -201,6 +202,11 @@ Item {
                     symbol: "🔒"
                     label: qsTr("登録済み %1枠").arg(root.registeredCount)
                 }
+                AppButton {
+                    text: qsTr("時間割を自動作成")
+                    kind: "primary"
+                    onClicked: root.openOptimizationRequested()
+                }
             }
 
             InlineMessage {
@@ -299,6 +305,13 @@ Item {
                                 model: root.availableDates()
                                 textRole: "label"
                                 Accessible.name: qsTr("個別指導の日付")
+                                onActivated: {
+                                    root.viewModel.selectDate(
+                                                String(root.rowValue(
+                                                           dateBox.model[dateBox.currentIndex],
+                                                           "date", "")))
+                                    teacherBox.currentIndex = teacherBox.count > 0 ? 0 : -1
+                                }
                             }
                         }
                         ColumnLayout {

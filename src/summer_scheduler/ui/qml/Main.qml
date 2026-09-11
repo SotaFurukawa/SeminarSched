@@ -85,7 +85,7 @@ ApplicationWindow {
             description: "生徒・講師アンケートの列マッピングと検証を行う画面です。"
         }
         ListElement {
-            title: "時間割"
+            title: "時間割編集"
             shortLabel: "時"
             phaseLabel: "Phase 5"
             description: "時間割の確認・手動編集・固定・再最適化を安全に行います。"
@@ -115,7 +115,7 @@ ApplicationWindow {
             description: "設定した開校日・コマから、生徒用・講師用Googleフォーム作成キットを生成します。"
         }
         ListElement {
-            title: "事前確定"
+            title: "時間割自動作成"
             shortLabel: "固"
             phaseLabel: "配置準備"
             description: "調整済みの生徒・講師・日時を、最適化前の固定枠として登録します。"
@@ -301,7 +301,7 @@ ApplicationWindow {
                                          : root.currentPageIndex === 3
                                            ? availabilityImportComponent
                                            : root.currentPageIndex === 4
-                                             ? optimizationComponent
+                                             ? editingComponent
                                              : root.currentPageIndex === 5
                                                ? validationIssuesComponent
                                                : root.currentPageIndex === 6
@@ -311,7 +311,7 @@ ApplicationWindow {
                                                  : root.currentPageIndex === 8
                                                    ? questionnaireCreationComponent
                                                    : root.currentPageIndex === 9
-                                                     ? preconfirmationComponent
+                                                     ? optimizationComponent
                                                  : placeholderComponent
                 }
             }
@@ -370,67 +370,78 @@ ApplicationWindow {
     }
 
     Component {
-        id: preconfirmationComponent
+        id: editingComponent
 
-        PreconfirmationPage {
-            viewModel: root.scheduleEditor
-            onOpenHomeRequested: root.selectPage(0)
-            onOpenTimetableRequested: root.selectPage(4)
+        ColumnLayout {
+            spacing: 0
+
+            TabBar {
+                id: editingTabs
+                Layout.fillWidth: true
+
+                TabButton { text: qsTr("時間割編集") }
+                TabButton { text: qsTr("先に確定するコマ") }
+            }
+
+            StackLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                currentIndex: editingTabs.currentIndex
+
+                ScheduleEditorPage {
+                    viewModel: root.scheduleEditor
+                    onOpenHomeRequested: root.selectPage(0)
+                    onOpenOptimizationRequested: root.selectPage(9)
+                }
+
+                PreconfirmationPage {
+                    viewModel: root.scheduleEditor
+                    onOpenHomeRequested: root.selectPage(0)
+                    onOpenTimetableRequested: editingTabs.currentIndex = 0
+                    onOpenOptimizationRequested: root.selectPage(9)
+                }
+            }
         }
     }
 
     Component {
         id: optimizationComponent
 
-        StackLayout {
-            id: scheduleWorkspace
+        ColumnLayout {
+            spacing: 0
 
-            currentIndex: 0
+            ToolBar {
+                Layout.fillWidth: true
 
-            ScheduleEditorPage {
-                viewModel: root.scheduleEditor
-                onOpenHomeRequested: root.selectPage(0)
-                onOpenOptimizationRequested: scheduleWorkspace.currentIndex = 1
-            }
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
 
-            ColumnLayout {
-                spacing: 0
+                    ToolButton {
+                        text: qsTr("‹ 時間割編集へ戻る")
+                        Accessible.name: qsTr("時間割編集画面へ戻る")
+                        onClicked: root.selectPage(4)
+                    }
 
-                ToolBar {
-                    Layout.fillWidth: true
+                    Item { Layout.fillWidth: true }
 
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-
-                        ToolButton {
-                            text: qsTr("‹ 時間割編集へ戻る")
-                            Accessible.name: qsTr("時間割編集画面へ戻る")
-                            onClicked: scheduleWorkspace.currentIndex = 0
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
-                        }
-
-                        Label {
-                            text: qsTr("ロック済み授業を保持して再最適化")
-                            color: "#667085"
-                            font.pixelSize: 10
-                        }
+                    Label {
+                        text: qsTr("⑤ 時間割自動作成")
+                        color: "#667085"
+                        font.pixelSize: 10
                     }
                 }
+            }
 
-                OptimizationPage {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    viewModel: root.optimization
-                    onOpenHomeRequested: root.selectPage(0)
-                    onOpenIssuesRequested: {
-                        root.phase3.refreshPhase3()
-                        root.selectPage(5)
-                    }
+            OptimizationPage {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                viewModel: root.optimization
+                onOpenHomeRequested: root.selectPage(0)
+                onOpenIssuesRequested: {
+                    root.phase3.refreshPhase3()
+                    root.selectPage(5)
                 }
             }
         }

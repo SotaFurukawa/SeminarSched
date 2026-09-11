@@ -30,6 +30,7 @@ from summer_scheduler.reporting.data import (
     WarningRecord,
 )
 from summer_scheduler.reporting.layout import (
+    CellRole,
     LayoutCell,
     LayoutDocument,
     LayoutPage,
@@ -44,6 +45,7 @@ _GROUP_ROWS_PER_PAGE = 24
 _TEACHERS_PER_DATE_PANEL = 4
 _PANEL_COLUMN_COUNT = 1 + _TEACHERS_PER_DATE_PANEL
 _WEEK_TABLE_COLUMN_COUNT = _PANEL_COLUMN_COUNT * 2 + 1
+_STUDENTS_PER_TEACHER = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +82,7 @@ def build_timetable_document(
         LayoutSection(
             name=f"週_{week_start:%Y%m%d}",
             pages=(
-                _build_week_page(
+                _build_week_page_v2(
                     snapshot,
                     settings,
                     tuple(week_dates),
@@ -115,6 +117,230 @@ def build_timetable_document(
         font_size=settings.font_size,
         logo_path_optional=settings.logo_path_optional or snapshot.project.logo_path_optional,
     )
+
+
+def _build_week_page_v2(
+    snapshot: OutputSnapshot,
+    settings: OutputSettings,
+    dates: Sequence[DateRecord],
+    slots: Sequence[SlotRecord],
+    selection: OutputSelection,
+    *,
+    week_start: date,
+) -> LayoutPage:
+    """Build one uninterrupted, Sunday-start weekly calendar.
+
+    A teacher always owns two adjacent student columns.  Each lesson slot is
+    rendered in three vertical rows: grade, abbreviated subject, then student
+    name.  This mirrors the operational workbook and prevents multiple
+    students from being combined into one cell.
+    """
+    open_dates = tuple(row for row in dates if row.is_open)
+    requests = {row.id: row for row in snapshot.lesson_requests}
+    students = {row.id: row for row in snapshot.students}
+    student_names = compact_person_name_map(snapshot.students)
+    teacher_names = compact_person_name_map(snapshot.teachers)
+    teachers = selected_teachers(snapshot, selection)
+    teacher_ids = {row.id for row in teachers}
+    subjects = {row.id: row for row in snapshot.subjects}
+    allowed_students = set(selection.student_ids)
+
+    assignments_by_cell: dict[tuple[date, int, int], list[AssignmentRecord]] = defaultdict(list)
+    scheduled_by_day: dict[date, set[int]] = defaultdict(set)
+    for assignment in snapshot.assignments:
+        request = requests[assignment.lesson_request_id]
+        if allowed_students and request.student_id not in allowed_students:
+            continue
+        if assignment.teacher_id not in teacher_ids:
+            continue
+        assignments_by_cell[
+            (assignment.day, assignment.time_slot_id, assignment.teacher_id)
+        ].append(assignment)
+        scheduled_by_day[assignment.day].add(assignment.teacher_id)
+    for group in snapshot.group_lessons:
+        if group.teacher_id_optional in teacher_ids:
+            scheduled_by_day[group.day].add(group.teacher_id_optional)
+
+    availability = {
+        (row.day, row.time_slot_id, row.teacher_id): row.level
+        for row in snapshot.teacher_availabilities
+        if row.teacher_id in teacher_ids
+    }
+    has_availability = bool(snapshot.teacher_availabilities)
+    panels: list[tuple[DateRecord, tuple[TeacherRecord, ...]]] = []
+    for date_row in open_dates:
+        available_ids = {
+            teacher_id
+            for (day, _slot_id, teacher_id), level in availability.items()
+            if day == date_row.day and level > 0
+        }
+        visible_ids = available_ids | scheduled_by_day[date_row.day]
+        if not has_availability:
+            visible_ids = scheduled_by_day[date_row.day]
+        day_teachers = tuple(row for row in teachers if row.id in visible_ids)
+        panels.append((date_row, day_teachers))
+
+    panel_widths = [
+        1 + _STUDENTS_PER_TEACHER * max(1, len(day_teachers)) for _, day_teachers in panels
+    ]
+    total_columns = sum(panel_widths) or 1
+    rows: list[LayoutRow] = []
+    column_widths: list[float] = []
+
+    if not panels:
+        rows.append(
+            LayoutRow(
+                cells=(LayoutCell("対象となる開校日・出勤予定講師がありません", role="metadata"),),
+                height_points_optional=30,
+            )
+        )
+        column_widths.append(30.0)
+    else:
+        rows.append(
+            LayoutRow(
+                cells=tuple(
+                    LayoutCell(
+                        format_day(date_row.day),
+                        role="header",
+                        column_span=panel_width,
+                        alignment="center",
+                    )
+                    for (date_row, _day_teachers), panel_width in zip(
+                        panels, panel_widths, strict=True
+                    )
+                ),
+                height_points_optional=24,
+            )
+        )
+        teacher_header_cells: list[LayoutCell] = []
+        for _date_row, day_teachers in panels:
+            teacher_header_cells.append(LayoutCell("コマ", role="metadata", alignment="center"))
+            teacher_header_cells.extend(
+                LayoutCell(
+                    teacher_names[teacher.id],
+                    role="header",
+                    column_span=_STUDENTS_PER_TEACHER,
+                    alignment="center",
+                )
+                for teacher in day_teachers
+            )
+            if not day_teachers:
+                teacher_header_cells.append(
+                    LayoutCell(
+                        "出勤予定なし",
+                        role="unavailable",
+                        column_span=_STUDENTS_PER_TEACHER,
+                        alignment="center",
+                    )
+                )
+            column_widths.append(9.0)
+            column_widths.extend(
+                11.0 for _ in range(max(1, len(day_teachers)) * _STUDENTS_PER_TEACHER)
+            )
+        rows.append(LayoutRow(cells=tuple(teacher_header_cells), height_points_optional=22))
+
+        for slot in slots:
+            slot_rows: list[list[LayoutCell]] = [[], [], []]
+            for date_row, day_teachers in panels:
+                slot_rows[0].append(
+                    LayoutCell(
+                        f"{slot.code}\n{slot.start_time:%H:%M}–{slot.end_time:%H:%M}",
+                        role="metadata",
+                        row_span=3,
+                        alignment="center",
+                    )
+                )
+                for teacher in day_teachers:
+                    key = (date_row.day, slot.id, teacher.id)
+                    cell_assignments = sorted(
+                        assignments_by_cell.get(key, ()),
+                        key=lambda row: (row.lesson_request_id, row.session_index),
+                    )[:_STUDENTS_PER_TEACHER]
+                    available = availability.get(key, 0) > 0
+                    if not has_availability:
+                        available = bool(cell_assignments)
+                    for student_index in range(_STUDENTS_PER_TEACHER):
+                        cell_assignment = (
+                            cell_assignments[student_index]
+                            if student_index < len(cell_assignments)
+                            else None
+                        )
+                        role: CellRole = "data" if available else "unavailable"
+                        codes: tuple[str, ...] = ()
+                        grade = subject_name = student_name = ""
+                        if cell_assignment is not None:
+                            request = requests[cell_assignment.lesson_request_id]
+                            student = students[request.student_id]
+                            subject = subjects[request.subject_id]
+                            grade = student.grade
+                            subject_name = subject.short_name or subject.name[:1]
+                            student_name = student_names[student.id]
+                            codes = _assignment_style_codes(cell_assignment, request, settings)
+                        slot_rows[0].append(
+                            LayoutCell(grade, role=role, style_codes=codes, alignment="center")
+                        )
+                        slot_rows[1].append(
+                            LayoutCell(
+                                subject_name,
+                                role=role,
+                                style_codes=codes,
+                                alignment="center",
+                            )
+                        )
+                        slot_rows[2].append(
+                            LayoutCell(
+                                student_name,
+                                role=role,
+                                style_codes=codes,
+                                alignment="center",
+                            )
+                        )
+                if not day_teachers:
+                    for row in slot_rows:
+                        row.extend(
+                            LayoutCell("", role="unavailable", alignment="center")
+                            for _ in range(_STUDENTS_PER_TEACHER)
+                        )
+            rows.extend(LayoutRow(cells=tuple(row), height_points_optional=18) for row in slot_rows)
+
+    legend = "　".join(
+        f"{rule.marker} {rule.label}"
+        for rule in settings.style_rules
+        if rule.code != "unconfirmed" and rule.code in settings.visible_fields
+    )
+    rows.append(
+        LayoutRow(
+            cells=(
+                LayoutCell(
+                    f"凡例　灰色: 勤務不可コマ　{legend}".rstrip(),
+                    role="legend",
+                    column_span=total_columns,
+                ),
+            )
+        )
+    )
+    week_end = week_start + timedelta(days=6)
+    return LayoutPage(
+        heading="季節講習時間割",
+        subheading=f"{format_day(week_start)} ～ {format_day(week_end)}",
+        tables=(LayoutTable(rows=tuple(rows), column_widths=tuple(column_widths)),),
+        footer_note="日曜始まり・土曜終わりの週単位です。出勤予定の講師のみ表示します。",
+    )
+
+
+def _assignment_style_codes(
+    assignment: AssignmentRecord,
+    request: LessonRequestRecord,
+    settings: OutputSettings,
+) -> tuple[str, ...]:
+    codes: list[str] = []
+    if request.one_to_one_required and "one_to_one" in settings.visible_fields:
+        codes.append("one_to_one")
+    if assignment.is_locked and "locked" in settings.visible_fields:
+        codes.append("locked")
+    if assignment.is_manual and "manual" in settings.visible_fields:
+        codes.append("manual")
+    return tuple(codes)
 
 
 def _build_week_page(

@@ -215,6 +215,7 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.maximumHeight: implicitHeight
             spacing: 12
 
             ColumnLayout {
@@ -240,6 +241,7 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.maximumHeight: implicitHeight
             spacing: 8
 
             Repeater {
@@ -267,6 +269,7 @@ Item {
 
         InlineMessage {
             Layout.fillWidth: true
+            Layout.maximumHeight: implicitHeight
             visible: root.hasAppliedSurvey && !root.hasSelectedCombinedFiles
             kind: "success"
             message: qsTr("回答をプロジェクトへ反映し、原本を.jukuschedule内に保管しました。再取込み時は新しい原本へ差し替えます。")
@@ -274,6 +277,7 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
+            Layout.maximumHeight: implicitHeight
             implicitHeight: csvGuideContent.implicitHeight + 20
             radius: 8
             color: "#fffaf0"
@@ -315,6 +319,7 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
+            Layout.maximumHeight: implicitHeight
             visible: Boolean(root.viewModel.errorMessage)
                      || Boolean(root.viewModel.statusMessage)
             implicitHeight: importMessage.implicitHeight + 16
@@ -341,6 +346,7 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
+            Layout.maximumHeight: implicitHeight
             implicitHeight: combinedContent.implicitHeight + 20
             radius: 9
             color: "#f5f9ff"

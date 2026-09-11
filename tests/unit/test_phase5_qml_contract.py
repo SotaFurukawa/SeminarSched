@@ -118,7 +118,9 @@ def test_unassigned_detail_history_diff_undo_lock_and_reoptimization_are_present
     assert "変更後: %1" in source
     assert "createReoptimizationCheckpoint()" in source
     assert "openOptimizationRequested()" in source
-    assert "ロック以外を全体再最適化" in source
+    assert "時間割を自動作成" in source
+    assert "配置をリセット" in source
+    assert "addTeacherToCurrentDate" in source
     assert "選択日・選択生徒・選択講師だけの部分再最適化" in source
 
 
@@ -147,7 +149,8 @@ def test_main_and_application_wire_editor_without_removing_phase4_runner() -> No
     assert 'phaseLabel: "Phase 5"' in main
     assert "ScheduleEditorPage {" in main
     assert "OptimizationPage {" in main
-    assert "onOpenOptimizationRequested: scheduleWorkspace.currentIndex = 1" in main
+    assert "onOpenOptimizationRequested: root.selectPage(9)" in main
+    assert "id: editingTabs" in main
     assert "‹ 時間割編集へ戻る" in main
     assert "ScheduleEditorViewModel(" in app
     assert "ScheduleEditService(" in app

@@ -18,6 +18,7 @@ from summer_scheduler.application.phase5_dto import (
     ScheduleDateDto,
     ScheduleDiffDto,
     ScheduleSlotDto,
+    ScheduleTeacherAvailabilityDto,
     ScheduleTeacherDto,
     SessionKeyDto,
     UnassignedSessionDto,
@@ -31,6 +32,7 @@ from summer_scheduler.infrastructure.db.models import (
     Student,
     Subject,
     Teacher,
+    TeacherAvailability,
     TimeSlot,
 )
 from summer_scheduler.optimization.dto import CandidateData, CandidateGenerationResult
@@ -64,6 +66,23 @@ def build_schedule_board(
     )
     teachers = list(session.scalars(select(Teacher).order_by(Teacher.external_id, Teacher.id)))
     teachers_by_id = {row.id: row for row in teachers}
+    teacher_availabilities = tuple(
+        ScheduleTeacherAvailabilityDto(
+            teacher_id=row.teacher_id,
+            day=row.date,
+            time_slot_id=row.time_slot_id,
+            level=row.availability_level,
+        )
+        for row in session.scalars(
+            select(TeacherAvailability)
+            .where(TeacherAvailability.project_id == project_id)
+            .order_by(
+                TeacherAvailability.date,
+                TeacherAvailability.time_slot_id,
+                TeacherAvailability.teacher_id,
+            )
+        )
+    )
     students = {row.id: row for row in session.scalars(select(Student).order_by(Student.id))}
     subjects = {row.id: row for row in session.scalars(select(Subject).order_by(Subject.id))}
     requests = {
@@ -190,6 +209,7 @@ def build_schedule_board(
         fingerprint=fingerprint,
         can_undo=can_undo,
         can_redo=can_redo,
+        teacher_availabilities=teacher_availabilities,
     )
 
 

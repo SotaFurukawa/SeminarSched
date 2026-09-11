@@ -71,6 +71,7 @@ class SoftMetricCode(StrEnum):
     PAIRED_SLOT_COUNT = "paired_slot_count"
     ACTIVE_TEACHER_SLOT_COUNT = "active_teacher_slot_count"
     CHANGED_EXISTING_ASSIGNMENT_COUNT = "changed_existing_assignment_count"
+    QUALIFICATION_OVERRIDE = "qualification_override"
 
 
 class MetricDirection(StrEnum):

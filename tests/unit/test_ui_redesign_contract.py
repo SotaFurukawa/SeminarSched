@@ -32,8 +32,8 @@ def test_shared_visual_components_and_workflow_navigation_exist() -> None:
         '{"index": 7, "prefix": "①"}',
         '{"index": 8, "prefix": "②"}',
         '{"index": 3, "prefix": "③"}',
-        '{"index": 9, "prefix": "④"}',
-        '{"index": 4, "prefix": "⑤"}',
+        '{"index": 4, "prefix": "④"}',
+        '{"index": 9, "prefix": "⑤"}',
         '{"index": 6, "prefix": "⑥"}',
     ):
         assert route in sidebar
@@ -44,8 +44,8 @@ def test_shared_visual_components_and_workflow_navigation_exist() -> None:
         "授業日を決める",
         "アンケートを作る",
         "回答を取込む",
-        "事前確定する",
-        "時間割を配置する",
+        "時間割を編集する",
+        "時間割を自動作成する",
         "時間割を完成させる",
     ):
         assert title in home

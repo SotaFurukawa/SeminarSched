@@ -22,12 +22,12 @@ Item {
     }
 
     function elapsedText(seconds) {
-        const value = Math.max(0, Number(seconds) || 0)
+        const value = Math.max(0, Math.floor(Number(seconds) || 0))
         const minutes = Math.floor(value / 60)
         const remaining = value - minutes * 60
         return minutes > 0
-                ? qsTr("%1分 %2秒").arg(minutes).arg(remaining.toFixed(1))
-                : qsTr("%1秒").arg(remaining.toFixed(1))
+                ? qsTr("%1分 %2秒").arg(minutes).arg(String(remaining).padStart(2, "0"))
+                : qsTr("%1秒").arg(remaining)
     }
 
     function defaultPresetIndex() {

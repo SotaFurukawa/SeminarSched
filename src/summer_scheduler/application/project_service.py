@@ -650,6 +650,7 @@ class ProjectService:
                 Subject(
                     code=item.code,
                     display_name=item.display_name,
+                    short_name=item.short_name,
                     school_level=item.school_level,
                     sort_order=item.sort_order,
                     active=True,

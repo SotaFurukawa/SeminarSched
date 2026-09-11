@@ -13,12 +13,14 @@ Item {
     function savePendingChanges() {
         root.saveAttempted = true
         if (subjectCode.text.trim() === ""
-                || subjectName.text.trim() === "")
+                || subjectName.text.trim() === ""
+                || subjectShortName.text.trim().length !== 1)
             return false
         return root.viewModel.saveSubject(
                     root.editingId,
                     subjectCode.text.trim(),
                     subjectName.text.trim(),
+                    subjectShortName.text.trim(),
                     subjectLevel.currentValue,
                     subjectOrder.value,
                     subjectActive.checked)
@@ -98,6 +100,7 @@ Item {
         root.editingId = Number(root.rowValue(row, "id", 0))
         subjectCode.text = root.rowValue(row, "code", "")
         subjectName.text = root.rowValue(row, "displayName", "")
+        subjectShortName.text = root.rowValue(row, "shortName", "")
         subjectLevel.currentIndex = root.levelIndex(root.rowValue(row, "schoolLevel", ""))
         subjectOrder.value = Number(root.rowValue(row, "sortOrder", 1))
         subjectActive.checked = Boolean(root.rowValue(row, "active", true))
@@ -109,6 +112,7 @@ Item {
         root.editingId = 0
         subjectCode.text = ""
         subjectName.text = ""
+        subjectShortName.text = ""
         subjectLevel.currentIndex = 0
         subjectOrder.value = Math.max(1, subjectList.count + 1)
         subjectActive.checked = true
@@ -259,6 +263,7 @@ Item {
                             }
                         }
                     }
+
                 }
             }
         }
@@ -337,6 +342,31 @@ Item {
                         Label {
                             visible: root.saveAttempted && subjectName.text.trim() === ""
                             text: qsTr("表示名を入力してください。")
+                            color: "#a23b3b"
+                            font.pixelSize: 9
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.preferredWidth: 100
+                        spacing: 3
+                        Label {
+                            text: qsTr("略称 *")
+                            color: "#344054"
+                            font.pixelSize: 11
+                        }
+                        TextField {
+                            id: subjectShortName
+                            Layout.fillWidth: true
+                            maximumLength: 1
+                            placeholderText: qsTr("例：英")
+                            Accessible.name: qsTr("科目略称")
+                            onTextEdited: root.viewModel.markDirty()
+                        }
+                        Label {
+                            visible: root.saveAttempted
+                                     && subjectShortName.text.trim().length !== 1
+                            text: qsTr("1文字で入力してください。")
                             color: "#a23b3b"
                             font.pixelSize: 9
                         }

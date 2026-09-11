@@ -182,6 +182,7 @@ def validate_subject(
     display_name: str,
     school_level: str,
     sort_order: int,
+    short_name: str = "",
 ) -> tuple[ValidationIssue, ...]:
     """科目入力を検証する。"""
     issues: list[ValidationIssue] = []
@@ -189,6 +190,8 @@ def validate_subject(
         issues.append(ValidationIssue("code", "科目コードを入力してください"))
     if not display_name.strip():
         issues.append(ValidationIssue("display_name", "科目名を入力してください"))
+    if short_name and len(short_name.strip()) != 1:
+        issues.append(ValidationIssue("short_name", "略称は1文字で入力してください"))
     if school_level not in {"elementary", "junior_high", "high_school"}:
         issues.append(ValidationIssue("school_level", "学校段階を選択してください"))
     if sort_order <= 0:

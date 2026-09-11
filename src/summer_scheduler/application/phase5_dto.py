@@ -137,6 +137,14 @@ class ScheduleDiffDto:
 
 
 @dataclass(frozen=True, slots=True)
+class ScheduleTeacherAvailabilityDto:
+    teacher_id: int
+    day: date
+    time_slot_id: int
+    level: int
+
+
+@dataclass(frozen=True, slots=True)
 class ScheduleBoardDto:
     project_id: int
     dates: tuple[ScheduleDateDto, ...]
@@ -153,6 +161,7 @@ class ScheduleBoardDto:
     fingerprint: str
     can_undo: bool
     can_redo: bool
+    teacher_availabilities: tuple[ScheduleTeacherAvailabilityDto, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,6 +231,7 @@ __all__ = [
     "GroupBlockDto",
     "ReoptimizationSummaryDto",
     "ScheduleBoardDto",
+    "ScheduleTeacherAvailabilityDto",
     "ScheduleCardDto",
     "ScheduleCellDto",
     "ScheduleDateDto",

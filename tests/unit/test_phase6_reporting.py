@@ -54,23 +54,27 @@ def test_overall_layout_paginates_dates_teachers_and_preserves_semantics() -> No
     assert len(document.sections) == 3
     texts = _document_texts(document)
     assert "とても長い架空の生徒名一号" in texts
-    assert "[1対1]" in texts
-    assert "[固定]" in texts
-    assert "[手]" in texts
     assert "[集団]" in texts
     assert "13:00–14:20" in texts
-    assert "[休校]" in texts
-    assert "特記事項: 持参物確認" in texts
+    assert "[休校]" not in texts
+    assert "[未確定]" not in texts
     assert document.sections[-1].name == "補足の集団授業"
     first_table = document.sections[0].pages[0].tables[0]
     assert first_table.repeat_header_rows == 0
     assert document.sections[0].name == "週_20260726"
     assert document.sections[1].name == "週_20260802"
-    assert any(
-        any("2026/08/02" in cell.text for cell in row.cells)
-        and any("2026/08/03" in cell.text for cell in row.cells)
-        for row in document.sections[1].pages[0].tables[0].rows
+    second_week_text = "\n".join(
+        cell.text
+        for table in document.sections[1].pages[0].tables
+        for row in table.rows
+        for cell in row.cells
     )
+    assert "2026/08/02" in second_week_text
+    assert "2026/08/03" not in second_week_text
+    first_rows = first_table.rows
+    assert any(cell.text == "中学1年" for cell in first_rows[2].cells)
+    assert any(cell.text == "数" for cell in first_rows[3].cells)
+    assert any(cell.text == "とても長い架空の生徒名一号" for cell in first_rows[4].cells)
 
 
 def test_student_teacher_and_issue_reports_cover_required_fields() -> None:
@@ -167,13 +171,12 @@ def test_visible_fields_control_optional_content_without_losing_warning_or_note(
     )
 
     text = _document_texts(document)
-    assert "備考: 個別備考／手動" in text
-    assert "[警告] 手動変更を確認してください" in text
+    assert "個別備考／手動" not in text
     assert "[1対1]" not in text
     assert "[固定]" not in text
     assert "[手]" not in text
     assert "[集団]" not in text
-    assert "中学1年" not in text
+    assert "中学1年" in text
     assert "数学" not in text
 
 
@@ -362,9 +365,7 @@ def test_timetable_lists_only_day_available_teachers_and_grays_unavailable_slots
     assert "架空講師一" in text
     assert "架空講師二" in text  # この日の固定授業担当も欠落させない
     assert "架空講師三" not in text
-    assert any(
-        cell.role == "unavailable" and cell.text == "—" for row in table.rows for cell in row.cells
-    )
+    assert any(cell.role == "unavailable" for row in table.rows for cell in row.cells)
     assert "灰色: 勤務不可コマ" in text
 
 

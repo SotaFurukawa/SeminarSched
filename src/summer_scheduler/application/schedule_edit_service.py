@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Literal
@@ -47,11 +47,16 @@ from summer_scheduler.optimization.dto import (
     UnassignedLesson,
 )
 from summer_scheduler.optimization.manual_edit import (
+    EditDecision,
     EditOperation,
     EditOperationKind,
     EditPreview,
+    EditPreviewCode,
     EditSchedule,
     EditTarget,
+    MetricDirection,
+    SoftMetricCode,
+    SoftMetricDelta,
     preview_edit,
 )
 from summer_scheduler.optimization.schedule_diff import diff_schedules
@@ -199,6 +204,52 @@ class ScheduleEditService:
         self._clear_command_history()
         return self.load_board()
 
+    def reset_assignments(self) -> int:
+        """Move every assigned lesson back to the unassigned rail in one transaction."""
+        project = self._require_project()
+        database = self._projects.require_database()
+        try:
+            with database.session_factory.begin() as session:
+                repository = self._repository_factory(session)
+                before_context = self._build_context(session, project.project_id)
+                self._require_known(before_context.fingerprint)
+                snapshots = tuple(
+                    snapshot
+                    for row in repository.list_assignments(project_id=project.project_id)
+                    if (snapshot := repository.snapshot(row)) is not None
+                )
+                operation_id = str(uuid4())
+                for snapshot in snapshots:
+                    repository.restore_snapshot(
+                        project_id=project.project_id,
+                        lesson_request_id=snapshot.lesson_request_id,
+                        session_index=snapshot.session_index,
+                        snapshot=None,
+                    )
+                    repository.create_audit_log(
+                        AuditLog(
+                            project_id=project.project_id,
+                            action="reset",
+                            entity_type="AssignmentSession",
+                            entity_id=(f"{snapshot.lesson_request_id}:{snapshot.session_index}"),
+                            before_json=_snapshot_json(snapshot),
+                            after_json=None,
+                            reason="時間割編集画面から全配置をリセット",
+                            source="manual",
+                            operation_id_optional=operation_id,
+                        )
+                    )
+                after_context = self._build_context(session, project.project_id)
+        except ScheduleEditError:
+            raise
+        except Exception as exc:
+            raise ScheduleSaveError("全配置をリセットできず、変更を取り消しました") from exc
+        self._known_fingerprint = after_context.fingerprint
+        self._context_cache = after_context
+        self._last_diff = _schedule_diff(before_context.schedule, after_context.schedule)
+        self._clear_command_history(clear_diff=False)
+        return len(snapshots)
+
     def preview_move(
         self,
         *,
@@ -218,10 +269,8 @@ class ScheduleEditService:
             if _find_snapshot(context.snapshots, lesson_request_id, session_index)
             else EditOperationKind.ASSIGN_UNASSIGNED
         )
-        preview = preview_edit(
-            context.data,
-            context.generation,
-            context.schedule,
+        preview = self._preview_operation(
+            context,
             EditOperation(
                 kind=kind,
                 lesson_request_id=lesson_request_id,
@@ -537,10 +586,8 @@ class ScheduleEditService:
                     or before.teacher_id != teacher_id
                 )
                 if placement_changed:
-                    preview = preview_edit(
-                        context.data,
-                        context.generation,
-                        context.schedule,
+                    preview = self._preview_operation(
+                        context,
                         EditOperation(
                             kind=kind,
                             lesson_request_id=lesson_request_id,
@@ -591,6 +638,73 @@ class ScheduleEditService:
         except Exception as exc:
             raise ScheduleSaveError("時間割変更を保存できず、変更をrollbackしました") from exc
         return self._record_command(saved)
+
+    def _preview_operation(
+        self,
+        context: _PreparedContext,
+        operation: EditOperation,
+    ) -> EditPreview:
+        preview = preview_edit(
+            context.data,
+            context.generation,
+            context.schedule,
+            operation,
+        )
+        target = operation.target
+        if preview.allowed or target is None:
+            return preview
+        request = next(
+            (row for row in context.data.lesson_requests if row.id == operation.lesson_request_id),
+            None,
+        )
+        teacher = next(
+            (row for row in context.data.teachers if row.id == target.teacher_id),
+            None,
+        )
+        if (
+            request is None
+            or teacher is None
+            or request.subject_id in teacher.qualified_subject_ids
+        ):
+            return preview
+        override_data = replace(
+            context.data,
+            teachers=tuple(
+                replace(
+                    row,
+                    qualified_subject_ids=(row.qualified_subject_ids | {request.subject_id}),
+                )
+                if row.id == teacher.id
+                else row
+                for row in context.data.teachers
+            ),
+        )
+        override_generation = generate_candidates(override_data)
+        override_preview = preview_edit(
+            override_data,
+            override_generation,
+            context.schedule,
+            operation,
+        )
+        if not override_preview.allowed:
+            return preview
+        qualification_warning = SoftMetricDelta(
+            code=SoftMetricCode.QUALIFICATION_OVERRIDE,
+            label="講師の指導可能科目外の手動配置",
+            direction=MetricDirection.LOWER_IS_BETTER,
+            before_value=0,
+            after_value=1,
+        )
+        return replace(
+            override_preview,
+            decision=EditDecision.YELLOW,
+            code=EditPreviewCode.SOFT_WARNING,
+            message=(
+                "選択した講師の指導可能科目に含まれていません。"
+                "確認後は手動配置できますが、自動最適化では候補にしません。"
+            ),
+            soft_deltas=(*override_preview.soft_deltas, qualification_warning),
+        )
 
     def _apply_metadata_change(
         self,

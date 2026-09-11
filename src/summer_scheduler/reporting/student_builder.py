@@ -182,9 +182,6 @@ def _student_table(
         if assignment.is_manual and "manual" in settings.visible_fields:
             style_codes.append("manual")
             state_markers.append(settings.style("manual").marker)
-        if snapshot.project.status != "confirmed":
-            style_codes.append("unconfirmed")
-            state_markers.append(settings.style("unconfirmed").marker)
         entries.append(
             (
                 assignment.day,

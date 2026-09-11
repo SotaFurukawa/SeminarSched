@@ -28,6 +28,7 @@ from summer_scheduler.application.phase5_dto import (
     ReoptimizationSummaryDto,
     ScheduleBoardDto,
     ScheduleCardDto,
+    ScheduleDateDto,
     ScheduleDiffDto,
     ScheduleTeacherDto,
     UnassignedSessionDto,
@@ -165,6 +166,8 @@ class ScheduleEditServiceProtocol(Protocol):
 
     def create_manual_backup(self) -> CheckpointBackupDto: ...
 
+    def reset_assignments(self) -> int: ...
+
 
 class ScheduleGridModel(QAbstractTableModel):
     """当日分だけを保持する、講師列×コマ行の再利用可能TableView model。"""
@@ -277,6 +280,7 @@ class ScheduleEditorViewModel(QObject):
         self._grid_model = ScheduleGridModel(self)
         self._board: ScheduleBoardDto | None = None
         self._current_date: date | None = None
+        self._extra_teacher_ids_by_day: dict[date, set[int]] = {}
         self._view_mode = "day"
         self._zoom_factor = 1.0
         self._search_query = ""
@@ -331,6 +335,7 @@ class ScheduleEditorViewModel(QObject):
                 "note": row.note,
             }
             for row in board.dates
+            if row.is_open
         ]
 
     dateTabs = Property(list, _get_date_tabs, notify=navigationChanged)
@@ -347,7 +352,7 @@ class ScheduleEditorViewModel(QObject):
     def _get_can_go_next_date(self) -> bool:
         board = self._board
         index = self._date_index()
-        return board is not None and index >= 0 and index + 1 < len(board.dates)
+        return board is not None and index >= 0 and index + 1 < len(self._visible_dates(board))
 
     canGoNextDate = Property(bool, _get_can_go_next_date, notify=navigationChanged)
 
@@ -374,7 +379,24 @@ class ScheduleEditorViewModel(QObject):
             for row in self._visible_teachers(board)
         ]
 
-    teacherHeaders = Property(list, _get_teacher_headers, notify=boardChanged)
+    teacherHeaders = Property(list, _get_teacher_headers, notify=navigationChanged)
+
+    def _get_available_teacher_add_options(self) -> list[dict[str, object]]:
+        board = self._board
+        if board is None or self._current_date is None:
+            return []
+        visible_ids = {row.id for row in self._visible_teachers(board)}
+        return [
+            {"id": row.id, "label": row.name}
+            for row in board.teachers
+            if row.active and row.id not in visible_ids
+        ]
+
+    availableTeacherAddOptions = Property(
+        list,
+        _get_available_teacher_add_options,
+        notify=navigationChanged,
+    )
 
     def _get_slot_headers(self) -> list[dict[str, object]]:
         board = self._board
@@ -478,6 +500,7 @@ class ScheduleEditorViewModel(QObject):
                 groups_by_date.get(row.day, []),
             )
             for row in board.dates
+            if row.is_open
         ]
 
     daySummaries = Property(list, _get_day_summaries, notify=boardChanged)
@@ -611,14 +634,34 @@ class ScheduleEditorViewModel(QObject):
             self._set_error("日付はyyyy-MM-dd形式で選択してください")
             return False
         board = self._board
-        if board is None or selected not in {row.day for row in board.dates}:
-            self._set_error("講習期間内の日付を選択してください")
+        if board is None or selected not in {row.day for row in board.dates if row.is_open}:
+            self._set_error("講習期間内の開校日を選択してください")
             return False
         if selected == self._current_date:
             return True
         self._current_date = selected
         self._replace_grid()
         self._clear_messages()
+        self.navigationChanged.emit()
+        return True
+
+    @Slot(int, result=bool)
+    def addTeacherToCurrentDate(self, teacher_id: int) -> bool:
+        board = self._board
+        if board is None or self._current_date is None:
+            self._set_error("開校日を選択してください")
+            return False
+        teacher = next((row for row in board.teachers if row.id == teacher_id and row.active), None)
+        if teacher is None:
+            self._set_error("追加できる講師を選択してください")
+            return False
+        self._extra_teacher_ids_by_day.setdefault(self._current_date, set()).add(teacher_id)
+        self._replace_grid()
+        self._set_status(
+            f"{teacher.name}を{self._current_date:%m/%d}の表示へ追加しました。"
+            "勤務可否は変更していません。"
+        )
+        self.boardChanged.emit()
         self.navigationChanged.emit()
         return True
 
@@ -974,6 +1017,21 @@ class ScheduleEditorViewModel(QObject):
         return True
 
     @Slot(result=bool)
+    def resetAllAssignments(self) -> bool:
+        if self._projects.current is None:
+            self._set_error("先にプロジェクトを開いてください")
+            return False
+        self._begin_save()
+        try:
+            count = self._service.reset_assignments()
+            board = self._service.load_board()
+        except Exception as exc:
+            return self._action_failed("配置のリセット", exc, reload_board=False)
+        self._apply_board(board, preserve_date=True)
+        self._set_status(f"{count}件の授業を未配置へ戻しました")
+        return True
+
+    @Slot(result=bool)
     def prepareReoptimization(self) -> bool:
         try:
             summary = self._service.reoptimization_summary()
@@ -1007,7 +1065,7 @@ class ScheduleEditorViewModel(QObject):
     def _apply_board(self, board: ScheduleBoardDto, *, preserve_date: bool) -> None:
         previous_date = self._current_date if preserve_date else None
         self._board = board
-        available_dates = [row.day for row in board.dates]
+        available_dates = [row.day for row in board.dates if row.is_open]
         self._current_date = (
             previous_date
             if previous_date is not None and previous_date in available_dates
@@ -1071,6 +1129,9 @@ class ScheduleEditorViewModel(QObject):
                         "teacherId": teacher.id,
                         "teacherName": teacher.name,
                         "teacherActive": teacher.active,
+                        "teacherAvailable": self._teacher_available(
+                            board, current_date, slot.id, teacher.id
+                        ),
                         "lessonCards": card_rows,
                         "groupLessons": group_rows,
                     }
@@ -1085,19 +1146,36 @@ class ScheduleEditorViewModel(QObject):
             slot_labels=[slot.display_name for slot in slots],
         )
 
+    def _visible_teachers(self, board: ScheduleBoardDto) -> list[ScheduleTeacherDto]:
+        if self._current_date is None:
+            return []
+        if board.teacher_availabilities:
+            visible_ids = {
+                row.teacher_id
+                for row in board.teacher_availabilities
+                if row.day == self._current_date and row.level > 0
+            }
+        else:
+            visible_ids = {row.id for row in board.teachers if row.active}
+        visible_ids.update(self._extra_teacher_ids_by_day.get(self._current_date, set()))
+        return [row for row in board.teachers if row.id in visible_ids and row.active]
+
     @staticmethod
-    def _visible_teachers(board: ScheduleBoardDto) -> list[ScheduleTeacherDto]:
-        referenced_teacher_ids = {card.teacher_id for card in board.cards}
-        referenced_teacher_ids.update(
-            group.teacher_id for group in board.group_blocks if group.teacher_id is not None
+    def _teacher_available(
+        board: ScheduleBoardDto,
+        day_value: date,
+        time_slot_id: int,
+        teacher_id: int,
+    ) -> bool:
+        if not board.teacher_availabilities:
+            return True
+        return any(
+            row.day == day_value
+            and row.time_slot_id == time_slot_id
+            and row.teacher_id == teacher_id
+            and row.level > 0
+            for row in board.teacher_availabilities
         )
-        # 無効な講師は履歴参照用に保持するが、空列は表示しない。既存授業から参照される
-        # 間だけ「無効」と明示して移動元として残す。
-        return [
-            teacher
-            for teacher in board.teachers
-            if teacher.active or teacher.id in referenced_teacher_ids
-        ]
 
     def _card_dict(self, card: ScheduleCardDto) -> dict[str, object]:
         board = self._board
@@ -1451,9 +1529,10 @@ class ScheduleEditorViewModel(QObject):
         if board is None or index < 0:
             return
         target = index + delta
-        if target < 0 or target >= len(board.dates):
+        visible_dates = self._visible_dates(board)
+        if target < 0 or target >= len(visible_dates):
             return
-        self._current_date = board.dates[target].day
+        self._current_date = visible_dates[target].day
         self._replace_grid()
         self._clear_messages()
         self.navigationChanged.emit()
@@ -1463,9 +1542,17 @@ class ScheduleEditorViewModel(QObject):
         if board is None or self._current_date is None:
             return -1
         return next(
-            (index for index, row in enumerate(board.dates) if row.day == self._current_date),
+            (
+                index
+                for index, row in enumerate(self._visible_dates(board))
+                if row.day == self._current_date
+            ),
             -1,
         )
+
+    @staticmethod
+    def _visible_dates(board: ScheduleBoardDto) -> list[ScheduleDateDto]:
+        return [row for row in board.dates if row.is_open]
 
     def _filters_changed(self) -> None:
         self._replace_grid()

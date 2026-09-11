@@ -12,8 +12,8 @@ def test_home_exposes_six_step_workflow_and_automatic_project_creation() -> None
         "授業日を決める",
         "アンケートを作る",
         "回答を取込む",
-        "事前確定する",
-        "時間割を配置する",
+        "時間割を編集する",
+        "時間割を自動作成する",
         "時間割を完成させる",
     ):
         assert label in source

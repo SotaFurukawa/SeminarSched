@@ -27,6 +27,49 @@ class DefaultSubject:
     school_level: str
     sort_order: int
 
+    @property
+    def short_name(self) -> str:
+        return default_subject_short_name(self.code, self.display_name)
+
+
+_SUBJECT_SHORT_NAMES: Final = {
+    "ES_ENG": "英",
+    "ES_MATH_ENTRANCE": "算",
+    "ES_MATH": "算",
+    "ES_JPN_ENTRANCE": "国",
+    "ES_JPN": "国",
+    "ES_SCI": "理",
+    "ES_SOC": "社",
+    "JH_ENG": "英",
+    "JH_MATH": "数",
+    "JH_JPN": "国",
+    "JH_SCI": "理",
+    "JH_SOC": "社",
+    "HS_ENG": "英",
+    "HS_MODERN_JPN": "現",
+    "HS_CLASSICAL_JPN": "古",
+    "HS_MATH_GENERAL": "数",
+    "HS_MATH_IIBC": "数",
+    "HS_MATH_III": "数",
+    "HS_PHYSICS": "物",
+    "HS_CHEMISTRY": "化",
+    "HS_BIOLOGY": "生",
+    "HS_JAPANESE_HISTORY": "日",
+    "HS_WORLD_HISTORY": "世",
+    "HS_GEOGRAPHY": "地",
+    "HS_POLITICS_ECONOMICS": "政",
+    "HS_INFORMATICS": "情",
+}
+
+
+def default_subject_short_name(code: str, display_name: str) -> str:
+    """Return the one-character timetable label for a subject."""
+    configured = _SUBJECT_SHORT_NAMES.get(code.strip().upper())
+    if configured:
+        return configured
+    compact_name = display_name.strip().replace("・", "")
+    return compact_name[-1:] or code.strip()[:1] or "科"
+
 
 DEFAULT_TIME_SLOTS: Final = (
     DefaultTimeSlot("Y", "Y", time(14, 10), time(15, 30), 1),

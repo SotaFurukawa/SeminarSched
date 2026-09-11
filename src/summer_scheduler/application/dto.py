@@ -67,6 +67,7 @@ class SubjectDto:
     school_level: str
     sort_order: int
     active: bool
+    short_name: str = ""
 
 
 @dataclass(frozen=True, slots=True)

@@ -71,6 +71,7 @@ class SubjectRecord:
     code: str
     name: str
     school_level: str
+    short_name: str = ""
 
 
 @dataclass(frozen=True, slots=True)

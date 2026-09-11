@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from summer_scheduler.domain.defaults import default_subject_short_name
 from summer_scheduler.domain.grades import grade_to_excel
 from summer_scheduler.infrastructure.db.models import (
     CourseProject,
@@ -392,6 +393,7 @@ class MasterDataExcelService:
                 subject = Subject(
                     code=code,
                     display_name=_as_string(values, "display_name"),
+                    short_name=default_subject_short_name(code, _as_string(values, "display_name")),
                     school_level=_school_level_for_database(
                         _as_string(values, "school_level"),
                     ),
@@ -402,6 +404,8 @@ class MasterDataExcelService:
                 existing[code] = subject
             else:
                 subject.display_name = _as_string(values, "display_name")
+                if not subject.short_name:
+                    subject.short_name = default_subject_short_name(code, subject.display_name)
                 subject.school_level = _school_level_for_database(
                     _as_string(values, "school_level"),
                 )

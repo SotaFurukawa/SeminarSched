@@ -116,8 +116,8 @@ Rectangle {
                                 {"index": 7, "prefix": "①"},
                                 {"index": 8, "prefix": "②"},
                                 {"index": 3, "prefix": "③"},
-                                {"index": 9, "prefix": "④"},
-                                {"index": 4, "prefix": "⑤"},
+                                {"index": 4, "prefix": "④"},
+                                {"index": 9, "prefix": "⑤"},
                                 {"index": 6, "prefix": "⑥"}
                             ]
 

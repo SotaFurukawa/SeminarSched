@@ -20,7 +20,7 @@ from summer_scheduler.application.project_service import (
     RecoveryCandidate,
 )
 from summer_scheduler.application.shared_roster_service import SharedRosterService
-from summer_scheduler.domain.defaults import SCHOOL_LEVEL_LABELS
+from summer_scheduler.domain.defaults import SCHOOL_LEVEL_LABELS, default_subject_short_name
 from summer_scheduler.domain.validation import (
     DomainValidationError,
     parse_hhmm,
@@ -700,12 +700,13 @@ class WorkspaceViewModel(QObject):
 
     # Subjects
 
-    @Slot(int, str, str, str, int, bool, result=bool)
+    @Slot(int, str, str, str, str, int, bool, result=bool)
     def saveSubject(
         self,
         record_id: int,
         code: str,
         display_name: str,
+        short_name: str,
         school_level: str,
         sort_order: int,
         active: bool,
@@ -715,6 +716,7 @@ class WorkspaceViewModel(QObject):
                 record_id=_optional_id(record_id),
                 code=code,
                 display_name=display_name,
+                short_name=short_name,
                 school_level=_normalize_school_level(school_level),
                 sort_order=sort_order,
                 active=active,
@@ -1417,6 +1419,7 @@ class WorkspaceViewModel(QObject):
                     "id": index,
                     "code": row.code,
                     "displayName": row.display_name,
+                    "shortName": default_subject_short_name(row.code, row.display_name),
                     "schoolLevel": row.school_level,
                     "sortOrder": row.sort_order,
                     "active": row.active,
@@ -1432,6 +1435,7 @@ class WorkspaceViewModel(QObject):
                 "id": row.id,
                 "code": row.code,
                 "displayName": row.display_name,
+                "shortName": row.short_name,
                 "schoolLevel": row.school_level,
                 "sortOrder": row.sort_order,
                 "active": row.active,

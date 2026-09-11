@@ -134,6 +134,19 @@ def validate_optimization_result(
         )
         for candidate in generation.candidates
     }
+    manual_identities = {
+        (
+            existing.lesson_request_id,
+            existing.session_index,
+            requests[existing.lesson_request_id].student_id,
+            requests[existing.lesson_request_id].subject_id,
+            existing.teacher_id,
+            existing.day,
+            existing.time_slot_id,
+        )
+        for existing in data.existing_assignments
+        if existing.is_manual and existing.lesson_request_id in requests
+    }
     for assignment in result.assignments:
         key = (assignment.lesson_request_id, assignment.session_index)
         request = requests.get(assignment.lesson_request_id)
@@ -157,7 +170,7 @@ def validate_optimization_result(
             assignment.day,
             assignment.time_slot_id,
         )
-        if identity not in candidate_identities:
+        if identity not in candidate_identities and identity not in manual_identities:
             violations.append(
                 _assignment_violation(DiagnosticCode.ASSIGNMENT_NOT_CANDIDATE, assignment)
             )

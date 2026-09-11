@@ -330,6 +330,77 @@ def test_preview_keeps_all_soft_deltas_and_apply_requires_confirmation(
     assert changed.change_type == "date+teacher"
 
 
+def test_unqualified_manual_assignment_requires_confirmation_but_is_not_optimizer_candidate(
+    project_service: ProjectService,
+) -> None:
+    graph = _seed_graph(project_service)
+    database = project_service.require_database()
+    with database.session_factory.begin() as session:
+        qualification = session.scalar(
+            select(TeacherQualification).where(
+                TeacherQualification.teacher_id == graph.teacher_2_id
+            )
+        )
+        assert qualification is not None
+        qualification.can_teach = False
+
+    service = ScheduleEditService(project_service, _app_settings())
+    service.load_board()
+    preview = service.preview_move(
+        lesson_request_id=graph.request_1_id,
+        session_index=1,
+        day=graph.day,
+        time_slot_id=graph.y_slot_id,
+        teacher_id=graph.teacher_2_id,
+    )
+
+    assert preview.allowed is True
+    assert preview.decision == "yellow"
+    assert any(item.code == "qualification_override" for item in preview.soft_deltas)
+    with pytest.raises(SoftWarningConfirmationRequired):
+        service.apply_move(
+            lesson_request_id=graph.request_1_id,
+            session_index=1,
+            day=graph.day,
+            time_slot_id=graph.y_slot_id,
+            teacher_id=graph.teacher_2_id,
+            reason="指導科目外の手動配置を確認",
+        )
+    service.apply_move(
+        lesson_request_id=graph.request_1_id,
+        session_index=1,
+        day=graph.day,
+        time_slot_id=graph.y_slot_id,
+        teacher_id=graph.teacher_2_id,
+        reason="指導科目外の手動配置を確認",
+        confirm_soft_warnings=True,
+    )
+    assert (
+        _require_assignment(project_service, graph, graph.request_1_id).teacher_id
+        == graph.teacher_2_id
+    )
+    saved_card = next(
+        row for row in service.load_board().cards if row.lesson_request_id == graph.request_1_id
+    )
+    assert "現在の配置が候補集合にありません" in saved_card.warning_messages
+
+
+def test_reset_assignments_moves_every_card_to_unassigned(
+    project_service: ProjectService,
+) -> None:
+    graph = _seed_graph(project_service)
+    service = ScheduleEditService(project_service, _app_settings())
+    service.load_board()
+
+    assert service.reset_assignments() == 2
+    board = service.load_board()
+
+    assert board.cards == ()
+    assert board.unassigned_count == 2
+    assert _assignment(project_service, graph, graph.request_1_id) is None
+    assert _assignment(project_service, graph, graph.request_2_id) is None
+
+
 def test_hard_violation_is_rejected_even_when_soft_confirmation_is_true(
     project_service: ProjectService,
 ) -> None:

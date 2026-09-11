@@ -242,6 +242,7 @@ class OutputRepository:
                     code=row.code,
                     name=row.display_name,
                     school_level=row.school_level,
+                    short_name=row.short_name,
                 )
                 for row in subjects
             ),

@@ -10,7 +10,7 @@ from shutil import copy2
 from sqlalchemy import delete, select
 
 from summer_scheduler.application.project_service import ProjectService
-from summer_scheduler.domain.defaults import DEFAULT_SUBJECTS
+from summer_scheduler.domain.defaults import DEFAULT_SUBJECTS, default_subject_short_name
 from summer_scheduler.domain.identifiers import next_person_external_id
 from summer_scheduler.domain.validation import raise_for_errors, validate_student, validate_teacher
 from summer_scheduler.infrastructure.db.models import (
@@ -166,6 +166,9 @@ class SharedRosterService:
                     subject_entity = Subject(
                         code=subject_row.code,
                         display_name=subject_row.display_name,
+                        short_name=default_subject_short_name(
+                            subject_row.code, subject_row.display_name
+                        ),
                         school_level=subject_row.school_level,
                         sort_order=subject_row.sort_order,
                     )

@@ -149,7 +149,12 @@ Item {
                 onClicked: root.viewModel.redo()
             }
             Button {
-                text: qsTr("ロック以外を再最適化")
+                text: qsTr("配置をリセット")
+                enabled: root.viewModel.unassignedCount >= 0
+                onClicked: resetAssignmentsDialog.open()
+            }
+            Button {
+                text: qsTr("時間割を自動作成")
                 highlighted: true
                 onClicked: {
                     if (root.viewModel.prepareReoptimization())
@@ -630,34 +635,49 @@ Item {
                             }
                         }
 
-                        ListView {
-                            id: teacherHeader
-
+                        RowLayout {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 38
-                            orientation: ListView.Horizontal
-                            model: root.viewModel.teacherHeaders
-                            contentX: scheduleTable.contentX
-                            interactive: false
-                            clip: true
-                            reuseItems: true
-                            delegate: Rectangle {
-                                required property var modelData
-                                width: 196 * root.viewModel.zoomFactor
-                                height: teacherHeader.height
-                                color: "#eef2f6"
-                                border.color: "#dce2ea"
-                                Label {
-                                    anchors.fill: parent
-                                    anchors.margins: 5
-                                    text: String(parent.modelData.label || "")
-                                    color: "#344054"
-                                    font.pixelSize: 9
-                                    font.weight: Font.DemiBold
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    elide: Text.ElideRight
+                            spacing: 3
+
+                            ListView {
+                                id: teacherHeader
+
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                orientation: ListView.Horizontal
+                                model: root.viewModel.teacherHeaders
+                                contentX: scheduleTable.contentX
+                                interactive: false
+                                clip: true
+                                reuseItems: true
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    width: 196 * root.viewModel.zoomFactor
+                                    height: teacherHeader.height
+                                    color: "#eef2f6"
+                                    border.color: "#dce2ea"
+                                    Label {
+                                        anchors.fill: parent
+                                        anchors.margins: 5
+                                        text: String(parent.modelData.label || "")
+                                        color: "#344054"
+                                        font.pixelSize: 9
+                                        font.weight: Font.DemiBold
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                    }
                                 }
+                            }
+
+                            Button {
+                                Layout.preferredWidth: 34
+                                Layout.fillHeight: true
+                                text: "+"
+                                enabled: root.viewModel.availableTeacherAddOptions.length > 0
+                                Accessible.name: qsTr("表示する講師を追加")
+                                onClicked: addTeacherDialog.open()
                             }
                         }
 
@@ -722,10 +742,17 @@ Item {
                                 required property int column
                                 implicitWidth: 196 * root.viewModel.zoomFactor
                                 implicitHeight: 124 * root.viewModel.zoomFactor
-                                color: root.dropColor(
-                                           root.rowValue(
-                                               scheduleCell.cellData,
-                                               "cellKey", ""))
+                                color: root.rowValue(
+                                           root.viewModel.dropPreview,
+                                           "targetKey", "")
+                                       === root.rowValue(
+                                           scheduleCell.cellData, "cellKey", "")
+                                       ? root.dropColor(root.rowValue(
+                                                            scheduleCell.cellData,
+                                                            "cellKey", ""))
+                                       : root.rowValue(scheduleCell.cellData,
+                                                       "teacherAvailable", true)
+                                         ? "#ffffff" : "#e2e5e9"
                                 border.width: cellDrop.containsDrag ? 2 : 1
                                 border.color: root.dropBorder(
                                                   root.rowValue(
@@ -1708,9 +1735,59 @@ Item {
     }
 
     Dialog {
+        id: addTeacherDialog
+
+        title: qsTr("表示する講師を追加")
+        modal: true
+        anchors.centerIn: parent
+        width: Math.min(root.width - 60, 430)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onAccepted: {
+            if (teacherToAdd.currentIndex >= 0)
+                root.viewModel.addTeacherToCurrentDate(
+                            Number(teacherToAdd.currentValue))
+        }
+
+        ColumnLayout {
+            width: parent.width
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("選択した講師を現在の日付に表示します。勤務不可のコマはグレーのままです。")
+                wrapMode: Text.Wrap
+                color: "#475467"
+            }
+            ComboBox {
+                id: teacherToAdd
+                Layout.fillWidth: true
+                model: root.viewModel.availableTeacherAddOptions
+                textRole: "label"
+                valueRole: "id"
+            }
+        }
+    }
+
+    Dialog {
+        id: resetAssignmentsDialog
+
+        title: qsTr("すべての配置をリセット")
+        modal: true
+        anchors.centerIn: parent
+        width: Math.min(root.width - 60, 500)
+        standardButtons: Dialog.Yes | Dialog.No
+        onAccepted: root.viewModel.resetAllAssignments()
+
+        Label {
+            width: parent.width
+            text: qsTr("最適化・手動配置・固定を含むすべての授業カードを未配置へ戻します。よろしいですか？")
+            wrapMode: Text.Wrap
+            color: "#344054"
+        }
+    }
+
+    Dialog {
         id: reoptimizationDialog
 
-        title: qsTr("ロック以外を全体再最適化")
+        title: qsTr("時間割を自動作成")
         modal: true
         anchors.centerIn: parent
         width: Math.min(root.width - 60, 560)

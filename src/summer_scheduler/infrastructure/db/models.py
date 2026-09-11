@@ -401,6 +401,10 @@ class Subject(TimestampMixin, Base):
     """安定した英数字コードを持つ科目マスター。"""
 
     __tablename__ = "subjects"
+    # Old-revision migration tests and in-place upgrades may use the current
+    # ORM before the new column exists. Do not fetch this server default as
+    # part of INSERT; normal application access always happens after upgrade.
+    __mapper_args__ = {"eager_defaults": False}
     __table_args__ = (
         UniqueConstraint("code"),
         CheckConstraint(
@@ -424,6 +428,7 @@ class Subject(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     code: Mapped[str] = mapped_column(String(100), nullable=False)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    short_name: Mapped[str] = mapped_column(String(10), nullable=False, server_default="")
     school_level: Mapped[str] = mapped_column(String(50), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
     active: Mapped[bool] = mapped_column(
