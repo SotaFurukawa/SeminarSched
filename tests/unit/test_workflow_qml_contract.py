@@ -48,4 +48,4 @@ def test_availability_page_explains_embedded_source_replacement() -> None:
     assert "次回反映時に差し替えます" in source
     assert "おすすめ：" not in source
     assert "カンマ区切り形式（csv）" in source
-    assert "Z・A・B・Cなど複数のチェックが1セル" in source
+    assert "Z・A・B・Cなど複数のチェックが1セル" not in source

@@ -1,7 +1,7 @@
 """Phase 2/3のマスター・入力データを永続化するRepository。
 
 このRepositoryは必要に応じて ``flush()`` するが、``commit()`` や
-``rollback()`` は行わない。複数操作やExcel取込みを一つのtransactionに
+``rollback()`` は行わない。複数操作やExcel取込を一つのtransactionに
 まとめる責務はApplication Service / Unit of Work側に残す。
 """
 

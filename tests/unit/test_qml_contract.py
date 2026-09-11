@@ -13,7 +13,7 @@ def test_main_qml_contains_all_required_navigation_labels() -> None:
         "ホーム",
         "生徒の基本情報",
         "講師の基本情報",
-        "アンケート取込み",
+        "アンケート取込",
         "アンケート作成",
         "時間割編集",
         "時間割自動作成",

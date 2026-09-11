@@ -42,6 +42,7 @@ from summer_scheduler.optimization.objectives import (
     ObjectiveStage,
     build_objective_stages,
     realized_teacher_loads,
+    student_period_imbalance,
     teacher_participation_imbalance,
     teacher_preference_penalty,
 )
@@ -664,6 +665,11 @@ def _snapshot_stage_value(
         "teacher_continuity_penalty": _teacher_continuity_penalty(snapshot.selected),
         "same_day_concentration_penalty": _same_day_concentration_penalty(
             data,
+            snapshot.selected,
+        ),
+        "student_period_imbalance": student_period_imbalance(
+            data,
+            generation,
             snapshot.selected,
         ),
         "period_distribution_score": _period_distribution_score(data, snapshot.selected),

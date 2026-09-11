@@ -72,7 +72,7 @@ def test_overall_layout_paginates_dates_teachers_and_preserves_semantics() -> No
     assert "2026/08/02" in second_week_text
     assert "2026/08/03" not in second_week_text
     first_rows = first_table.rows
-    assert any(cell.text == "中学1年" for cell in first_rows[2].cells)
+    assert any(cell.text == "中1" for cell in first_rows[2].cells)
     assert any(cell.text == "数" for cell in first_rows[3].cells)
     assert any(cell.text == "とても長い架空の生徒名一号" for cell in first_rows[4].cells)
 
@@ -123,16 +123,16 @@ def test_timetable_uses_family_name_unless_the_family_name_is_duplicated() -> No
     teacher_text = _document_texts(build_teacher_document(renamed, _settings()))
     student_text = _document_texts(build_student_document(renamed, _settings()))
 
-    assert "山田 太郎" in overall_text
-    assert "山田 花子" in overall_text
+    assert "山田太" in overall_text
+    assert "山田花" in overall_text
     assert "佐藤" in overall_text
     assert "佐藤 次郎" not in overall_text
-    assert "鈴木 一郎" in overall_text
-    assert "鈴木 花子" in overall_text
+    assert "鈴木一" in overall_text
+    assert "鈴木花" in overall_text
     assert "高橋" not in overall_text
-    assert "山田 太郎" in teacher_text
+    assert "山田太" in teacher_text
     assert "佐藤" in teacher_text
-    assert "鈴木 一郎" in student_text
+    assert "鈴木一" in student_text
 
 
 def test_output_selection_filters_dates_teachers_and_students() -> None:
@@ -176,7 +176,7 @@ def test_visible_fields_control_optional_content_without_losing_warning_or_note(
     assert "[固定]" not in text
     assert "[手]" not in text
     assert "[集団]" not in text
-    assert "中学1年" in text
+    assert "中1" in text
     assert "数学" not in text
 
 

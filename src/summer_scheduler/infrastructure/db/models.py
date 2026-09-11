@@ -803,7 +803,7 @@ class GroupLessonStudent(TimestampMixin, Base):
 
 
 class ImportBatch(Base):
-    """1回のアンケートまたは集団授業取込みの監査用記録。"""
+    """1回のアンケートまたは集団授業取込の監査用記録。"""
 
     __tablename__ = "import_batches"
     __table_args__ = (
@@ -948,7 +948,7 @@ class ValidationIssue(TimestampMixin, Base):
 
 
 class AuditLog(Base):
-    """利用者操作や取込み反映を追跡する追記型の監査ログ。"""
+    """利用者操作や取込反映を追跡する追記型の監査ログ。"""
 
     __tablename__ = "audit_logs"
     __table_args__ = (

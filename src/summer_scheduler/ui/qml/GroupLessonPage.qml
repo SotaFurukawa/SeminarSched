@@ -258,7 +258,7 @@ Item {
                       .arg((root.viewModel.groupLessons || []).length)
             }
             TabButton {
-                text: qsTr("Excel取込み・差分")
+                text: qsTr("Excel取込・差分")
             }
         }
 
@@ -463,7 +463,7 @@ Item {
                         Layout.fillWidth: true
                         visible: (root.viewModel.groupLessons || []).length === 0
                         title: qsTr("登録済みの集団授業はありません")
-                        description: qsTr("授業日の追加ボタン、またはExcel取込みから登録できます。")
+                        description: qsTr("授業日の追加ボタン、またはExcel取込から登録できます。")
                     }
                 }
             }

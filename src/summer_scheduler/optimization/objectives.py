@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Literal
 
 from ortools.sat.python import cp_model
@@ -69,6 +69,16 @@ def build_objective_stages(
             name="same_day_concentration_penalty",
             direction="minimize",
             expression=_same_day_concentration_expression(
+                model,
+                data,
+                generation,
+                variables,
+            ),
+        ),
+        ObjectiveStage(
+            name="student_period_imbalance",
+            direction="minimize",
+            expression=_student_period_imbalance_expression(
                 model,
                 data,
                 generation,
@@ -365,6 +375,94 @@ def _period_distribution_expression(
     return cp_model.LinearExpr.sum(used_variables)
 
 
+def _student_period_imbalance_expression(
+    model: cp_model.CpModel,
+    data: OptimizationInput,
+    generation: CandidateGenerationResult,
+    variables: ModelVariables,
+) -> cp_model.LinearExpr:
+    """生徒ごとに、受講可能な週の授業数をできるだけ均等にする。"""
+    requests = {request.id: request for request in data.lesson_requests}
+    candidates_by_student_week: dict[tuple[int, date], list[CandidateData]] = defaultdict(list)
+    total_sessions_by_student: dict[int, int] = defaultdict(int)
+    for request in data.lesson_requests:
+        total_sessions_by_student[request.student_id] += request.required_sessions
+    for candidate in generation.candidates:
+        student_id = requests[candidate.lesson_request_id].student_id
+        candidates_by_student_week[(student_id, _sunday_of_week(candidate.day))].append(candidate)
+
+    weeks_by_student: dict[int, list[date]] = defaultdict(list)
+    for student_id, week_start in sorted(candidates_by_student_week):
+        weeks_by_student[student_id].append(week_start)
+
+    deviations: list[cp_model.IntVar] = []
+    for student_id, weeks in sorted(weeks_by_student.items()):
+        distinct_weeks = sorted(set(weeks))
+        session_bound = total_sessions_by_student[student_id]
+        if session_bound < 2 or len(distinct_weeks) < 2:
+            continue
+        weekly_counts: dict[date, cp_model.IntVar] = {}
+        for week_start in distinct_weeks:
+            count = model.new_int_var(
+                0,
+                session_bound,
+                f"student_week_count_{student_id}_{week_start.isoformat()}",
+            )
+            model.add(
+                count
+                == cp_model.LinearExpr.sum(
+                    [
+                        variables.assignments[candidate]
+                        for candidate in candidates_by_student_week[(student_id, week_start)]
+                    ]
+                )
+            )
+            weekly_counts[week_start] = count
+        for position, first_week in enumerate(distinct_weeks):
+            for second_week in distinct_weeks[position + 1 :]:
+                deviation = model.new_int_var(
+                    0,
+                    session_bound,
+                    (
+                        f"student_week_deviation_{student_id}_"
+                        f"{first_week.isoformat()}_{second_week.isoformat()}"
+                    ),
+                )
+                model.add_abs_equality(
+                    deviation,
+                    weekly_counts[first_week] - weekly_counts[second_week],
+                )
+                deviations.append(deviation)
+    return cp_model.LinearExpr.sum(deviations)
+
+
+def student_period_imbalance(
+    data: OptimizationInput,
+    generation: CandidateGenerationResult,
+    selected: Iterable[CandidateData],
+) -> int:
+    """選択済み解の、生徒別・週別授業数のばらつきを返す。"""
+    requests = {request.id: request for request in data.lesson_requests}
+    eligible_weeks: dict[int, set[date]] = defaultdict(set)
+    for candidate in generation.candidates:
+        student_id = requests[candidate.lesson_request_id].student_id
+        eligible_weeks[student_id].add(_sunday_of_week(candidate.day))
+    counts: dict[tuple[int, date], int] = defaultdict(int)
+    for candidate in selected:
+        student_id = requests[candidate.lesson_request_id].student_id
+        counts[(student_id, _sunday_of_week(candidate.day))] += 1
+    return sum(
+        abs(counts[(student_id, first)] - counts[(student_id, second)])
+        for student_id, weeks in eligible_weeks.items()
+        for position, first in enumerate(sorted(weeks))
+        for second in sorted(weeks)[position + 1 :]
+    )
+
+
+def _sunday_of_week(day_value: date) -> date:
+    return day_value - timedelta(days=(day_value.weekday() + 1) % 7)
+
+
 def _changed_assignment_expression(
     data: OptimizationInput,
     generation: CandidateGenerationResult,
@@ -454,4 +552,5 @@ __all__ = [
     "teacher_availability_capacities",
     "teacher_participation_imbalance",
     "teacher_preference_penalty",
+    "student_period_imbalance",
 ]

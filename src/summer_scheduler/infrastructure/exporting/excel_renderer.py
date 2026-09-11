@@ -92,6 +92,9 @@ class ExcelRenderer:
         workbook.properties.creator = "季節講習時間割作成アプリ"
         used_names: set[str] = set()
         try:
+            if document.report_code == "overall":
+                metadata_sheet = workbook.create_sheet(_unique_sheet_name("出力情報", used_names))
+                self._render_overall_metadata(metadata_sheet, document)
             for section in document.sections:
                 if not section.pages:
                     continue
@@ -124,7 +127,8 @@ class ExcelRenderer:
             default=1,
         )
         worksheet.sheet_view.showGridLines = False
-        worksheet.freeze_panes = "A4"
+        overall_timetable = document.report_code == "overall"
+        worksheet.freeze_panes = None if overall_timetable else "A4"
         worksheet.sheet_properties.pageSetUpPr = PageSetupProperties(
             fitToPage=True,
             autoPageBreaks=False,
@@ -146,35 +150,40 @@ class ExcelRenderer:
         worksheet.page_margins.bottom = margin_inches
         worksheet.print_options.horizontalCentered = True
 
-        self._write_merged_heading(
-            worksheet,
-            row_number=1,
-            text=document.title,
-            column_count=max_columns,
-            role="title",
-            font_size=max(14.0, document.font_size + 5.0),
-        )
-        metadata = f"{document.campus_name}／{document.course_name}"
-        self._write_merged_heading(
-            worksheet,
-            row_number=2,
-            text=metadata,
-            column_count=max_columns,
-            role="subtitle",
-            font_size=max(10.0, document.font_size + 1.0),
-        )
-        self._write_merged_heading(
-            worksheet,
-            row_number=3,
-            text=document.updated_text,
-            column_count=max_columns,
-            role="metadata",
-            font_size=document.font_size,
-        )
         repeat_header_rows = _first_table_repeat_header_rows(section)
-        worksheet.print_title_rows = f"6:{5 + repeat_header_rows}" if repeat_header_rows else "1:3"
+        if overall_timetable:
+            worksheet.print_title_rows = "1:2"
+        else:
+            self._write_merged_heading(
+                worksheet,
+                row_number=1,
+                text=document.title,
+                column_count=max_columns,
+                role="title",
+                font_size=max(14.0, document.font_size + 5.0),
+            )
+            metadata = f"{document.campus_name}／{document.course_name}"
+            self._write_merged_heading(
+                worksheet,
+                row_number=2,
+                text=metadata,
+                column_count=max_columns,
+                role="subtitle",
+                font_size=max(10.0, document.font_size + 1.0),
+            )
+            self._write_merged_heading(
+                worksheet,
+                row_number=3,
+                text=document.updated_text,
+                column_count=max_columns,
+                role="metadata",
+                font_size=document.font_size,
+            )
+            worksheet.print_title_rows = (
+                f"6:{5 + repeat_header_rows}" if repeat_header_rows else "1:3"
+            )
 
-        row_cursor = 4
+        row_cursor = 1 if overall_timetable else 4
         page_end_rows: list[int] = []
         for page in section.pages:
             row_cursor = self._write_page(
@@ -203,6 +212,41 @@ class ExcelRenderer:
         odd_footer.left.text = section.name
         odd_footer.center.text = "ページ &[Page] / &[Pages]"
         odd_footer.right.text = "個人情報を含みます"
+
+    def _render_overall_metadata(
+        self,
+        worksheet: Worksheet,
+        document: LayoutDocument,
+    ) -> None:
+        """週シートから分離した帳票情報を専用シートへ残す。"""
+        worksheet.sheet_view.showGridLines = False
+        worksheet.column_dimensions["A"].width = 24
+        worksheet.column_dimensions["B"].width = 54
+        rows = (
+            ("帳票名", document.title),
+            ("校舎・講習", f"{document.campus_name}／{document.course_name}"),
+            ("更新日時", document.updated_text),
+        )
+        for row_number, (label, value) in enumerate(rows, start=1):
+            self._write_cell_range(
+                worksheet,
+                LayoutCell(label, role="header", alignment="center"),
+                first_row=row_number,
+                last_row=row_number,
+                first_column=1,
+                last_column=1,
+                font_size=document.font_size,
+            )
+            self._write_cell_range(
+                worksheet,
+                LayoutCell(value, role="data"),
+                first_row=row_number,
+                last_row=row_number,
+                first_column=2,
+                last_column=2,
+                font_size=document.font_size,
+            )
+        worksheet.print_area = "A1:B3"
 
     def _write_page(
         self,
@@ -265,8 +309,11 @@ class ExcelRenderer:
     ) -> int:
         for column_index, width in enumerate(table.column_widths, start=1):
             letter = get_column_letter(column_index)
-            existing = worksheet.column_dimensions[letter].width or 0
-            worksheet.column_dimensions[letter].width = max(existing, width)
+            if letter in worksheet.column_dimensions:
+                existing = worksheet.column_dimensions[letter].width or 0
+                worksheet.column_dimensions[letter].width = max(existing, width)
+            else:
+                worksheet.column_dimensions[letter].width = width
 
         occupied_until: dict[int, int] = {}
         for row_offset, layout_row in enumerate(table.rows):
@@ -357,9 +404,15 @@ class ExcelRenderer:
                     vertical="center",
                     wrap_text=True,
                     shrink_to_fit=True,
+                    text_rotation=255 if layout_cell.vertical_text else 0,
                 )
         value_cell = cast(Cell, worksheet.cell(row=first_row, column=first_column))
-        _set_explicit_text(value_cell, excelize_grades_in_text(layout_cell.text))
+        rendered_text = (
+            layout_cell.text
+            if layout_cell.preserve_grade_notation
+            else excelize_grades_in_text(layout_cell.text)
+        )
+        _set_explicit_text(value_cell, rendered_text)
         if first_row != last_row or first_column != last_column:
             worksheet.merge_cells(
                 start_row=first_row,

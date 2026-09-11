@@ -80,7 +80,8 @@ def test_main_and_application_wire_phase4_page_and_shutdown_guard() -> None:
     assert "onOpenIssuesRequested" in main_source
     assert "root.phase3.refreshPhase3()" in main_source
     assert 'phaseLabel: "Phase 5"' in main_source
-    assert "⑤ 時間割自動作成" in main_source
+    assert 'title: "時間割自動作成"' in main_source
+    assert "時間割編集へ戻る" not in main_source
     assert '"optimizationViewModel"' in app_source
     assert '"scheduleEditorViewModel"' in app_source
     assert "set_project_change_guard(" in app_source

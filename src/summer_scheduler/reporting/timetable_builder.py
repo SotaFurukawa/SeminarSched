@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from summer_scheduler.domain.grades import grade_from_excel
 from summer_scheduler.reporting.common import (
     chunks,
     format_day,
@@ -194,7 +195,7 @@ def _build_week_page_v2(
                 height_points_optional=30,
             )
         )
-        column_widths.append(30.0)
+        column_widths.append(3.57)
     else:
         rows.append(
             LayoutRow(
@@ -233,9 +234,9 @@ def _build_week_page_v2(
                         alignment="center",
                     )
                 )
-            column_widths.append(9.0)
+            column_widths.append(3.57)
             column_widths.extend(
-                11.0 for _ in range(max(1, len(day_teachers)) * _STUDENTS_PER_TEACHER)
+                3.57 for _ in range(max(1, len(day_teachers)) * _STUDENTS_PER_TEACHER)
             )
         rows.append(LayoutRow(cells=tuple(teacher_header_cells), height_points_optional=22))
 
@@ -272,12 +273,18 @@ def _build_week_page_v2(
                             request = requests[cell_assignment.lesson_request_id]
                             student = students[request.student_id]
                             subject = subjects[request.subject_id]
-                            grade = student.grade
+                            grade = grade_from_excel(student.grade)
                             subject_name = subject.short_name or subject.name[:1]
                             student_name = student_names[student.id]
                             codes = _assignment_style_codes(cell_assignment, request, settings)
                         slot_rows[0].append(
-                            LayoutCell(grade, role=role, style_codes=codes, alignment="center")
+                            LayoutCell(
+                                grade,
+                                role=role,
+                                style_codes=codes,
+                                alignment="center",
+                                preserve_grade_notation=True,
+                            )
                         )
                         slot_rows[1].append(
                             LayoutCell(
@@ -293,6 +300,7 @@ def _build_week_page_v2(
                                 role=role,
                                 style_codes=codes,
                                 alignment="center",
+                                vertical_text=True,
                             )
                         )
                 if not day_teachers:
@@ -301,7 +309,13 @@ def _build_week_page_v2(
                             LayoutCell("", role="unavailable", alignment="center")
                             for _ in range(_STUDENTS_PER_TEACHER)
                         )
-            rows.extend(LayoutRow(cells=tuple(row), height_points_optional=18) for row in slot_rows)
+            rows.extend(
+                LayoutRow(
+                    cells=tuple(row),
+                    height_points_optional=40.5 if index == 2 else 18,
+                )
+                for index, row in enumerate(slot_rows)
+            )
 
     legend = "　".join(
         f"{rule.marker} {rule.label}"

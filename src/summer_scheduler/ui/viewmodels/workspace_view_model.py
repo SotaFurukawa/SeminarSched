@@ -1250,13 +1250,13 @@ class WorkspaceViewModel(QObject):
                 ).preview_import(_xlsx_path_from_qml(path_value))
             self._set_excel_preview(preview)
             if preview.has_errors:
-                self._set_error(f"取込み前の検証で{preview.error_count}件のエラーが見つかりました")
+                self._set_error(f"取込前の検証で{preview.error_count}件のエラーが見つかりました")
 
-        result = self._perform(action, "Excel取込み内容を検証しました")
+        result = self._perform(action, "Excel取込内容を検証しました")
         if result and self._excel_preview is not None and self._excel_preview.has_errors:
             # _performの成功メッセージで上書きされた後、反映不可を明示する。
             self._set_error(
-                f"取込み前の検証で{self._excel_preview.error_count}件のエラーが見つかりました"
+                f"取込前の検証で{self._excel_preview.error_count}件のエラーが見つかりました"
             )
         return result
 

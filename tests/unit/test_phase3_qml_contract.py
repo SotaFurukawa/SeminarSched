@@ -34,7 +34,7 @@ def test_availability_import_page_exposes_complete_safe_workflow() -> None:
         "exportCombinedSurvey(",
     }
     assert all(call in source for call in required_calls)
-    assert "生徒・講師回答をまとめて取り込む" in source
+    assert "生徒・講師回答を取り込む" in source
     assert "2ファイルを検証" in source
     assert "カンマ区切り形式（csv）" in source
     assert "enabled: root.viewModel.canApplyCombinedSurvey" in source

@@ -110,7 +110,7 @@ Item {
                     font.weight: Font.Bold
                 }
                 Label {
-                    text: qsTr("現在のDBを再検査し、Excel・PDF・CSVをローカルへ保存します。")
+                    text: qsTr("ExcelまたはPDFとして保存します。")
                     color: "#667085"
                     font.pixelSize: 10
                 }
@@ -156,29 +156,32 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: theme.spacingSm
+                    spacing: 8
 
-                    StatusBadge {
-                        label: qsTr("1　対象を選ぶ")
-                        status: root.viewModel.reportKind ? "complete" : "current"
-                    }
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 1
-                        color: theme.border
-                    }
-                    StatusBadge {
-                        label: qsTr("2　形式を選ぶ")
-                        status: root.viewModel.outputFormat ? "complete" : "current"
-                    }
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 1
-                        color: theme.border
-                    }
-                    StatusBadge {
-                        label: qsTr("3　保存先を決める")
-                        status: root.viewModel.destinationPath ? "complete" : "current"
+                    Repeater {
+                        model: [
+                            {"label": qsTr("対象を選ぶ")},
+                            {"label": qsTr("形式を選ぶ")},
+                            {"label": qsTr("保存先を決める")}
+                        ]
+
+                        delegate: StatusBadge {
+                            id: outputStepBadge
+                            required property int index
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.preferredWidth: 1
+                            Layout.preferredHeight: 34
+                            symbol: String(index + 1)
+                            label: String(modelData.label)
+                            status: index === 0 && root.viewModel.reportKind
+                                    ? "complete"
+                                    : index === 1 && root.viewModel.outputFormat
+                                      ? "complete"
+                                      : index === 2 && root.viewModel.destinationPath
+                                        ? "complete" : "current"
+                        }
                     }
                 }
 
@@ -935,11 +938,10 @@ Item {
                                 Layout.fillWidth: true
                             }
                             Label {
-                                text: qsTr("%1 %2／%3日・%4講師列")
+                                text: qsTr("%1 %2／1週間単位・%3講師列")
                                       .arg(root.viewModel.paperSize)
                                       .arg(root.viewModel.orientation === "landscape"
                                            ? qsTr("横") : qsTr("縦"))
-                                      .arg(root.viewModel.daysPerPage)
                                       .arg(root.viewModel.teacherColumnsPerPage)
                                 color: "#667085"
                                 font.pixelSize: 9
@@ -973,11 +975,13 @@ Item {
                         }
                         Label {
                             Layout.alignment: Qt.AlignHCenter
+                            Layout.fillWidth: true
                             text: root.viewModel.isBusy
                                   ? qsTr("プレビューを生成しています…")
                                   : qsTr("「印刷プレビューを更新」で一時PDFを表示します")
                             color: "#475467"
                             font.pixelSize: 13
+                            horizontalAlignment: Text.AlignHCenter
                         }
                         Label {
                             Layout.alignment: Qt.AlignHCenter

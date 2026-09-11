@@ -119,7 +119,7 @@ Item {
                     font.weight: Font.Bold
                 }
                 Label {
-                    text: qsTr("ドラッグ前検証、ロック、Undo / Redoを同じ保存済みデータに適用します。")
+                    text: qsTr("あらかじめ指定したいコマをドラッグ・ドロップで指定してください。")
                     color: "#667085"
                     font.pixelSize: 9
                 }
@@ -618,7 +618,9 @@ Item {
                     currentIndex: root.viewModel.viewMode === "day" ? 0 : 1
 
                     GridLayout {
-                        columns: 2
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        columns: 3
                         columnSpacing: 0
                         rowSpacing: 0
 
@@ -635,50 +637,44 @@ Item {
                             }
                         }
 
-                        RowLayout {
+                        ListView {
+                            id: teacherHeader
+
                             Layout.fillWidth: true
                             Layout.preferredHeight: 38
-                            spacing: 3
-
-                            ListView {
-                                id: teacherHeader
-
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                orientation: ListView.Horizontal
-                                model: root.viewModel.teacherHeaders
-                                contentX: scheduleTable.contentX
-                                interactive: false
-                                clip: true
-                                reuseItems: true
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    width: 196 * root.viewModel.zoomFactor
-                                    height: teacherHeader.height
-                                    color: "#eef2f6"
-                                    border.color: "#dce2ea"
-                                    Label {
-                                        anchors.fill: parent
-                                        anchors.margins: 5
-                                        text: String(parent.modelData.label || "")
-                                        color: "#344054"
-                                        font.pixelSize: 9
-                                        font.weight: Font.DemiBold
-                                        horizontalAlignment: Text.AlignHCenter
-                                        verticalAlignment: Text.AlignVCenter
-                                        elide: Text.ElideRight
-                                    }
+                            orientation: ListView.Horizontal
+                            model: root.viewModel.teacherHeaders
+                            contentX: scheduleTable.contentX
+                            interactive: false
+                            clip: true
+                            reuseItems: true
+                            delegate: Rectangle {
+                                required property var modelData
+                                width: 196 * root.viewModel.zoomFactor
+                                height: teacherHeader.height
+                                color: "#eef2f6"
+                                border.color: "#dce2ea"
+                                Label {
+                                    anchors.fill: parent
+                                    anchors.margins: 5
+                                    text: String(parent.modelData.label || "")
+                                    color: "#344054"
+                                    font.pixelSize: 9
+                                    font.weight: Font.DemiBold
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideRight
                                 }
                             }
+                        }
 
-                            Button {
-                                Layout.preferredWidth: 34
-                                Layout.fillHeight: true
-                                text: "+"
-                                enabled: root.viewModel.availableTeacherAddOptions.length > 0
-                                Accessible.name: qsTr("表示する講師を追加")
-                                onClicked: addTeacherDialog.open()
-                            }
+                        Button {
+                            Layout.preferredWidth: 34
+                            Layout.preferredHeight: 38
+                            text: "+"
+                            enabled: root.viewModel.availableTeacherAddOptions.length > 0
+                            Accessible.name: qsTr("表示する講師を追加")
+                            onClicked: addTeacherDialog.open()
                         }
 
                         ListView {
@@ -1034,6 +1030,13 @@ Item {
                                     }
                                 }
                             }
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: 34
+                            Layout.fillHeight: true
+                            color: "#ffffff"
+                            border.color: "#dce2ea"
                         }
                     }
 

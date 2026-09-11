@@ -186,7 +186,7 @@ class AvailabilityImportService:
             return snapshot.source_file_name if snapshot is not None else ""
 
     def student_editor_options(self) -> dict[str, tuple[dict[str, object], ...]]:
-        """取込み後の生徒可否を画面で編集するための選択肢を返す。"""
+        """取込後の生徒可否を画面で編集するための選択肢を返す。"""
         project = self._projects.require_project()
         database = self._projects.require_database()
         with database.session_factory() as session:

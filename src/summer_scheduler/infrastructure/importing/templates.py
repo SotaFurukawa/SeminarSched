@@ -97,7 +97,7 @@ def write_student_availability_template(
         "preferred_teacher_1": "SAMPLE-T001",
         "preferred_teacher_2": "",
         "preferred_teacher_3": "",
-        "note": "この例示行は取込み対象外です",
+        "note": "この例示行は取込対象外です",
     }
     workbook = _new_workbook("生徒アンケート入力テンプレート")
     _write_data_sheet(
@@ -119,7 +119,7 @@ def write_student_availability_template(
         (
             ("用途", "生徒の受講可能日時・希望日時を入力します。"),
             ("コマ値", "0 = 不可、1 = 可能、2 = 希望"),
-            ("例示行", "「例示行」が「はい」の行は取込み対象外です。"),
+            ("例示行", "「例示行」が「はい」の行は取込対象外です。"),
             ("ID", "人物は名前ではなく生徒ID・講師IDで照合します。"),
             (
                 "変更禁止",
@@ -154,7 +154,7 @@ def write_teacher_availability_template(
         "name": "架空 一郎",
         "date": "2026-08-01",
         **{slot_key(code): (index + 1) % 3 for index, code in enumerate(slots)},
-        "note": "この例示行は取込み対象外です",
+        "note": "この例示行は取込対象外です",
     }
     workbook = _new_workbook("講師アンケート入力テンプレート")
     _write_data_sheet(
@@ -176,7 +176,7 @@ def write_teacher_availability_template(
         (
             ("用途", "講師の出勤可能日時・希望日時を入力します。"),
             ("コマ値", "0 = 不可、1 = 可能、2 = 希望"),
-            ("例示行", "「例示行」が「はい」の行は取込み対象外です。"),
+            ("例示行", "「例示行」が「はい」の行は取込対象外です。"),
             ("ID", "人物は名前ではなく講師IDで照合します。"),
             ("資格", "指導可能科目は講師マスターで管理します。"),
         ),
@@ -250,7 +250,7 @@ def write_group_lessons_template(
             ("用途", "集団授業と受講者を固定予定として入力します。"),
             ("シート", "「集団授業」と「受講者」の両方を入力してください。"),
             ("時刻", "コマと完全一致しない開始・終了時刻も入力できます。"),
-            ("例示行", "「例示行」が「はい」の行は取込み対象外です。"),
+            ("例示行", "「例示行」が「はい」の行は取込対象外です。"),
             ("ID", "受講者の集団授業IDは集団授業シートのIDを参照します。"),
         ),
     )
@@ -403,7 +403,7 @@ def _example_column() -> _TemplateColumn:
         "example",
         "例示行",
         width=12,
-        comment="「はい」の行は取込み対象外です。",
+        comment="「はい」の行は取込対象外です。",
     )
 
 

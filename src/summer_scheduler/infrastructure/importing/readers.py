@@ -315,7 +315,7 @@ def _selected_sheet_name(sheet_names: Sequence[str], requested: str | None) -> s
         return sheet_names[0]
     if not sheet_names:
         raise ImportSourceError("xlsxにシートがありません。")
-    raise ImportSourceError("複数シートがあるため、取込み対象シートを選択してください。")
+    raise ImportSourceError("複数シートがあるため、取込対象シートを選択してください。")
 
 
 def _open_workbook(source: Path, *, read_only: bool) -> Any:

@@ -101,7 +101,7 @@ class MasterDataExcelService:
     def apply_import(self, preview: ImportPreview) -> ImportResult:
         """確認済みプレビューを1つのSAVEPOINT内でupsertし、flushする。
 
-        反映前にSessionが未保存の変更を持つ場合は、取込み以外の変更を同じflushへ
+        反映前にSessionが未保存の変更を持つ場合は、取込以外の変更を同じflushへ
         巻き込まないため拒否する。成功後は呼出側で ``session.commit()``、後続処理が
         失敗した場合は ``session.rollback()`` を実行する。
         """
@@ -113,11 +113,11 @@ class MasterDataExcelService:
             )
             location = f"{first_error.location}: " if first_error.location else ""
             raise MasterDataImportError(
-                f"取込みエラーがあるため反映できません。{location}{first_error.message}",
+                f"取込エラーがあるため反映できません。{location}{first_error.message}",
             )
         if self._session.new or self._session.dirty or self._session.deleted:
             raise MasterDataImportError(
-                "Sessionに取込み以外の未保存変更があります。先に保存または取消してください。",
+                "Sessionに取込以外の未保存変更があります。先に保存または取消してください。",
             )
 
         rows_by_sheet = {

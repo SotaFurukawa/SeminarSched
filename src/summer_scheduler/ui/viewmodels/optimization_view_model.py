@@ -46,6 +46,7 @@ _STAGE_LABELS = {
     "teacher_preference_penalty": "講師希望の調整",
     "teacher_continuity_penalty": "担当講師数の抑制",
     "same_day_concentration_penalty": "同一科目の日程分散",
+    "student_period_imbalance": "生徒ごとの週別分散",
     "period_distribution_score": "講習期間全体への分散",
     "active_teacher_slot_count": "講師稼働枠の最小化",
     "availability_preference_score": "希望日時の調整",

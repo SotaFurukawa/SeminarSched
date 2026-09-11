@@ -77,7 +77,7 @@ def read_master_data_workbook(path: Path) -> ReadResult:
                 issues.append(
                     ImportIssue(
                         IssueSeverity.WARNING,
-                        "未定義のシートは取込み対象外です。",
+                        "未定義のシートは取込対象外です。",
                         sheet_name=actual_name,
                         code="unexpected_sheet",
                     ),
@@ -277,7 +277,7 @@ def _read_header_positions(
             issues.append(
                 ImportIssue(
                     IssueSeverity.WARNING,
-                    "未定義の列は取込み対象外です。",
+                    "未定義の列は取込対象外です。",
                     sheet_name=sheet_spec.name,
                     row_number=1,
                     column_name=actual_header,

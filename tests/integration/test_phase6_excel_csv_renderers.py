@@ -62,27 +62,30 @@ def test_excel_renderer_round_trips_layout_print_settings_and_safe_text(
     assert result == destination.resolve()
     workbook = load_workbook(result, data_only=False)
     try:
-        assert workbook.sheetnames == ["全体_時間割", "全体_時間割_2"]
+        assert workbook.sheetnames == ["出力情報", "全体_時間割", "全体_時間割_2"]
+        assert workbook["出力情報"]["A1"].value == "帳票名"
+        assert workbook["出力情報"]["B1"].value == "夏期講習時間割"
         worksheet = workbook["全体_時間割"]
-        assert worksheet["A1"].value == "夏期講習時間割"
-        assert worksheet["A2"].value == "架空みらい校／2026年度 夏期講習"
-        assert worksheet["A7"].value == '=HYPERLINK("https://invalid.example")'
-        assert worksheet["A7"].data_type == "s"
-        assert "（J2）" in worksheet["B7"].value
-        assert worksheet["B7"].alignment.wrap_text is True
-        assert worksheet["B7"].alignment.shrink_to_fit is True
-        assert worksheet["A7"].border.left.style == "thin"
-        assert str(worksheet["A7"].fill.fgColor.rgb).endswith("FFF1CC")
-        assert worksheet.row_dimensions[7].height == pytest.approx(34)
-        assert {"A1:C1", "A2:C2", "A3:C3", "A7:A8", "A9:C9"} <= {
+        assert worksheet["A1"].value == "全体時間割"
+        assert worksheet["A2"].value == "2026年8月3日／講師: 架空講師"
+        assert worksheet["A4"].value == '=HYPERLINK("https://invalid.example")'
+        assert worksheet["A4"].data_type == "s"
+        assert "（J2）" in worksheet["B4"].value
+        assert worksheet["B4"].alignment.wrap_text is True
+        assert worksheet["B4"].alignment.shrink_to_fit is True
+        assert worksheet["A4"].border.left.style == "thin"
+        assert str(worksheet["A4"].fill.fgColor.rgb).endswith("FFF1CC")
+        assert worksheet.row_dimensions[4].height == pytest.approx(34)
+        assert {"A1:C1", "A2:C2", "A4:A5", "A6:C6"} <= {
             str(item) for item in worksheet.merged_cells.ranges
         }
         assert str(worksheet.page_setup.paperSize) == "8"
         assert worksheet.page_setup.orientation == worksheet.ORIENTATION_LANDSCAPE
         assert worksheet.page_setup.fitToWidth == 1
         assert worksheet.page_setup.fitToHeight == 1
-        assert worksheet.print_area == "'全体_時間割'!$A$1:$C$18"
-        assert worksheet.print_title_rows == "$6:$6"
+        assert worksheet.print_area == "'全体_時間割'!$A$1:$C$15"
+        assert worksheet.print_title_rows == "$1:$2"
+        assert worksheet.freeze_panes is None
         assert len(worksheet.row_breaks.brk) == 1
         odd_footer = worksheet.oddFooter
         assert odd_footer is not None
@@ -184,7 +187,10 @@ def test_excel_renderer_accepts_all_shared_phase6_documents(tmp_path: Path) -> N
         try:
             assert workbook.sheetnames
             assert workbook.active is not None
-            assert workbook.active["A1"].value == document.title
+            if document.report_code == "overall":
+                assert workbook["出力情報"]["B1"].value == document.title
+            else:
+                assert workbook.active["A1"].value == document.title
         finally:
             workbook.close()
 
@@ -220,7 +226,7 @@ def test_excel_renderer_overwrites_only_after_success(tmp_path: Path) -> None:
 
     workbook = load_workbook(destination, read_only=True)
     try:
-        assert workbook["全体_時間割"]["A1"].value == "夏期講習時間割"
+        assert workbook["全体_時間割"]["A1"].value == "全体時間割"
     finally:
         workbook.close()
 

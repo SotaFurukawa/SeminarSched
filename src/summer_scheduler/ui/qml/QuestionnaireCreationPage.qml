@@ -162,6 +162,14 @@ Item {
                         description: qsTr("名称と締切だけ確認すれば、質問・科目・日時表はアプリが自動構成します。")
                     }
 
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("生徒用・講師勤務日時用・講師指導可能科目用の3つのApps Scriptと手順書を保存します。")
+                        color: "#667085"
+                        font.pixelSize: 10
+                        wrapMode: Text.Wrap
+                    }
+
                     GridLayout {
                         Layout.fillWidth: true
                         Layout.maximumWidth: 920
@@ -225,7 +233,7 @@ Item {
                             Layout.fillWidth: true
                             text: root.viewModel.lastQuestionnaireScriptDirectory
                                   ? qsTr("保存済み：%1").arg(root.viewModel.lastQuestionnaireScriptDirectory)
-                                  : qsTr("生徒用・講師勤務日時用・講師指導可能科目用の3つのApps Scriptと手順書を保存します。")
+                                  : qsTr("保存先を指定してフォーム作成キットを生成してください。")
                             color: root.viewModel.lastQuestionnaireScriptDirectory
                                    ? "#176b40" : "#667085"
                             font.pixelSize: 10
@@ -276,7 +284,7 @@ Item {
 
                     Label {
                         Layout.fillWidth: true
-                        text: qsTr("作成したフォームを配布し、回答が集まったら③「回答取込み」で生徒回答と講師回答を選択します。")
+                        text: qsTr("作成したフォームを配布し、回答が集まったら③「回答取込」で生徒回答と講師回答を選択します。")
                         color: "#344054"
                         wrapMode: Text.Wrap
                     }

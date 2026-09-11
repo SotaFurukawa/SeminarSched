@@ -148,8 +148,8 @@ def test_initial_roster_and_questionnaire_follow_guided_flow() -> None:
         assert f"assets/google_forms_guide/{asset}" in guide
 
     for label in (
-        "取込み済み回答を編集…",
-        "取込み済みの生徒参加可否を編集",
+        "取込済み回答を編集…",
+        "取込済みの生徒参加可否を編集",
         "表示中をすべて選択",
         "変更しない",
         "参加可",

@@ -30,6 +30,16 @@ Item {
                 : qsTr("%1秒").arg(remaining)
     }
 
+    function solverStatusText(status) {
+        const value = String(status || "")
+        if (value === "OPTIMAL") return qsTr("最適解")
+        if (value === "FEASIBLE") return qsTr("実行可能解")
+        if (value === "INFEASIBLE") return qsTr("実行不可能")
+        if (value === "MODEL_INVALID") return qsTr("入力モデル不正")
+        if (value === "UNKNOWN") return qsTr("結果不明")
+        return value || qsTr("未実行")
+    }
+
     function defaultPresetIndex() {
         const target = String(root.viewModel.defaultPreset || "standard")
         for (let i = 0; i < presetBox.count; ++i) {
@@ -97,7 +107,7 @@ Item {
                     font.weight: Font.Bold
                 }
                 Label {
-                    text: qsTr("ハード制約を守り、配置不能な授業は未配置として理由を表示します。")
+                    text: qsTr("指定されていない授業を自動的に最適な形で配置します。")
                     color: "#667085"
                     font.pixelSize: 10
                 }
@@ -256,7 +266,7 @@ Item {
                     Label {
                         Layout.fillWidth: true
                         text: qsTr("%1 / %2")
-                              .arg(root.viewModel.solverStatus || qsTr("未実行"))
+                              .arg(root.solverStatusText(root.viewModel.solverStatus))
                               .arg(root.elapsedText(root.viewModel.elapsedSeconds))
                         color: "#667085"
                         font.pixelSize: 9
@@ -273,8 +283,8 @@ Item {
             Repeater {
                 model: [
                     {
-                        "label": qsTr("solver status"),
-                        "value": root.viewModel.solverStatus || qsTr("未実行"),
+                        "label": qsTr("実行状態"),
+                        "value": root.solverStatusText(root.viewModel.solverStatus),
                         "color": "#174f9e",
                         "background": "#eef5ff"
                     },

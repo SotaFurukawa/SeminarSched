@@ -29,7 +29,7 @@ Item {
     function summaryText() {
         const summary = root.viewModel.excelPreviewSummary
         if (!summary)
-            return qsTr("取込みファイルを選択すると、反映前に件数と検証結果を表示します。")
+            return qsTr("取込ファイルを選択すると、反映前に件数と検証結果を表示します。")
         if (typeof summary === "string")
             return summary
         return qsTr("新規 %1件／更新 %2件／変更なし %3件／警告 %4件／エラー %5件")
@@ -107,7 +107,7 @@ Item {
                     spacing: 7
 
                     Label {
-                        text: qsTr("Excel基本取込み")
+                        text: qsTr("Excel基本取込")
                         color: "#344054"
                         font.pixelSize: 14
                         font.weight: Font.DemiBold
@@ -123,7 +123,7 @@ Item {
 
                     Button {
                         Layout.alignment: Qt.AlignLeft
-                        text: qsTr("取込みファイルを選択…")
+                        text: qsTr("取込ファイルを選択…")
                         highlighted: true
                         onClicked: importDialog.open()
                     }
@@ -187,7 +187,7 @@ Item {
 
                     Label {
                         Layout.fillWidth: true
-                        text: qsTr("取込みプレビュー")
+                        text: qsTr("取込プレビュー")
                         color: "#344054"
                         font.pixelSize: 14
                         font.weight: Font.DemiBold
@@ -402,7 +402,7 @@ Item {
     Dialogs.FileDialog {
         id: importDialog
 
-        title: qsTr("マスターデータを取込み")
+        title: qsTr("マスターデータを取り込む")
         fileMode: Dialogs.FileDialog.OpenFile
         nameFilters: [qsTr("Excelブック (*.xlsx)")]
         onAccepted: {

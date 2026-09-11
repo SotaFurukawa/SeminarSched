@@ -26,6 +26,8 @@ class LayoutCell:
     row_span: int = 1
     style_codes: tuple[str, ...] = ()
     alignment: HorizontalAlignment = "left"
+    preserve_grade_notation: bool = False
+    vertical_text: bool = False
 
     def __post_init__(self) -> None:
         if self.column_span < 1 or self.row_span < 1:

@@ -1,4 +1,4 @@
-"""取込み前確認で使う行・セル単位の差分契約。"""
+"""取込前確認で使う行・セル単位の差分契約。"""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from summer_scheduler.infrastructure.importing.contracts import NormalizedRow
 
 
 class DiffStatus(StrEnum):
-    """既存行に対する取込み候補の状態。"""
+    """既存行に対する取込候補の状態。"""
 
     ADDED = "added"
     CHANGED = "changed"
@@ -77,7 +77,7 @@ def build_cell_diff(
         raise DiffBuildError("value_fieldsが重複しています。")
 
     existing = _index_rows(existing_rows, keys, "既存データ")
-    incoming = _index_rows(incoming_rows, keys, "取込みデータ")
+    incoming = _index_rows(incoming_rows, keys, "取込データ")
     diffs: list[RowDiff] = []
 
     for identity, incoming_values in incoming.items():

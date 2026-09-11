@@ -1,4 +1,4 @@
-"""Phase 3の取込み・集団授業・入力検証をQMLへ公開する。"""
+"""Phase 3の取込・集団授業・入力検証をQMLへ公開する。"""
 
 from __future__ import annotations
 
@@ -526,7 +526,7 @@ class Phase3ViewModel(QObject):
     @Slot(str)
     def setImportKind(self, value: str) -> None:
         if value not in {"student", "teacher"}:
-            self._set_error("取込み対象は生徒または講師を選択してください")
+            self._set_error("取込対象は生徒または講師を選択してください")
             return
         if self._import_kind == value:
             return
@@ -1229,7 +1229,7 @@ def _empty_summary() -> dict[str, int]:
 def _safe_traceback(exc: BaseException) -> str:
     """例外値を記録せず、診断に必要なコード位置だけを返す。
 
-    例外メッセージには入力ファイルの絶対パスや取込み値が含まれ得るため、
+    例外メッセージには入力ファイルの絶対パスや取込値が含まれ得るため、
     ローカルログへは出さない。tracebackのファイル名もbasenameに限定する。
     """
     frames = traceback.extract_tb(exc.__traceback__)

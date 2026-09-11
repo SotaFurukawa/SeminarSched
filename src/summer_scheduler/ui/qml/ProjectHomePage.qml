@@ -647,7 +647,7 @@ Item {
                                      "button": qsTr("アンケート作成"), "page": 8},
                                     {"number": "3", "title": qsTr("回答を取込む"),
                                      "detail": qsTr("生徒・講師のアンケートを取り込み"),
-                                     "button": qsTr("アンケート取込み"), "page": 3},
+                                     "button": qsTr("アンケート取込"), "page": 3},
                                     {"number": "4", "title": qsTr("時間割を編集する"),
                                      "detail": qsTr("先に確定するコマの固定・手動編集"),
                                      "button": qsTr("時間割を編集"), "page": 4},

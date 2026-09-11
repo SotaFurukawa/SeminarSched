@@ -207,11 +207,19 @@ Item {
         }
     }
 
-    ColumnLayout {
+    ScrollView {
+        id: importPageScroll
+
         anchors.fill: parent
         anchors.margins: 18
         visible: root.viewModel.hasOpenProject
-        spacing: 9
+        contentWidth: availableWidth
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+        ColumnLayout {
+            width: importPageScroll.availableWidth
+            spacing: 9
 
         RowLayout {
             Layout.fillWidth: true
@@ -223,7 +231,7 @@ Item {
                 spacing: 1
 
                 Label {
-                    text: qsTr("アンケート取込み")
+                    text: qsTr("アンケート取込")
                     color: theme.textPrimary
                     font.pixelSize: theme.titleSize
                     font.weight: Font.Bold
@@ -231,7 +239,7 @@ Item {
             }
 
             AppButton {
-                text: qsTr("取込み済み回答を編集…")
+                text: qsTr("取込済み回答を編集…")
                 enabled: (root.viewModel.studentAvailabilityStudents || []).length > 0
                          && (root.viewModel.studentAvailabilityDates || []).length > 0
                 onClicked: studentAvailabilityEditor.open()
@@ -272,7 +280,7 @@ Item {
             Layout.maximumHeight: implicitHeight
             visible: root.hasAppliedSurvey && !root.hasSelectedCombinedFiles
             kind: "success"
-            message: qsTr("回答をプロジェクトへ反映し、原本を.jukuschedule内に保管しました。再取込み時は新しい原本へ差し替えます。")
+            message: qsTr("回答をプロジェクトへ反映しました。修正する場合は再度、取込を行ってください。")
         }
 
         Rectangle {
@@ -309,7 +317,7 @@ Item {
 
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("Googleのスプレッドシートから「ファイル」→「ダウンロード」→「カンマ区切り形式（csv）」を選択し、アンケート結果をダウンロードしてください。Z・A・B・Cなど複数のチェックが1セルにまとまっていても、そのまま取り込めます。")
+                    text: qsTr("Googleのスプレッドシートから「ファイル」→「ダウンロード」→「カンマ区切り形式（csv）」を選択し、アンケート結果をダウンロードしてください。")
                     color: "#5f4710"
                     font.pixelSize: 10
                     wrapMode: Text.Wrap
@@ -369,14 +377,14 @@ Item {
                         Layout.fillWidth: true
                         spacing: 1
                         Label {
-                            text: qsTr("生徒・講師回答をまとめて取り込む")
+                            text: qsTr("生徒・講師回答を取り込む")
                             color: "#183b59"
                             font.pixelSize: 14
                             font.weight: Font.DemiBold
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: qsTr("Googleフォームからダウンロードした生徒回答と講師回答を選び、氏名照合・受講希望・不可時間をまとめて検証します。")
+                            text: qsTr("Googleフォームからダウンロードした生徒回答と講師回答を選択してください。")
                             color: "#52647d"
                             font.pixelSize: 9
                             wrapMode: Text.Wrap
@@ -751,7 +759,7 @@ Item {
                         currentIndex: root.sheetIndex(
                                           root.viewModel.selectedSheet)
                         enabled: count > 0
-                        Accessible.name: qsTr("取込み対象シート")
+                        Accessible.name: qsTr("取込対象シート")
                         onActivated: root.viewModel.selectSourceSheet(currentText)
                     }
 
@@ -802,7 +810,8 @@ Item {
         SplitView {
             visible: root.mappingExpanded || root.hasValidatedPreview
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.preferredHeight: visible ? 500 : 0
+            Layout.minimumHeight: visible ? 360 : 0
             orientation: Qt.Horizontal
 
             Rectangle {
@@ -1074,6 +1083,7 @@ Item {
                 onClicked: applyConfirmation.open()
             }
         }
+        }
     }
 
     Dialog {
@@ -1084,7 +1094,7 @@ Item {
         width: Math.min(1040, root.width - 44)
         height: Math.min(720, root.height - 44)
         modal: true
-        title: qsTr("取込み済みの生徒参加可否を編集")
+        title: qsTr("取込済みの生徒参加可否を編集")
         closePolicy: Popup.CloseOnEscape
 
         onOpened: {
@@ -1237,7 +1247,7 @@ Item {
 
                     Label {
                         Layout.fillWidth: true
-                        text: qsTr("注意：この後にアンケート回答を再取込みすると、同じ生徒・日付・コマの手動変更は新しい回答で上書きされます。")
+                        text: qsTr("注意：この後にアンケート回答を再度取り込むと、同じ生徒・日付・コマの手動変更は新しい回答で上書きされます。")
                         color: "#7a5710"
                         font.pixelSize: 9
                         wrapMode: Text.Wrap

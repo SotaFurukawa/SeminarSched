@@ -346,7 +346,7 @@ def test_invalid_excel_row_blocks_all_updates_and_reports_location(
     assert matching_issues
     assert matching_issues[0].severity is IssueSeverity.ERROR
 
-    with pytest.raises(MasterDataImportError, match="取込みエラー"):
+    with pytest.raises(MasterDataImportError, match="取込エラー"):
         service.apply_import(preview)
 
     unchanged = session.scalar(select(Student).where(Student.external_id == "S-001"))

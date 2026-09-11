@@ -10,7 +10,7 @@ from types import MappingProxyType
 
 
 class IssueSeverity(StrEnum):
-    """取込み検証結果の重大度。"""
+    """取込検証結果の重大度。"""
 
     ERROR = "error"
     WARNING = "warning"
@@ -49,7 +49,7 @@ class ImportIssue:
 
 @dataclass(frozen=True, slots=True)
 class ImportRow:
-    """検証・正規化済みの取込み予定行。"""
+    """検証・正規化済みの取込予定行。"""
 
     sheet_name: str
     row_number: int
@@ -59,7 +59,7 @@ class ImportRow:
 
 @dataclass(frozen=True, slots=True)
 class ImportPreview:
-    """利用者の確認画面へ渡す、まだDBへ反映していない取込み内容。"""
+    """利用者の確認画面へ渡す、まだDBへ反映していない取込内容。"""
 
     source_path: Path
     project_id: int

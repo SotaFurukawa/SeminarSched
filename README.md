@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.8.0 (Beta)** です。v1系はすべてBeta版としてGitHubの
+現在のアプリ版は **v1.8.1 (Beta)** です。v1系はすべてBeta版としてGitHubの
 Pre-releaseで配布し、正式リリースを明示的に決定するまではv1系を継続します。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
@@ -42,9 +42,9 @@ Phase 4の最適化画面はPhase 5の編集画面から開けます。「出力
 
 1. 共通名簿を確認し、授業日・コマを設定する
 2. 設定した日時から生徒用・講師用アンケートを作る
-3. 生徒・講師アンケートの回答をまとめて取り込む
-4. 調整済みの個別指導を「事前確定」で固定する
-5. 時間割を自動作成・編集する
+3. 生徒・講師アンケートの回答を取り込む
+4. 時間割を編集し、必要な授業を先に固定する
+5. 時間割を自動作成する
 6. 全体・講師別・生徒別のExcel / PDFを出力する
 
 ホームの`生徒・講師_基本情報.xlsx`は講習間で共通です。「新規で基本情報を作成」、
@@ -75,7 +75,7 @@ v1.6.0以降は集団授業の操作機能を一時的に停止しています�
 開校日・休校日と日別の使用コマは操作のたびに自動保存されます。使用コマが異なる
 複数日を選んだ場合も、混在状態のコマだけをまとめて追加・解除できます。
 
-回答後は生徒回答と講師回答のCSV／xlsxを「生徒・講師回答をまとめて取り込む」へそれぞれ
+回答後は生徒回答と講師回答のCSV／xlsxを「生徒・講師回答を取り込む」へそれぞれ
 1回ずつ指定します。基本情報にない在籍生・講師は赤、フォームで体験生と回答した生徒は
 黄で表示します。反映時は2原本と要確認一覧を含む統合xlsxを`.jukuschedule`内へ保存します。
 
@@ -84,15 +84,15 @@ v1.6.0以降は集団授業の操作機能を一時的に停止しています�
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.8.0.exe`
-- `SummerCourseScheduler-Portable-1.8.0.zip`
+- `SummerCourseScheduler-Setup-1.8.1.exe`
+- `SummerCourseScheduler-Portable-1.8.1.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.8.0.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.8.0.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.8.1.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.8.1.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -586,11 +586,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.8.0
+  -Version 1.8.1
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.8.0.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.8.1.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -602,13 +602,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.8.0 `
+  -Version 1.8.1 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.8.0.zip `
-  dist\SummerCourseScheduler-Setup-1.8.0.exe
+  dist\SummerCourseScheduler-Portable-1.8.1.zip `
+  dist\SummerCourseScheduler-Setup-1.8.1.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

@@ -70,7 +70,7 @@ EXAMPLE_COLUMN: Final = ColumnSpec(
     "例示行",
     ValueKind.BOOLEAN,
     False,
-    "「はい」の行は説明用の架空データです。再取込み時には反映されません。",
+    "「はい」の行は説明用の架空データです。再取込時には反映されません。",
     11,
 )
 
@@ -133,7 +133,7 @@ STUDENT_SHEET: Final = SheetSpec(
         "grade": "J2",
         "default_max_consecutive_slots": 2,
         "allow_gap": False,
-        "note": "この行は架空の例示行で、取込み時に無視されます。",
+        "note": "この行は架空の例示行で、取込時に無視されます。",
         "active": True,
     },
 )
@@ -177,7 +177,7 @@ TEACHER_SHEET: Final = SheetSpec(
         "external_id": "T-EXAMPLE",
         "name": "架空 太郎",
         "allow_gap": False,
-        "note": "この行は架空の例示行で、取込み時に無視されます。",
+        "note": "この行は架空の例示行で、取込時に無視されます。",
         "active": True,
     },
 )
@@ -270,7 +270,7 @@ QUALIFICATION_SHEET: Final = SheetSpec(
         "teacher_external_id": "T-EXAMPLE",
         "subject_code": "JH-MATH",
         "can_teach": True,
-        "note": "この行は架空の例示行で、取込み時に無視されます。",
+        "note": "この行は架空の例示行で、取込時に無視されます。",
     },
 )
 
@@ -388,7 +388,7 @@ LESSON_REQUEST_SHEET: Final = SheetSpec(
         "one_to_one_required": False,
         "max_consecutive_slots_override": None,
         "allow_gap_override": None,
-        "note": "この行は架空の例示行で、取込み時に無視されます。",
+        "note": "この行は架空の例示行で、取込時に無視されます。",
     },
 )
 

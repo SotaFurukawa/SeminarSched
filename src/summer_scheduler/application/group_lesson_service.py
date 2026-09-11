@@ -1,6 +1,6 @@
-"""Phase 3 の集団授業テンプレート・取込みを扱う Application Service。
+"""Phase 3 の集団授業テンプレート・取込を扱う Application Service。
 
-QML から SQLAlchemy や xlsx の詳細を直接扱わないための境界である。取込みは
+QML から SQLAlchemy や xlsx の詳細を直接扱わないための境界である。取込は
 必ずプレビュー、検証、明示確認、単一トランザクションでの反映という順に行う。
 """
 
@@ -44,7 +44,7 @@ from summer_scheduler.infrastructure.repositories import MasterRepository
 
 
 class GroupLessonImportError(ValueError):
-    """集団授業取込みを安全に反映できない場合に送出する。"""
+    """集団授業取込を安全に反映できない場合に送出する。"""
 
 
 _GROUP_ISSUE_COLUMNS = {
@@ -70,7 +70,7 @@ class GroupLessonService:
         write_group_lessons_template(path)
 
     def inspect_group_import(self, path: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        """取込みウィザード用に二つのシートのヘッダーを返す。"""
+        """取込ウィザード用に二つのシートのヘッダーを返す。"""
         lessons, participants = read_group_workbook(path, preview_limit=20)
         return lessons.headers, participants.headers
 
@@ -160,9 +160,7 @@ class GroupLessonService:
         """
         current = self._projects.require_project()
         if preview.project_id != current.project_id:
-            raise GroupLessonImportError(
-                "別のプロジェクトで作成した取込みプレビューは反映できません"
-            )
+            raise GroupLessonImportError("別のプロジェクトで作成した取込プレビューは反映できません")
 
         lesson_mapping = preview.lesson_mapping
         participant_mapping = preview.participant_mapping
@@ -871,7 +869,7 @@ def _issue(row: GroupLessonRow, code: str, message: str) -> ImportIssueDto:
 
 def _issues_message(issues: Sequence[ImportIssueDto]) -> str:
     errors = [issue.message for issue in issues if issue.severity == "error"]
-    return " / ".join(errors[:3]) or "取込み検証に失敗しました"
+    return " / ".join(errors[:3]) or "取込検証に失敗しました"
 
 
 def _school_level_for_grade(grade: str) -> str | None:

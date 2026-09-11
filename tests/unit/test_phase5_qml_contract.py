@@ -151,7 +151,7 @@ def test_main_and_application_wire_editor_without_removing_phase4_runner() -> No
     assert "OptimizationPage {" in main
     assert "onOpenOptimizationRequested: root.selectPage(9)" in main
     assert "id: editingTabs" in main
-    assert "‹ 時間割編集へ戻る" in main
+    assert "‹ 時間割編集へ戻る" not in main
     assert "ScheduleEditorViewModel(" in app
     assert "ScheduleEditService(" in app
     assert '"scheduleEditorViewModel"' in app

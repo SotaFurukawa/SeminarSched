@@ -291,7 +291,7 @@ Item {
 
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("科目コードはExcel取込みや講師資格で使う安定したIDです。高校数学一般と高校数学IIIは別々に管理してください。")
+                    text: qsTr("科目コードはExcel取込や講師資格で使う安定したIDです。高校数学一般と高校数学IIIは別々に管理してください。")
                     color: "#667085"
                     font.pixelSize: 10
                     wrapMode: Text.Wrap

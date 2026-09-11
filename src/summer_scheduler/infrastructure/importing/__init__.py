@@ -1,4 +1,4 @@
-"""アンケート・集団授業のDB非依存ファイル取込みAPI。"""
+"""アンケート・集団授業のDB非依存ファイル取込API。"""
 
 from summer_scheduler.infrastructure.importing.contracts import (
     CsvEncoding,

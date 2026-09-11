@@ -1,4 +1,4 @@
-"""取込みファイルのcanonical field定義。"""
+"""取込ファイルのcanonical field定義。"""
 
 from __future__ import annotations
 

@@ -71,6 +71,7 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
         ("teacher_preference_penalty", "minimize"),
         ("teacher_continuity_penalty", "minimize"),
         ("same_day_concentration_penalty", "minimize"),
+        ("student_period_imbalance", "minimize"),
         ("period_distribution_score", "maximize"),
         ("active_teacher_slot_count", "minimize"),
         ("availability_preference_score", "maximize"),
@@ -87,9 +88,9 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
         CandidateGenerationResult(sessions=(), candidates=(), diagnostics=()),
         ModelVariables(),
     )
-    assert enabled_stages[5].name == "teacher_load_imbalance"
-    assert enabled_stages[5].direction == "minimize"
-    assert enabled_stages[6].name == "active_teacher_slot_count"
+    assert enabled_stages[6].name == "teacher_load_imbalance"
+    assert enabled_stages[6].direction == "minimize"
+    assert enabled_stages[7].name == "active_teacher_slot_count"
 
 
 def test_teacher_preference_uses_request_max_and_never_adds_duplicate_scores() -> None:
@@ -194,6 +195,7 @@ def test_distribution_and_teacher_continuity_objectives_measure_selected_schedul
 
     assert _solve_value(model, _stage(stages, "teacher_continuity_penalty")) == 1
     assert _solve_value(model, _stage(stages, "same_day_concentration_penalty")) == 1
+    assert _solve_value(model, _stage(stages, "student_period_imbalance")) == 1
     assert _solve_value(model, _stage(stages, "period_distribution_score")) == 2
 
 

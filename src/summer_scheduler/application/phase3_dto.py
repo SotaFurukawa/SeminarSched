@@ -1,4 +1,4 @@
-"""Phase 3の取込み・集団授業・入力検証DTO。"""
+"""Phase 3の取込・集団授業・入力検証DTO。"""
 
 from __future__ import annotations
 

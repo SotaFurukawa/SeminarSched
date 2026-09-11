@@ -342,7 +342,7 @@ Item {
                             Layout.fillWidth: true
                             text: (root.viewModel.preconfirmationCandidates || []).length > 0
                                   ? qsTr("未配置のうち、選んだ生徒・科目の次の1回を固定します。")
-                                  : qsTr("固定できる未配置授業がありません。先に③回答取込みで受講希望を反映してください。")
+                                  : qsTr("固定できる未配置授業がありません。先に③回答取込で受講希望を反映してください。")
                             color: "#667085"
                             wrapMode: Text.Wrap
                         }

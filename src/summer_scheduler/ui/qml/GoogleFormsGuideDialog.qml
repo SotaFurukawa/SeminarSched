@@ -109,7 +109,7 @@ Dialog {
     width: Math.min(1120, parent.width - 40)
     height: Math.min(780, parent.height - 40)
     modal: true
-    title: qsTr("Googleフォーム作成手順（画像つき）")
+    title: qsTr("Googleフォーム作成手順")
     closePolicy: Popup.CloseOnEscape
 
     UiTheme { id: theme }

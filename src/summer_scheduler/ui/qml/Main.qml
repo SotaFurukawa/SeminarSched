@@ -79,7 +79,7 @@ ApplicationWindow {
             description: "講師情報と、科目ごとの指導可否を管理します。"
         }
         ListElement {
-            title: "アンケート取込み"
+            title: "アンケート取込"
             shortLabel: "取"
             phaseLabel: "Phase 3"
             description: "生徒・講師アンケートの列マッピングと検証を行う画面です。"
@@ -116,9 +116,9 @@ ApplicationWindow {
         }
         ListElement {
             title: "時間割自動作成"
-            shortLabel: "固"
-            phaseLabel: "配置準備"
-            description: "調整済みの生徒・講師・日時を、最適化前の固定枠として登録します。"
+            shortLabel: "自"
+            phaseLabel: "Phase 5"
+            description: "未配置の授業を条件に沿って自動配置します。"
         }
     }
 
@@ -407,42 +407,12 @@ ApplicationWindow {
     Component {
         id: optimizationComponent
 
-        ColumnLayout {
-            spacing: 0
-
-            ToolBar {
-                Layout.fillWidth: true
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-
-                    ToolButton {
-                        text: qsTr("‹ 時間割編集へ戻る")
-                        Accessible.name: qsTr("時間割編集画面へ戻る")
-                        onClicked: root.selectPage(4)
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Label {
-                        text: qsTr("⑤ 時間割自動作成")
-                        color: "#667085"
-                        font.pixelSize: 10
-                    }
-                }
-            }
-
-            OptimizationPage {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                viewModel: root.optimization
-                onOpenHomeRequested: root.selectPage(0)
-                onOpenIssuesRequested: {
-                    root.phase3.refreshPhase3()
-                    root.selectPage(5)
-                }
+        OptimizationPage {
+            viewModel: root.optimization
+            onOpenHomeRequested: root.selectPage(0)
+            onOpenIssuesRequested: {
+                root.phase3.refreshPhase3()
+                root.selectPage(5)
             }
         }
     }

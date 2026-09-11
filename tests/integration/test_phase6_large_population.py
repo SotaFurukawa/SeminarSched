@@ -58,11 +58,25 @@ def test_150_students_40_teachers_40_days_round_trip_all_excel_reports(
         try:
             assert workbook.sheetnames
             assert workbook.active is not None
-            assert workbook.active["A1"].value == document.title
-            assert all(worksheet.print_title_rows is not None for worksheet in workbook.worksheets)
-            assert sum(
-                len(worksheet.row_breaks.brk) for worksheet in workbook.worksheets
-            ) == document.page_count - len(workbook.worksheets)
+            if document.report_code == "overall":
+                assert workbook.active.title == "出力情報"
+                assert workbook.active["A1"].value == "帳票名"
+                assert workbook.active["B1"].value == document.title
+            else:
+                assert workbook.active["A1"].value == document.title
+            report_sheets = (
+                workbook.worksheets[1:]
+                if document.report_code == "overall"
+                else workbook.worksheets
+            )
+            assert all(worksheet.print_title_rows is not None for worksheet in report_sheets)
+            expected_row_breaks = document.page_count - len(workbook.worksheets)
+            if document.report_code == "overall":
+                expected_row_breaks += 1  # metadata sheet is not a report page
+            assert (
+                sum(len(worksheet.row_breaks.brk) for worksheet in workbook.worksheets)
+                == expected_row_breaks
+            )
         finally:
             workbook.close()
 

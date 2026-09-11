@@ -79,8 +79,22 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
         assert excel_result.path.is_file()
         workbook = load_workbook(excel_result.path, read_only=False, data_only=False)
         try:
-            assert workbook.sheetnames[0].startswith("週_")
-            worksheet = workbook[workbook.sheetnames[0]]
+            assert workbook.sheetnames[0] == "出力情報"
+            week_sheet_name = next(name for name in workbook.sheetnames if name.startswith("週_"))
+            worksheet = workbook[week_sheet_name]
+            assert worksheet["A1"].value == "季節講習時間割"
+            assert worksheet["A2"].value
+            assert worksheet.freeze_panes is None
+            assert all(
+                dimension.width == pytest.approx(3.57)
+                for dimension in worksheet.column_dimensions.values()
+            )
+            assert any(
+                row.height == pytest.approx(40.5) for row in worksheet.row_dimensions.values()
+            )
+            assert any(
+                cell.alignment.textRotation == 255 for row in worksheet.iter_rows() for cell in row
+            )
             assert worksheet["A1"].value == "季節講習時間割"
             assert worksheet.page_setup.fitToWidth == 1
             assert worksheet.page_setup.fitToHeight == 1

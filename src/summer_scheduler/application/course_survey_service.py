@@ -54,7 +54,7 @@ IssueSeverity = Literal["error", "warning"]
 
 
 class CourseSurveyError(ValueError):
-    """一括アンケート取込みを安全に完了できない。"""
+    """一括アンケート取込を安全に完了できない。"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,7 +203,7 @@ class CourseSurveyService:
             if assignment_count:
                 raise CourseSurveyError(
                     "時間割配置後は回答の一括置換ができません。先に時間割を未配置へ戻すか、"
-                    "従来の差分取込みを使用してください。"
+                    "従来の差分取込を使用してください。"
                 )
             student_by_key = {
                 (_name_key(row.name), grade_from_excel(row.grade)): row
@@ -252,7 +252,7 @@ class CourseSurveyService:
                         default_max_consecutive_slots=2,
                         allow_gap=False,
                         active=True,
-                        note="在籍区分: 体験生（アンケート取込みで作成）",
+                        note="在籍区分: 体験生（アンケート取込で作成）",
                     )
                     session.add(student)
                     session.flush()
@@ -367,7 +367,7 @@ class CourseSurveyService:
                         f'"teachers":{len(preview.teachers)},'
                         f'"lesson_requests":{request_count}}}'
                     ),
-                    reason="生徒・講師Googleフォーム回答の一括取込み",
+                    reason="生徒・講師Googleフォーム回答の一括取込",
                     source="import",
                 )
             )

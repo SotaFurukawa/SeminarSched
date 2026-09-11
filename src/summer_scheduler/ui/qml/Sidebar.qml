@@ -188,19 +188,5 @@ Rectangle {
             }
         }
 
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 48
-            color: theme.surfaceSubtle
-            border.color: theme.border
-            border.width: 1
-
-            Label {
-                anchors.centerIn: parent
-                text: qsTr("🔒 端末内に保存・オフライン動作")
-                color: theme.textSecondary
-                font.pixelSize: 11
-            }
-        }
     }
 }
