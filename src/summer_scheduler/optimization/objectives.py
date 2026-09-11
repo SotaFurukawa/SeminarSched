@@ -44,8 +44,8 @@ def build_objective_stages(
     """仕様順の辞書式目的を返す。
 
     `add_hard_constraints`の後に呼び出すこと。各式は整数係数だけを使用し、前段の
-    最適値を等式で固定してから次段へ進められる。公平性段階だけは設定値が0なら
-    省略する。
+    最適値を等式で固定してから次段へ進められる。勤務可能枠に対する実稼働率の
+    公平性は、講師コマ数の圧縮などより先に評価する。設定値が0なら省略する。
     """
     stages = [
         ObjectiveStage(
@@ -80,23 +80,6 @@ def build_objective_stages(
             direction="maximize",
             expression=_period_distribution_expression(model, data, generation, variables),
         ),
-        ObjectiveStage(
-            name="active_teacher_slot_count",
-            direction="minimize",
-            expression=cp_model.LinearExpr.sum(
-                [variables.teacher_active[key] for key in sorted(variables.teacher_active)]
-            ),
-        ),
-        ObjectiveStage(
-            name="availability_preference_score",
-            direction="maximize",
-            expression=_availability_preference_expression(data, generation, variables),
-        ),
-        ObjectiveStage(
-            name="changed_assignment_count",
-            direction="minimize",
-            expression=_changed_assignment_expression(data, generation, variables),
-        ),
     ]
     if data.settings.optional_balance_weight > 0:
         stages.append(
@@ -106,6 +89,27 @@ def build_objective_stages(
                 expression=_teacher_load_imbalance_expression(model, data, variables),
             )
         )
+    stages.extend(
+        [
+            ObjectiveStage(
+                name="active_teacher_slot_count",
+                direction="minimize",
+                expression=cp_model.LinearExpr.sum(
+                    [variables.teacher_active[key] for key in sorted(variables.teacher_active)]
+                ),
+            ),
+            ObjectiveStage(
+                name="availability_preference_score",
+                direction="maximize",
+                expression=_availability_preference_expression(data, generation, variables),
+            ),
+            ObjectiveStage(
+                name="changed_assignment_count",
+                direction="minimize",
+                expression=_changed_assignment_expression(data, generation, variables),
+            ),
+        ]
+    )
     return tuple(stages)
 
 
@@ -194,7 +198,7 @@ def teacher_participation_imbalance(
     data: OptimizationInput,
     loads: TeacherLoad,
 ) -> int:
-    """勤務可能枠に対する参加割合の講師間差を整数の交差積で測る。"""
+    """勤務可能枠に対する実稼働率の講師間差を整数の交差積で測る。"""
     capacities = teacher_availability_capacities(data, loads)
     teacher_ids = sorted(loads)
     return sum(

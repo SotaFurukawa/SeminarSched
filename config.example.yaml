@@ -37,8 +37,8 @@ optimization:
   student_preferred_time_weight: 1
   teacher_preferred_time_weight: 1
   preserve_existing_assignment_weight: 1
-  # 任意の第6段階は0で無効。後から非負整数へ変更できます。
-  # 最終段階で、勤務可能枠に対する参加割合の講師間差を小さくする。
+  # 0で無効。正の値では、勤務可能枠に対する実稼働率の講師間差を、
+  # 稼働講師コマ数の圧縮より先に小さくする。
   optional_balance_weight: 1
 
 output:

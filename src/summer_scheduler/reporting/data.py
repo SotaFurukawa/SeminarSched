@@ -58,6 +58,14 @@ class TeacherRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class TeacherAvailabilityRecord:
+    teacher_id: int
+    day: date
+    time_slot_id: int
+    level: int
+
+
+@dataclass(frozen=True, slots=True)
 class SubjectRecord:
     id: int
     code: str
@@ -151,6 +159,7 @@ class OutputSnapshot:
     group_lessons: tuple[GroupLessonRecord, ...]
     unassigned: tuple[UnassignedRecord, ...]
     warnings: tuple[WarningRecord, ...]
+    teacher_availabilities: tuple[TeacherAvailabilityRecord, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +187,7 @@ __all__ = [
     "StudentRecord",
     "SubjectRecord",
     "TeacherRecord",
+    "TeacherAvailabilityRecord",
     "UnassignedRecord",
     "WarningRecord",
 ]

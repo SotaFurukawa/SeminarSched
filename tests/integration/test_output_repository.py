@@ -25,6 +25,7 @@ from summer_scheduler.infrastructure.db.models import (
     Student,
     Subject,
     Teacher,
+    TeacherAvailability,
     TimeSlot,
     ValidationIssue,
 )
@@ -147,6 +148,24 @@ def _seed_graph(session: Session) -> dict[str, int]:
         ]
     )
     session.flush()
+    session.add_all(
+        [
+            TeacherAvailability(
+                project_id=project.id,
+                teacher_id=teachers[0].id,
+                date=DAY_ONE,
+                time_slot_id=slots[0].id,
+                availability_level=2,
+            ),
+            TeacherAvailability(
+                project_id=project.id,
+                teacher_id=teachers[0].id,
+                date=DAY_ONE,
+                time_slot_id=slots[1].id,
+                availability_level=0,
+            ),
+        ]
+    )
     requests = (
         LessonRequest(
             project_id=project.id,
@@ -257,6 +276,7 @@ def _seed_graph(session: Session) -> dict[str, int]:
         "request_1": requests[0].id,
         "request_2": requests[1].id,
         "slot_y": slots[0].id,
+        "slot_z": slots[1].id,
         "group": group.id,
     }
 
@@ -294,6 +314,13 @@ def test_build_base_snapshot_copies_all_output_facts_and_resolves_warnings(
     assert snapshot.group_lessons[0].student_ids == (ids["student_2"],)
     assert snapshot.group_lessons[0].room == "架空教室A"
     assert snapshot.unassigned == ()
+    assert [
+        (row.teacher_id, row.day, row.time_slot_id, row.level)
+        for row in snapshot.teacher_availabilities
+    ] == [
+        (ids["teacher_1"], DAY_ONE, ids["slot_y"], 2),
+        (ids["teacher_1"], DAY_ONE, ids["slot_z"], 0),
+    ]
 
     assert len(snapshot.warnings) == 2
     assignment_warning = snapshot.warnings[0]

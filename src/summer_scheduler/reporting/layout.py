@@ -5,7 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-CellRole = Literal["title", "subtitle", "metadata", "header", "data", "legend", "closed"]
+CellRole = Literal[
+    "title",
+    "subtitle",
+    "metadata",
+    "header",
+    "data",
+    "legend",
+    "closed",
+    "unavailable",
+]
 HorizontalAlignment = Literal["left", "center", "right"]
 
 

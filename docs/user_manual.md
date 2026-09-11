@@ -43,7 +43,7 @@ Excelでは`TRUE`／`FALSE`と表示されますが、アプリは同じ在籍�
 生徒画面の「在籍中」を外すと卒業・退会扱いとなり、一覧の末尾へ移動して灰色表示されます。
 講師も同様に、在籍中を外すと退職・休止として末尾へ表示されます。
 
-対象: `1.7.0 (Beta)`
+対象: `1.7.1 (Beta)`
 最終更新: 2026-09-11
 
 初めて利用する場合は、先に
@@ -89,8 +89,8 @@ Releaseページ以外から受け取った実行ファイルを安易に実行�
 公開版では`SHA256SUMS.txt`とダウンロードしたファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Portable-1.7.0.zip -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Setup-1.7.0.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.7.1.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.7.1.exe -Algorithm SHA256
 ```
 
 表示されたhashがReleaseページの値と1文字でも異なる場合は使用しません。
@@ -601,8 +601,13 @@ Undo / Redo履歴は現在のapp process内だけです。再起動、project切
 あれば出力しません。同名fileは確認なしに上書きせず、生成成功後だけ置き換えます。
 
 Excelは編集可能です。PDFはA3 / A4、縦横に対応します。過密で読めない縮尺になる場合、
-極小文字で成功させず、1pageの日数または講師列数を減らすようerrorを出します。
+極小文字で成功させず、対象の絞込みや文字サイズ・余白の見直しを案内します。
 ロゴはPDF headerへ表示しますが、Excelへ画像として埋め込みません。
+
+全体時間割は日曜始まり・土曜終わりの週ごとに1シート（PDFでは1ページ）へ分かれ、
+日付を2面ずつ横並びにします。各日には、その日に1コマ以上勤務可能な講師だけが
+表示されます。表示中の講師でも勤務不可のコマは灰色です。1日の出勤予定講師が
+5名以上の場合も、4名単位で同じ日付面が続き、授業は省略されません。
 
 時間割表の狭いセルでは、生徒同士・講師同士で姓を比較します。同姓者がいなければ
 姓だけ、同姓者が複数いれば該当者をフルネームで表示します。氏名に空白がない既存
@@ -675,7 +680,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 
 ## 20. 現在の既知の制限
 
-- `1.7.0`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
+- `1.7.1`のGitHub Release公開状態は配布元のReleaseページで確認します。v1系は
   すべてBeta版（Pre-release）です。成果物は
   方針どおり未署名です。
 - clean Windows、実installer / portable、SmartScreen、install / uninstallの受入結果は
@@ -684,7 +689,7 @@ folder権限で保護し、Git、公開issue、メールへ添付しないでく
 - cell、日付、講師、選択範囲の一括lockはありません。
 - Undo / Redo履歴は再起動をまたぎません。
 - 全入力・全環境で辞書式目的の全段階が`OPTIMAL`になる保証はありません。
-- 全体時間割のA3横レイアウトは、提供された匿名化対象外の参考資料をローカルでのみ
+- 全体時間割の週単位・日付2面横並びレイアウトは、提供された参考資料をローカルでのみ
   確認しています。参考資料自体はGitや配布物へ含めません。
 - Excelへロゴ画像を埋め込みません。
 - project自身はGPL-3.0-onlyです。Qt完成artifactの配布監査、SHA-256、未署名表示、

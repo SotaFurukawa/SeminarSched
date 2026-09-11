@@ -28,6 +28,7 @@ from summer_scheduler.reporting.data import (
     SlotRecord,
     StudentRecord,
     SubjectRecord,
+    TeacherAvailabilityRecord,
     TeacherRecord,
     UnassignedRecord,
     WarningRecord,
@@ -49,7 +50,7 @@ def test_overall_layout_paginates_dates_teachers_and_preserves_semantics() -> No
 
     document = build_timetable_document(snapshot, settings)
 
-    assert document.page_count == 5
+    assert document.page_count == 3
     assert len(document.sections) == 3
     texts = _document_texts(document)
     assert "とても長い架空の生徒名一号" in texts
@@ -62,8 +63,14 @@ def test_overall_layout_paginates_dates_teachers_and_preserves_semantics() -> No
     assert "特記事項: 持参物確認" in texts
     assert document.sections[-1].name == "補足の集団授業"
     first_table = document.sections[0].pages[0].tables[0]
-    assert first_table.repeat_header_rows == 1
-    assert any(cell.row_span == 3 for row in first_table.rows for cell in row.cells)
+    assert first_table.repeat_header_rows == 0
+    assert document.sections[0].name == "週_20260726"
+    assert document.sections[1].name == "週_20260802"
+    assert any(
+        any("2026/08/02" in cell.text for cell in row.cells)
+        and any("2026/08/03" in cell.text for cell in row.cells)
+        for row in document.sections[1].pages[0].tables[0].rows
+    )
 
 
 def test_student_teacher_and_issue_reports_cover_required_fields() -> None:
@@ -118,8 +125,7 @@ def test_timetable_uses_family_name_unless_the_family_name_is_duplicated() -> No
     assert "佐藤 次郎" not in overall_text
     assert "鈴木 一郎" in overall_text
     assert "鈴木 花子" in overall_text
-    assert "高橋" in overall_text
-    assert "高橋 次郎" not in overall_text
+    assert "高橋" not in overall_text
     assert "山田 太郎" in teacher_text
     assert "佐藤" in teacher_text
     assert "鈴木 一郎" in student_text
@@ -332,7 +338,34 @@ def test_html_escapes_user_text_and_embeds_color_plus_marker() -> None:
     assert "<校舎&本部>" not in html
     assert "[1対1]" in html
     assert settings.style("one_to_one").fill_color in html
-    assert "ページ 1 / 5" in html
+    assert "ページ 1 / 3" in html
+
+
+def test_timetable_lists_only_day_available_teachers_and_grays_unavailable_slots() -> None:
+    snapshot = replace(
+        _snapshot(),
+        teacher_availabilities=(
+            TeacherAvailabilityRecord(1, date(2026, 8, 1), 1, 1),
+            TeacherAvailabilityRecord(1, date(2026, 8, 1), 2, 1),
+            TeacherAvailabilityRecord(1, date(2026, 8, 1), 3, 0),
+        ),
+    )
+
+    document = build_timetable_document(
+        snapshot,
+        _settings(),
+        OutputSelection(dates=(date(2026, 8, 1),)),
+    )
+    table = document.sections[0].pages[0].tables[0]
+    text = _document_texts(document)
+
+    assert "架空講師一" in text
+    assert "架空講師二" in text  # この日の固定授業担当も欠落させない
+    assert "架空講師三" not in text
+    assert any(
+        cell.role == "unavailable" and cell.text == "—" for row in table.rows for cell in row.cells
+    )
+    assert "灰色: 勤務不可コマ" in text
 
 
 def test_html_reports_missing_local_logo_as_user_facing_output_error(

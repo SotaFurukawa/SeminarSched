@@ -80,7 +80,7 @@ def test_excel_renderer_round_trips_layout_print_settings_and_safe_text(
         assert str(worksheet.page_setup.paperSize) == "8"
         assert worksheet.page_setup.orientation == worksheet.ORIENTATION_LANDSCAPE
         assert worksheet.page_setup.fitToWidth == 1
-        assert worksheet.page_setup.fitToHeight == 0
+        assert worksheet.page_setup.fitToHeight == 1
         assert worksheet.print_area == "'全体_時間割'!$A$1:$C$18"
         assert worksheet.print_title_rows == "$6:$6"
         assert len(worksheet.row_breaks.brk) == 1

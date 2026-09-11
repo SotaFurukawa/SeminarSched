@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from datetime import date
+from dataclasses import dataclass
+from datetime import date, timedelta
 
 from summer_scheduler.reporting.common import (
     chunks,
@@ -40,6 +41,24 @@ from summer_scheduler.reporting.person_names import compact_person_name_map
 from summer_scheduler.reporting.settings import OutputSettings
 
 _GROUP_ROWS_PER_PAGE = 24
+_TEACHERS_PER_DATE_PANEL = 4
+_PANEL_COLUMN_COUNT = 1 + _TEACHERS_PER_DATE_PANEL
+_WEEK_TABLE_COLUMN_COUNT = _PANEL_COLUMN_COUNT * 2 + 1
+
+
+@dataclass(frozen=True, slots=True)
+class _PanelContext:
+    slots: Sequence[SlotRecord]
+    availability: dict[tuple[date, int, int], int]
+    assignments_by_cell: dict[tuple[date, int, int], list[AssignmentRecord]]
+    groups_by_cell: dict[tuple[date, int, int], list[GroupLessonRecord]]
+    requests: dict[int, LessonRequestRecord]
+    students: dict[int, StudentRecord]
+    student_display_names: dict[int, str]
+    teacher_display_names: dict[int, str]
+    subjects: dict[int, SubjectRecord]
+    settings: OutputSettings
+    snapshot: OutputSnapshot
 
 
 def build_timetable_document(
@@ -47,31 +66,32 @@ def build_timetable_document(
     settings: OutputSettings,
     selection: OutputSelection = DEFAULT_OUTPUT_SELECTION,
 ) -> LayoutDocument:
-    """日付×講師を設定値で分割し、情報を失わない全体時間割を作る。"""
+    """日曜始まりの週ごとに、日別の出勤講師だけを載せた時間割を作る。"""
     settings.validate()
     dates = selected_dates(snapshot, selection)
-    teachers = selected_teachers(snapshot, selection)
     slots = tuple(row for row in snapshot.slots if row.enabled)
-    date_chunks = chunks(dates, settings.days_per_page) if dates else ((),)
-    teacher_chunks = chunks(teachers, settings.teacher_columns_per_page) if teachers else ((),)
+    weeks: dict[date, list[DateRecord]] = defaultdict(list)
+    for row in dates:
+        weeks[_sunday_of_week(row.day)].append(row)
+    if not weeks:
+        weeks[snapshot.project.start_date] = []
 
-    sections: list[LayoutSection] = []
-    for teacher_chunk_index, teacher_chunk in enumerate(teacher_chunks, start=1):
-        pages = tuple(
-            _build_page(
-                snapshot,
-                settings,
-                date_chunk,
-                teacher_chunk,
-                slots,
-                selection,
-            )
-            for date_chunk in date_chunks
+    sections = [
+        LayoutSection(
+            name=f"週_{week_start:%Y%m%d}",
+            pages=(
+                _build_week_page(
+                    snapshot,
+                    settings,
+                    tuple(week_dates),
+                    slots,
+                    selection,
+                    week_start=week_start,
+                ),
+            ),
         )
-        section_name = (
-            "全体時間割" if len(teacher_chunks) == 1 else f"全体時間割_{teacher_chunk_index:02d}"
-        )
-        sections.append(LayoutSection(name=section_name, pages=pages))
+        for week_start, week_dates in sorted(weeks.items())
+    ]
 
     supplemental_group_pages = _supplemental_group_pages(
         snapshot,
@@ -97,20 +117,24 @@ def build_timetable_document(
     )
 
 
-def _build_page(
+def _build_week_page(
     snapshot: OutputSnapshot,
     settings: OutputSettings,
     dates: Sequence[DateRecord],
-    teachers: Sequence[TeacherRecord],
     slots: Sequence[SlotRecord],
     selection: OutputSelection,
+    *,
+    week_start: date,
 ) -> LayoutPage:
     requests = {row.id: row for row in snapshot.lesson_requests}
     students = {row.id: row for row in snapshot.students}
     student_display_names = compact_person_name_map(snapshot.students)
     teacher_display_names = compact_person_name_map(snapshot.teachers)
+    teachers = selected_teachers(snapshot, selection)
+    teachers_by_id = {row.id: row for row in teachers}
+    allowed_teacher_ids = set(teachers_by_id)
     subjects = {row.id: row for row in snapshot.subjects}
-    assignments_by_cell: dict[tuple[object, int, int], list[AssignmentRecord]] = defaultdict(list)
+    assignments_by_cell: dict[tuple[date, int, int], list[AssignmentRecord]] = defaultdict(list)
     allowed_students = set(selection.student_ids)
     for assignment in snapshot.assignments:
         request = requests[assignment.lesson_request_id]
@@ -119,7 +143,7 @@ def _build_page(
         assignments_by_cell[
             (assignment.day, assignment.time_slot_id, assignment.teacher_id)
         ].append(assignment)
-    groups_by_cell: dict[tuple[object, int, int], list[GroupLessonRecord]] = defaultdict(list)
+    groups_by_cell: dict[tuple[date, int, int], list[GroupLessonRecord]] = defaultdict(list)
     for group in snapshot.group_lessons if "group" in settings.visible_fields else ():
         if group.teacher_id_optional is None:
             continue
@@ -134,96 +158,74 @@ def _build_page(
             ):
                 groups_by_cell[(group.day, slot.id, group.teacher_id_optional)].append(group)
 
-    rows = [
-        LayoutRow(
-            cells=(
-                LayoutCell("日付", role="header", alignment="center"),
-                LayoutCell("コマ・時刻", role="header", alignment="center"),
-                *(
+    availability = {
+        (row.day, row.time_slot_id, row.teacher_id): row.level
+        for row in snapshot.teacher_availabilities
+        if row.teacher_id in allowed_teacher_ids
+    }
+    has_availability_source = bool(snapshot.teacher_availabilities)
+    scheduled_teacher_ids_by_day: dict[date, set[int]] = defaultdict(set)
+    for assignment in snapshot.assignments:
+        if assignment.teacher_id in allowed_teacher_ids:
+            scheduled_teacher_ids_by_day[assignment.day].add(assignment.teacher_id)
+    for group in snapshot.group_lessons:
+        if group.teacher_id_optional in allowed_teacher_ids:
+            scheduled_teacher_ids_by_day[group.day].add(group.teacher_id_optional)
+
+    panels: list[tuple[DateRecord, tuple[TeacherRecord, ...]]] = []
+    for date_row in dates:
+        available_ids = {
+            teacher_id
+            for (day, _slot_id, teacher_id), level in availability.items()
+            if day == date_row.day and level > 0
+        }
+        teacher_ids = available_ids | scheduled_teacher_ids_by_day[date_row.day]
+        if not has_availability_source:
+            teacher_ids = scheduled_teacher_ids_by_day[date_row.day]
+        day_teachers = tuple(row for row in teachers if row.id in teacher_ids)
+        teacher_chunks = chunks(day_teachers, _TEACHERS_PER_DATE_PANEL) if day_teachers else ((),)
+        panels.extend((date_row, teacher_chunk) for teacher_chunk in teacher_chunks)
+
+    panel_context = _PanelContext(
+        slots=slots,
+        availability=availability,
+        assignments_by_cell=assignments_by_cell,
+        groups_by_cell=groups_by_cell,
+        requests=requests,
+        students=students,
+        student_display_names=student_display_names,
+        teacher_display_names=teacher_display_names,
+        subjects=subjects,
+        settings=settings,
+        snapshot=snapshot,
+    )
+
+    rows: list[LayoutRow] = []
+    if not panels:
+        rows.append(
+            LayoutRow(
+                cells=(
                     LayoutCell(
-                        teacher_display_names[teacher.id],
-                        role="header",
+                        "対象日がありません",
+                        role="metadata",
+                        column_span=_WEEK_TABLE_COLUMN_COUNT,
                         alignment="center",
-                    )
-                    for teacher in teachers
+                    ),
                 ),
+                height_points_optional=30,
             )
         )
-    ]
-    for date_row in dates:
-        if not date_row.is_open:
-            note = f"　{date_row.note}" if date_row.note else ""
-            rows.append(
-                LayoutRow(
-                    cells=(
-                        LayoutCell(
-                            f"{settings.style('closed').marker} {format_day(date_row.day)}{note}",
-                            role="closed",
-                            column_span=2 + len(teachers),
-                            style_codes=("closed",),
-                            alignment="center",
-                        ),
-                    ),
-                    height_points_optional=26,
+    else:
+        for panel_pair in chunks(tuple(panels), 2):
+            left = panel_pair[0]
+            right = panel_pair[1] if len(panel_pair) > 1 else None
+            rows.extend(
+                _paired_panel_rows(
+                    left,
+                    right,
+                    context=panel_context,
                 )
             )
-            continue
-        for slot_index, slot in enumerate(slots):
-            day_cell = (
-                (
-                    LayoutCell(
-                        format_day(date_row.day)
-                        + (
-                            f"\n特記事項: {date_row.note}"
-                            if date_row.note and "note" in settings.visible_fields
-                            else ""
-                        ),
-                        role="metadata",
-                        row_span=max(1, len(slots)),
-                        alignment="center",
-                    ),
-                )
-                if slot_index == 0
-                else ()
-            )
-            cells: list[LayoutCell] = [
-                *day_cell,
-                LayoutCell(
-                    f"{slot.code} {slot.start_time:%H:%M}–{slot.end_time:%H:%M}",
-                    role="metadata",
-                    alignment="center",
-                ),
-            ]
-            for teacher in teachers:
-                key = (date_row.day, slot.id, teacher.id)
-                assignments = assignments_by_cell.get(key, ())
-                text, codes = _cell_content(
-                    assignments,
-                    groups_by_cell.get(key, ()),
-                    requests=requests,
-                    students=students,
-                    student_display_names=student_display_names,
-                    subjects=subjects,
-                    settings=settings,
-                    project_confirmed=snapshot.project.status == "confirmed",
-                    warnings=_matching_warnings(
-                        snapshot.warnings,
-                        day=date_row.day,
-                        slot_code=slot.code,
-                        teacher=teacher,
-                        assignments=assignments,
-                        requests=requests,
-                        students=students,
-                    ),
-                )
-                cells.append(
-                    LayoutCell(
-                        text or "—",
-                        style_codes=codes,
-                        alignment="left",
-                    )
-                )
-            rows.append(LayoutRow(cells=tuple(cells), height_points_optional=42))
 
     legend = "　".join(
         f"{rule.marker} {rule.label}"
@@ -234,30 +236,205 @@ def _build_page(
         LayoutRow(
             cells=(
                 LayoutCell(
-                    f"凡例　{legend}",
+                    f"凡例　灰色: 勤務不可コマ　{legend}",
                     role="legend",
-                    column_span=2 + len(teachers),
+                    column_span=_WEEK_TABLE_COLUMN_COUNT,
                 ),
             )
         )
     )
-    column_widths = (13.0, 13.0, *(19.0 for _ in teachers))
-    date_text = (
-        f"{format_day(dates[0].day)} ～ {format_day(dates[-1].day)}" if dates else "対象日なし"
-    )
-    teacher_text = "、".join(teacher_display_names[row.id] for row in teachers) or "対象講師なし"
+    week_end = week_start + timedelta(days=6)
     return LayoutPage(
         heading="季節講習時間割",
-        subheading=f"{date_text}／講師: {teacher_text}",
+        subheading=f"{format_day(week_start)} ～ {format_day(week_end)}",
         tables=(
             LayoutTable(
                 rows=tuple(rows),
-                column_widths=column_widths,
-                repeat_header_rows=1,
+                column_widths=(11.0, 18.0, 18.0, 18.0, 18.0, 2.0, 11.0, 18.0, 18.0, 18.0, 18.0),
             ),
         ),
-        footer_note="個別授業は各講師・各コマ最大2名。色と文字記号を併記しています。",
+        footer_note=(
+            "日曜始まり・土曜終わりの週単位です。各日には出勤予定の講師だけを表示し、"
+            "勤務不可コマを灰色で示します。"
+        ),
     )
+
+
+def _paired_panel_rows(
+    left: tuple[DateRecord, tuple[TeacherRecord, ...]],
+    right: tuple[DateRecord, tuple[TeacherRecord, ...]] | None,
+    *,
+    context: _PanelContext,
+) -> tuple[LayoutRow, ...]:
+    left_rows = _date_panel_rows(left, context=context)
+    right_rows = _date_panel_rows(right, context=context) if right is not None else None
+    result: list[LayoutRow] = []
+    for index, left_cells in enumerate(left_rows):
+        right_cells = (
+            right_rows[index]
+            if right_rows is not None
+            else (LayoutCell("", column_span=_PANEL_COLUMN_COUNT),)
+        )
+        height = 25 if index < 2 else 42
+        result.append(
+            LayoutRow(
+                cells=(
+                    *left_cells,
+                    LayoutCell("", role="legend"),
+                    *right_cells,
+                ),
+                height_points_optional=height,
+            )
+        )
+    result.append(
+        LayoutRow(
+            cells=(LayoutCell("", role="legend", column_span=_WEEK_TABLE_COLUMN_COUNT),),
+            height_points_optional=5,
+        )
+    )
+    return tuple(result)
+
+
+def _date_panel_rows(
+    panel: tuple[DateRecord, tuple[TeacherRecord, ...]],
+    *,
+    context: _PanelContext,
+) -> tuple[tuple[LayoutCell, ...], ...]:
+    slots = context.slots
+    availability = context.availability
+    assignments_by_cell = context.assignments_by_cell
+    groups_by_cell = context.groups_by_cell
+    requests = context.requests
+    students = context.students
+    student_display_names = context.student_display_names
+    teacher_display_names = context.teacher_display_names
+    subjects = context.subjects
+    settings = context.settings
+    snapshot = context.snapshot
+    date_row, teachers = panel
+    note = (
+        f"　特記事項: {date_row.note}"
+        if date_row.note and "note" in settings.visible_fields
+        else ""
+    )
+    date_role = "header" if date_row.is_open else "closed"
+    date_codes: tuple[str, ...] = () if date_row.is_open else ("closed",)
+    rows: list[tuple[LayoutCell, ...]] = [
+        (
+            LayoutCell(
+                f"{format_day(date_row.day)}{note}",
+                role=date_role,  # type: ignore[arg-type]
+                column_span=_PANEL_COLUMN_COUNT,
+                style_codes=date_codes,
+                alignment="center",
+            ),
+        )
+    ]
+    if not date_row.is_open:
+        rows.append(
+            (
+                LayoutCell(
+                    f"{settings.style('closed').marker} 休校日",
+                    role="closed",
+                    column_span=_PANEL_COLUMN_COUNT,
+                    style_codes=("closed",),
+                    alignment="center",
+                ),
+            )
+        )
+        rows.extend(
+            (
+                LayoutCell(
+                    "",
+                    role="closed",
+                    column_span=_PANEL_COLUMN_COUNT,
+                    style_codes=("closed",),
+                ),
+            )
+            for _slot in slots
+        )
+        return tuple(rows)
+
+    if teachers:
+        header_cells: list[LayoutCell] = [LayoutCell("コマ", role="metadata", alignment="center")]
+        header_cells.extend(
+            LayoutCell(
+                teacher_display_names[teacher.id],
+                role="header",
+                alignment="center",
+            )
+            for teacher in teachers
+        )
+        header_cells.extend(
+            LayoutCell("", role="header", alignment="center")
+            for _ in range(_TEACHERS_PER_DATE_PANEL - len(teachers))
+        )
+        rows.append(tuple(header_cells))
+    else:
+        rows.append(
+            (
+                LayoutCell("コマ", role="metadata", alignment="center"),
+                LayoutCell(
+                    "出勤予定の講師はいません",
+                    role="unavailable",
+                    column_span=_TEACHERS_PER_DATE_PANEL,
+                    alignment="center",
+                ),
+            )
+        )
+
+    for slot in slots:
+        cells: list[LayoutCell] = [
+            LayoutCell(
+                f"{slot.code}\n{slot.start_time:%H:%M}–{slot.end_time:%H:%M}",
+                role="metadata",
+                alignment="center",
+            )
+        ]
+        for teacher in teachers:
+            key = (date_row.day, slot.id, teacher.id)
+            assignments = assignments_by_cell.get(key, ())
+            groups = groups_by_cell.get(key, ())
+            text, codes = _cell_content(
+                assignments,
+                groups,
+                requests=requests,
+                students=students,
+                student_display_names=student_display_names,
+                subjects=subjects,
+                settings=settings,
+                project_confirmed=snapshot.project.status == "confirmed",
+                warnings=_matching_warnings(
+                    snapshot.warnings,
+                    day=date_row.day,
+                    slot_code=slot.code,
+                    teacher=teacher,
+                    assignments=assignments,
+                    requests=requests,
+                    students=students,
+                ),
+            )
+            available = availability.get(key, 0) > 0
+            if not snapshot.teacher_availabilities:
+                available = bool(assignments or groups)
+            cells.append(
+                LayoutCell(
+                    text or "—",
+                    role="data" if available else "unavailable",
+                    style_codes=codes,
+                    alignment="left",
+                )
+            )
+        cells.extend(
+            LayoutCell("", role="unavailable")
+            for _ in range(_TEACHERS_PER_DATE_PANEL - len(teachers))
+        )
+        rows.append(tuple(cells))
+    return tuple(rows)
+
+
+def _sunday_of_week(day: date) -> date:
+    return day - timedelta(days=(day.weekday() + 1) % 7)
 
 
 def _cell_content(

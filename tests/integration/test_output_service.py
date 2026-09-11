@@ -79,8 +79,16 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
         assert excel_result.path.is_file()
         workbook = load_workbook(excel_result.path, read_only=False, data_only=False)
         try:
-            assert workbook.sheetnames[0].startswith("全体時間割")
-            assert workbook[workbook.sheetnames[0]]["A1"].value == "季節講習時間割"
+            assert workbook.sheetnames[0].startswith("週_")
+            worksheet = workbook[workbook.sheetnames[0]]
+            assert worksheet["A1"].value == "季節講習時間割"
+            assert worksheet.page_setup.fitToWidth == 1
+            assert worksheet.page_setup.fitToHeight == 1
+            assert any(
+                str(cell.fill.fgColor.rgb).endswith("D9D9D9")
+                for row in worksheet.iter_rows()
+                for cell in row
+            )
         finally:
             workbook.close()
         assert csv_result.path.read_bytes().startswith(b"\xef\xbb\xbf")

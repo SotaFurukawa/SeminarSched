@@ -137,6 +137,7 @@ def _css(document: LayoutDocument, font_family: str) -> str:
         ".role-metadata{font-weight:600;background:#f7f9fc;}"
         ".role-legend{font-size:6.5pt;background:#ffffff;}"
         ".role-closed{font-weight:700;}"
+        ".role-unavailable{background:#d9d9d9;color:#667085;}"
         ".page-footer{margin-top:5px;border-top:1px solid #687386;font-size:6.5pt;"
         "color:#475467;}.page-footer td{border:0;padding-top:3px;}"
         ".page-number{text-align:right;white-space:nowrap;}"

@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.7.0 (Beta)** です。v1系はすべてBeta版としてGitHubの
+現在のアプリ版は **v1.7.1 (Beta)** です。v1系はすべてBeta版としてGitHubの
 Pre-releaseで配布し、正式リリースを明示的に決定するまではv1系を継続します。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
@@ -84,15 +84,15 @@ v1.6.0以降は集団授業の操作機能を一時的に停止しています�
 配布責任者が公開内容を承認した公式GitHub Releaseでは、次の3ファイルを同じReleaseから
 取得します。第三者が再配布した単独の`.exe`は使わないでください。
 
-- `SummerCourseScheduler-Setup-1.7.0.exe`
-- `SummerCourseScheduler-Portable-1.7.0.zip`
+- `SummerCourseScheduler-Setup-1.7.1.exe`
+- `SummerCourseScheduler-Portable-1.7.1.zip`
 - `SHA256SUMS.txt`
 
 ダウンロード後は、同梱一覧と実ファイルのSHA-256を照合します。
 
 ```powershell
-Get-FileHash .\SummerCourseScheduler-Setup-1.7.0.exe -Algorithm SHA256
-Get-FileHash .\SummerCourseScheduler-Portable-1.7.0.zip -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Setup-1.7.1.exe -Algorithm SHA256
+Get-FileHash .\SummerCourseScheduler-Portable-1.7.1.zip -Algorithm SHA256
 ```
 
 ### インストーラー版
@@ -204,7 +204,7 @@ log、自動backupは`%LOCALAPPDATA%\SummerScheduler`へ保存するため、こ
   生徒・講師の空きコマ禁止、生徒の連続上限等をCP-SATのハード制約として適用
 - 未配置数を最優先にし、通常担当・担当講師数・同日集中・複数月への分散も評価する
   段階的な辞書式最適化
-- 最終ソフト目的による、勤務可能枠に対する講師参加割合の偏り抑制
+- 勤務可能枠に対する講師の実稼働率をそろえる公平性評価
 - 高速30秒、標準120秒、高品質600秒のプリセットと、実行中の安全な中断
 - solver status、配置・未配置件数、目的関数内訳、未配置理由、警告の簡易表示
 - 最適化入力のfingerprint再照合、保存前の独立結果検証、Assignmentと
@@ -479,8 +479,10 @@ fingerprintが異なる外部変更の検出時には安全のため破棄され
 PDFは「印刷プレビューを更新」で一時ファイルを生成し、ページ送り、50～300%の
 拡大縮小、幅合わせ、全体表示を確認してから保存します。一時PDFは条件変更時と
 アプリ終了時に削除され、プロジェクトDBには保存しません。ExcelとPDFは同じ
-`LayoutDocument`から生成し、全体時間割には日付ブロック、コマ・時刻、講師列、
-最大2名分の生徒・学年・科目、1対1、休校、特記事項、凡例を含めます。
+`LayoutDocument`から生成します。全体時間割は日曜始まり・土曜終わりの週ごとに
+1シート（PDFでは1ページ）へまとめ、日付を2面ずつ横並びにします。各日にはその日に
+出勤予定の講師だけを表示し、勤務不可コマは灰色にします。コマ・時刻、最大2名分の
+生徒・学年・科目、1対1、休校、特記事項、凡例も含めます。
 
 用紙、向き、1ページの日数、講師列数、文字サイズ、余白、表示項目、色と
 文字マーカー、ファイル名規則、既定出力先、生徒別改ページ、CSV BOMは
@@ -584,11 +586,11 @@ py -3.12 -m venv .venv-release
 
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.7.0
+  -Version 1.7.1
 ```
 
 正常終了すると、検査済みstandalone treeから
-`dist\SummerCourseScheduler-Portable-1.7.0.zip`を作ります。QML、Qt plugin、
+`dist\SummerCourseScheduler-Portable-1.7.1.zip`を作ります。QML、Qt plugin、
 OR-Tools、SQLite、既定設定、Alembic revision、第三者notice／licenseを同じtreeへ
 収集し、DB、`.jukuschedule`、log、backup、入出力、user config、不要なbuild reportの
 混入を拒否します。`build\`と`dist\`は生成物でありGitへ追加しません。
@@ -600,13 +602,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.7.0 `
+  -Version 1.7.1 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.7.0.zip `
-  dist\SummerCourseScheduler-Setup-1.7.0.exe
+  dist\SummerCourseScheduler-Portable-1.7.1.zip `
+  dist\SummerCourseScheduler-Setup-1.7.1.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `

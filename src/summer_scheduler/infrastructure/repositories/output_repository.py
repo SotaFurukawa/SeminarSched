@@ -22,6 +22,7 @@ from summer_scheduler.infrastructure.db.models import (
     Student,
     Subject,
     Teacher,
+    TeacherAvailability,
     TimeSlot,
     ValidationIssue,
 )
@@ -35,6 +36,7 @@ from summer_scheduler.reporting.data import (
     SlotRecord,
     StudentRecord,
     SubjectRecord,
+    TeacherAvailabilityRecord,
     TeacherRecord,
     WarningRecord,
 )
@@ -92,6 +94,17 @@ class OutputRepository:
         )
         teachers = list(
             self._session.scalars(select(Teacher).order_by(Teacher.external_id, Teacher.id))
+        )
+        teacher_availabilities = list(
+            self._session.scalars(
+                select(TeacherAvailability)
+                .where(TeacherAvailability.project_id == project_id)
+                .order_by(
+                    TeacherAvailability.date,
+                    TeacherAvailability.time_slot_id,
+                    TeacherAvailability.teacher_id,
+                )
+            )
         )
         subjects = list(
             self._session.scalars(select(Subject).order_by(Subject.sort_order, Subject.id))
@@ -278,6 +291,15 @@ class OutputRepository:
             ),
             unassigned=(),
             warnings=warnings,
+            teacher_availabilities=tuple(
+                TeacherAvailabilityRecord(
+                    teacher_id=row.teacher_id,
+                    day=row.date,
+                    time_slot_id=row.time_slot_id,
+                    level=row.availability_level,
+                )
+                for row in teacher_availabilities
+            ),
         )
 
     def get_settings(

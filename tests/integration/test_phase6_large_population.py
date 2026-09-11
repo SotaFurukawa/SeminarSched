@@ -46,7 +46,7 @@ def test_150_students_40_teachers_40_days_round_trip_all_excel_reports(
         build_issues_document(snapshot, settings),
     )
 
-    assert documents[0].page_count == 32
+    assert documents[0].page_count == 9
     assert documents[1].page_count == 150
     assert documents[2].page_count == 242
     assert documents[3].page_count == 14

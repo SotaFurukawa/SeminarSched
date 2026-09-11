@@ -173,7 +173,7 @@ def test_qt_pdf_large_student_and_group_reports_keep_physical_pagination(
     overall = build_timetable_document(snapshot, settings)
 
     assert students.page_count == 32
-    assert overall.page_count == 7
+    assert overall.page_count == 5
     assert overall.sections[-1].name == "補足の集団授業"
     assert len(overall.sections[-1].pages) == 3
 

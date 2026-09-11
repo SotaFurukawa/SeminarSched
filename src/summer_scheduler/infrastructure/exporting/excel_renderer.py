@@ -50,6 +50,7 @@ _ROLE_FILL: Final = {
     "data": "FFFFFF",
     "legend": "F0F2F5",
     "closed": "333333",
+    "unavailable": "D9D9D9",
 }
 _ROLE_TEXT: Final = {
     "title": "FFFFFF",
@@ -137,7 +138,7 @@ class ExcelRenderer:
             else worksheet.ORIENTATION_PORTRAIT
         )
         worksheet.page_setup.fitToWidth = 1
-        worksheet.page_setup.fitToHeight = 0
+        worksheet.page_setup.fitToHeight = 1 if document.report_code == "overall" else 0
         margin_inches = document.margin_mm / 25.4
         worksheet.page_margins.left = margin_inches
         worksheet.page_margins.right = margin_inches

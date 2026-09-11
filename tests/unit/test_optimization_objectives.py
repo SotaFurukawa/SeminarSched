@@ -87,8 +87,9 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
         CandidateGenerationResult(sessions=(), candidates=(), diagnostics=()),
         ModelVariables(),
     )
-    assert enabled_stages[-1].name == "teacher_load_imbalance"
-    assert enabled_stages[-1].direction == "minimize"
+    assert enabled_stages[5].name == "teacher_load_imbalance"
+    assert enabled_stages[5].direction == "minimize"
+    assert enabled_stages[6].name == "active_teacher_slot_count"
 
 
 def test_teacher_preference_uses_request_max_and_never_adds_duplicate_scores() -> None:

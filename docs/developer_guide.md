@@ -15,7 +15,7 @@ Availability取込みの同一transactionでBLOB、SHA-256、元ファイル名�
 
 ## 1. この文書の位置づけ
 
-このガイドは`1.7.0 (Beta)`時点の実装を説明する。公開版の機能仕様と
+このガイドは`1.7.1 (Beta)`時点の実装を説明する。公開版の機能仕様と
 ハード制約は[`specification.md`](specification.md)、初期設計は
 [`phase0_design.md`](phase0_design.md)、主要な判断理由は[`adr/`](adr/)を参照する。
 このガイドは、仕様に定めたハード制約やデータ安全性要件を緩和しない。
@@ -621,10 +621,10 @@ LessonRequestの`max_consecutive_slots_override`があればStudent標準値よ�
 3. 同じLessonRequestで使用する担当講師数を最小化
 4. 必要回数8回未満のLessonRequestで同日2回目以降を最小化
 5. 複数月の講習でLessonRequestが使用する月数を最大化
-6. 稼働する講師×日付×コマ数を最小化
-7. 生徒・講師のavailability level 2を最大化
-8. 未ロック既存Assignmentからの変更を最小化
-9. 設定値が正の場合だけ、勤務可能枠に対する参加割合の講師間差を最小化
+6. 設定値が正の場合だけ、勤務可能枠に対する実稼働率の講師間差を最小化
+7. 稼働する講師×日付×コマ数を最小化
+8. 生徒・講師のavailability level 2を最大化
+9. 未ロック既存Assignmentからの変更を最小化
 
 候補生成開始前から全処理で1つのdeadlineを共有する。候補生成とハード制約構築には
 利用者中止または期限到達を判定するcallbackを渡し、各Solveには残り時間だけを渡す。
@@ -872,7 +872,7 @@ OutputPage.qml
 ```
 
 `OutputRepository`は短いSession内で、プロジェクト、期間内の全日、コマ、生徒、講師、
-科目、受講希望、Assignment、集団授業、ValidationIssueを不変な`OutputSnapshot`へ
+講師availability、科目、受講希望、Assignment、集団授業、ValidationIssueを不変な`OutputSnapshot`へ
 コピーする。ORM objectとSessionをViewModel、QML、帳票builder、rendererへ渡さない。
 
 実際のExcel、PDF、CSV出力では`OutputService._prepare(refresh=True)`を必ず通し、
@@ -888,8 +888,9 @@ availability、資格、1対1、定員、空きコマ、連続上限等の条件
 
 `reporting/`の純粋builderは次の`LayoutDocument`を作る。
 
-- 全体時間割: 日付×講師の表、コマ／時刻、最大2名、集団、休校、凡例。日付数と
-  講師列数で物理ページ分割し、担当未設定の集団授業は別sectionへ置く。
+- 全体時間割: 日曜始まりの週ごとに1section・1pageとし、日付を2面ずつ横並びにする。
+  各日には勤務可能な講師だけを4名単位で載せ、不可コマを灰色にする。最大2名、集団、
+  休校、凡例を含み、担当未設定の集団授業は別sectionへ置く。
 - 生徒別: 日付、コマ、時刻、科目、講師、1対1／1対2、備考、状態、未配置残数。
   1人1ページまたは2人ずつまとめる。
 - 講師別: 生徒1／2、学年・科目、集団授業、日ごとの連続勤務範囲、
@@ -924,7 +925,7 @@ PDFは次のローカル処理だけで生成する。
 5. `QPdfDocument`で一時PDFを再読込みし、サイズ、ページ数、各ページ寸法を検証する。
 
 内容がページに収まらない場合は縮小するが、0.62未満になる場合は読めないPDFを保存せず、
-日数または講師列数を減らす日本語エラーを返す。Chromium、クラウドPDF変換、外部URLを
+対象の絞込みや文字サイズ・余白の見直しを求める日本語エラーを返す。Chromium、クラウドPDF変換、外部URLを
 必要としない。
 
 `CsvRenderer`はPython標準`csv`で、マスター仕様の18列をCRLF付きUTF-8へ出力する。
@@ -1111,7 +1112,7 @@ py -3.12 -m venv .venv-release
 ```powershell
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.7.0
+  -Version 1.7.1
 ```
 
 scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し、
@@ -1119,7 +1120,7 @@ scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し�
 既定YAML、全Alembic revision、Qt Quick／PDF、OR-Tools native runtime、
 `THIRD_PARTY_NOTICES.md`、収集したlicenseが必要で、DB、`.jukuschedule`、log、
 入出力、backup、user config、build crash reportを拒否する。検査後に
-`dist/SummerCourseScheduler-Portable-1.7.0.zip`を決定的順序で作る。
+`dist/SummerCourseScheduler-Portable-1.7.1.zip`を決定的順序で作る。
 
 2026-07-29に同一build machineで生成した未公開候補は143,564,844 bytes、
 SHA-256 `5611f8e62b6e7e8e9ac456ca91186f5a52e207573fb866b377ccbaf0796eba2f`だった。
@@ -1141,13 +1142,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.7.0 `
+  -Version 1.7.1 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.7.0.zip `
-  dist\SummerCourseScheduler-Setup-1.7.0.exe
+  dist\SummerCourseScheduler-Portable-1.7.1.zip `
+  dist\SummerCourseScheduler-Setup-1.7.1.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `
