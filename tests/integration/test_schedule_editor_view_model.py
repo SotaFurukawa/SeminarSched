@@ -56,6 +56,12 @@ def test_board_is_converted_to_virtualized_day_grid_and_details(
 
     assert grid.rowCount() == 2
     assert grid.columnCount() == 2
+    assert [row["label"] for row in view_model._get_teacher_headers()] == [
+        row.name for row in service.board.teachers
+    ]
+    assert [row["code"] for row in view_model._get_slot_headers()] == [
+        row.code for row in service.board.slots
+    ]
     first = grid.data(grid.index(0, 0), ScheduleGridModel.CellDataRole)
     assert isinstance(first, dict)
     cards = first["lessonCards"]

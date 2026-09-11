@@ -29,6 +29,7 @@ from summer_scheduler.application.phase5_dto import (
     ScheduleBoardDto,
     ScheduleCardDto,
     ScheduleDiffDto,
+    ScheduleTeacherDto,
     UnassignedSessionDto,
 )
 from summer_scheduler.application.project_service import ProjectService
@@ -364,7 +365,14 @@ class ScheduleEditorViewModel(QObject):
         board = self._board
         if board is None:
             return []
-        return [{"id": row.id, "label": row.name, "active": row.active} for row in board.teachers]
+        return [
+            {
+                "id": row.id,
+                "label": row.name if row.active else f"{row.name}（無効）",
+                "active": row.active,
+            }
+            for row in self._visible_teachers(board)
+        ]
 
     teacherHeaders = Property(list, _get_teacher_headers, notify=boardChanged)
 
@@ -1023,18 +1031,7 @@ class ScheduleEditorViewModel(QObject):
         if board is None or current_date is None:
             self._grid_model.replace(cells=[], teacher_labels=[], slot_labels=[])
             return
-        referenced_teacher_ids = {card.teacher_id for card in board.cards}
-        referenced_teacher_ids.update(
-            group.teacher_id for group in board.group_blocks if group.teacher_id is not None
-        )
-        # Inactive teachers are retained in master data for history, but an empty
-        # column for them is not a valid drop target.  Keep a referenced inactive
-        # teacher visible only while an existing lesson still needs to be moved away.
-        teachers = [
-            teacher
-            for teacher in board.teachers
-            if teacher.active or teacher.id in referenced_teacher_ids
-        ]
+        teachers = self._visible_teachers(board)
         slots = list(board.slots)
         cards = {(card.lesson_request_id, card.session_index): card for card in board.cards}
         groups = {group.id: group for group in board.group_blocks}
@@ -1087,6 +1084,20 @@ class ScheduleEditorViewModel(QObject):
             ],
             slot_labels=[slot.display_name for slot in slots],
         )
+
+    @staticmethod
+    def _visible_teachers(board: ScheduleBoardDto) -> list[ScheduleTeacherDto]:
+        referenced_teacher_ids = {card.teacher_id for card in board.cards}
+        referenced_teacher_ids.update(
+            group.teacher_id for group in board.group_blocks if group.teacher_id is not None
+        )
+        # 無効な講師は履歴参照用に保持するが、空列は表示しない。既存授業から参照される
+        # 間だけ「無効」と明示して移動元として残す。
+        return [
+            teacher
+            for teacher in board.teachers
+            if teacher.active or teacher.id in referenced_teacher_ids
+        ]
 
     def _card_dict(self, card: ScheduleCardDto) -> dict[str, object]:
         board = self._board

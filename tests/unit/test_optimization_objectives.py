@@ -34,6 +34,7 @@ from summer_scheduler.optimization.objectives import (
 from summer_scheduler.optimization.variables import ModelVariables
 
 DAY = date(2026, 8, 3)
+JULY_DAY = date(2026, 7, 27)
 SLOTS = (
     TimeSlotData(
         id=100,
@@ -68,6 +69,9 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
     assert [(stage.name, stage.direction) for stage in stages] == [
         ("unassigned_count", "minimize"),
         ("teacher_preference_penalty", "minimize"),
+        ("teacher_continuity_penalty", "minimize"),
+        ("same_day_concentration_penalty", "minimize"),
+        ("period_distribution_score", "maximize"),
         ("active_teacher_slot_count", "minimize"),
         ("availability_preference_score", "maximize"),
         ("changed_assignment_count", "minimize"),
@@ -96,8 +100,8 @@ def test_teacher_preference_uses_request_max_and_never_adds_duplicate_scores() -
     )
 
     assert teacher_preference_penalty(request, 10, settings) == 0
-    assert teacher_preference_penalty(request, 20, settings) == 4
-    assert teacher_preference_penalty(request, 30, settings) == 10
+    assert teacher_preference_penalty(request, 20, settings) == 6
+    assert teacher_preference_penalty(request, 30, settings) == 12
 
     rank_hole = _request(preferred_teacher_ids=(None, 20, None))
     assert teacher_preference_penalty(rank_hole, 20, settings) == 0
@@ -111,7 +115,7 @@ def test_teacher_preference_uses_request_max_and_never_adds_duplicate_scores() -
 
     candidate = _candidate(teacher_id=20)
     model, stages = _fixed_candidate_model(request, (candidate,), selected=candidate)
-    assert _solve_value(model, _stage(stages, "teacher_preference_penalty")) == 4
+    assert _solve_value(model, _stage(stages, "teacher_preference_penalty")) == 6
 
 
 def test_unassigned_and_level_two_availability_have_separate_integer_objectives() -> None:
@@ -171,6 +175,41 @@ def test_unassigned_and_level_two_availability_have_separate_integer_objectives(
         )
         == 0
     )
+
+
+def test_distribution_and_teacher_continuity_objectives_measure_selected_schedule() -> None:
+    request = replace(_request(), required_sessions=3)
+    candidates = (
+        _candidate_for_session(1, teacher_id=10, day=JULY_DAY),
+        _candidate_for_session(2, teacher_id=10, day=JULY_DAY),
+        _candidate_for_session(3, teacher_id=20, day=DAY),
+    )
+    model, stages = _fixed_schedule_model(
+        request,
+        candidates,
+        selected=frozenset(candidates),
+        open_dates=(JULY_DAY, DAY),
+    )
+
+    assert _solve_value(model, _stage(stages, "teacher_continuity_penalty")) == 1
+    assert _solve_value(model, _stage(stages, "same_day_concentration_penalty")) == 1
+    assert _solve_value(model, _stage(stages, "period_distribution_score")) == 2
+
+
+def test_eight_or_more_sessions_are_exempt_from_same_day_concentration_penalty() -> None:
+    request = replace(_request(), required_sessions=8)
+    candidates = (
+        _candidate_for_session(1, teacher_id=10, day=DAY),
+        _candidate_for_session(2, teacher_id=10, day=DAY),
+    )
+    model, stages = _fixed_schedule_model(
+        request,
+        candidates,
+        selected=frozenset(candidates),
+        open_dates=(DAY,),
+    )
+
+    assert _solve_value(model, _stage(stages, "same_day_concentration_penalty")) == 0
 
 
 def test_existing_unlocked_assignment_penalizes_every_non_exact_result() -> None:
@@ -318,6 +357,46 @@ def _fixed_candidate_model(
     return model, build_objective_stages(model, source, generation, variables)
 
 
+def _fixed_schedule_model(
+    request: LessonRequestData,
+    candidates: tuple[CandidateData, ...],
+    *,
+    selected: frozenset[CandidateData],
+    open_dates: tuple[date, ...],
+) -> tuple[cp_model.CpModel, tuple[ObjectiveStage, ...]]:
+    source = replace(_input(requests=(request,)), open_dates=open_dates)
+    sessions = tuple(
+        LessonSessionData(
+            lesson_request_id=request.id,
+            session_index=index,
+            student_id=request.student_id,
+            subject_id=request.subject_id,
+            one_to_one_required=False,
+            max_consecutive_slots_override=None,
+            allow_gap_override=None,
+        )
+        for index in range(1, request.required_sessions + 1)
+    )
+    generation = CandidateGenerationResult(
+        sessions=sessions,
+        candidates=candidates,
+        diagnostics=(),
+    )
+    model = cp_model.CpModel()
+    variables = ModelVariables()
+    for index, candidate in enumerate(candidates):
+        variable = model.new_bool_var(f"fixed_candidate_{index}")
+        variables.assignments[candidate] = variable
+        model.add(variable == int(candidate in selected))
+    for session in sessions:
+        variable = model.new_bool_var(f"fixed_unassigned_{session.session_index}")
+        variables.unassigned[session.key] = variable
+        model.add(
+            variable == int(session.session_index not in {row.session_index for row in selected})
+        )
+    return model, build_objective_stages(model, source, generation, variables)
+
+
 def _solve_value(model: cp_model.CpModel, stage: ObjectiveStage) -> int:
     solver = cp_model.CpSolver()
     assert solver.solve(model) == cp_model.OPTIMAL
@@ -410,4 +489,17 @@ def _candidate(
         time_slot_id=time_slot_id,
         student_availability_level=student_availability_level,
         teacher_availability_level=teacher_availability_level,
+    )
+
+
+def _candidate_for_session(
+    session_index: int,
+    *,
+    teacher_id: int,
+    day: date,
+) -> CandidateData:
+    return replace(
+        _candidate(teacher_id=teacher_id),
+        session_index=session_index,
+        day=day,
     )

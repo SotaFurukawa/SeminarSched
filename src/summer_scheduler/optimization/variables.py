@@ -26,6 +26,10 @@ class ModelVariables:
     selection_indicators: list[tuple[cp_model.IntVar, tuple[cp_model.IntVar, ...]]] = field(
         default_factory=list
     )
+    request_teacher_used: dict[tuple[int, int], cp_model.IntVar] = field(default_factory=dict)
+    request_teacher_excess: dict[int, cp_model.IntVar] = field(default_factory=dict)
+    request_day_excess: dict[tuple[int, date], cp_model.IntVar] = field(default_factory=dict)
+    request_month_used: dict[tuple[int, int, int], cp_model.IntVar] = field(default_factory=dict)
     teacher_loads: dict[int, cp_model.IntVar] = field(default_factory=dict)
     teacher_load_pairwise_deviations: dict[tuple[int, int], cp_model.IntVar] = field(
         default_factory=dict

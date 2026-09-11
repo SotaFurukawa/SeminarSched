@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import date
 
 from ortools.sat.python import cp_model
 
@@ -128,7 +130,7 @@ def solve_optimization(
     token = cancellation or CancellationToken()
     started_at = clock()
     deadline = started_at + data.settings.time_limit_seconds
-    expected_stage_count = 6 if data.settings.optional_balance_weight > 0 else 5
+    expected_stage_count = 9 if data.settings.optional_balance_weight > 0 else 8
     if progress is not None:
         progress(
             OptimizationProgress(
@@ -593,6 +595,27 @@ def _add_safe_initial_hint(
             int(any(hinted_values[selection.index] for selection in selections)),
         )
 
+    selected_by_request_teacher: dict[tuple[int, int], int] = defaultdict(int)
+    selected_by_request_day: dict[tuple[int, date], int] = defaultdict(int)
+    selected_by_request_month: dict[tuple[int, int, int], int] = defaultdict(int)
+    for candidate in selected_candidates:
+        selected_by_request_teacher[(candidate.lesson_request_id, candidate.teacher_id)] += 1
+        selected_by_request_day[(candidate.lesson_request_id, candidate.day)] += 1
+        selected_by_request_month[
+            (candidate.lesson_request_id, candidate.day.year, candidate.day.month)
+        ] += 1
+    for teacher_key, variable in variables.request_teacher_used.items():
+        add_hint(variable, int(selected_by_request_teacher.get(teacher_key, 0) > 0))
+    used_teacher_count: dict[int, int] = defaultdict(int)
+    for (request_id, _teacher_id), count in selected_by_request_teacher.items():
+        used_teacher_count[request_id] += int(count > 0)
+    for request_id, variable in variables.request_teacher_excess.items():
+        add_hint(variable, max(0, used_teacher_count.get(request_id, 0) - 1))
+    for day_key, variable in variables.request_day_excess.items():
+        add_hint(variable, max(0, selected_by_request_day.get(day_key, 0) - 1))
+    for month_key, variable in variables.request_month_used.items():
+        add_hint(variable, int(selected_by_request_month.get(month_key, 0) > 0))
+
     load_values: dict[int, int] = {}
     for teacher_id, variable in sorted(variables.teacher_loads.items()):
         value = sum(
@@ -638,6 +661,12 @@ def _snapshot_stage_value(
     values = {
         "unassigned_count": breakdown.unassigned_count,
         "teacher_preference_penalty": breakdown.teacher_preference_penalty,
+        "teacher_continuity_penalty": _teacher_continuity_penalty(snapshot.selected),
+        "same_day_concentration_penalty": _same_day_concentration_penalty(
+            data,
+            snapshot.selected,
+        ),
+        "period_distribution_score": _period_distribution_score(data, snapshot.selected),
         "active_teacher_slot_count": breakdown.active_teacher_slot_count,
         "availability_preference_score": breakdown.availability_preference_score,
         "changed_assignment_count": (
@@ -651,6 +680,41 @@ def _snapshot_stage_value(
         return values[stage.name]
     except KeyError as exc:
         raise RuntimeError(f"未知の辞書式目的段階です: {stage.name}") from exc
+
+
+def _teacher_continuity_penalty(selected: tuple[CandidateData, ...]) -> int:
+    teachers_by_request: dict[int, set[int]] = defaultdict(set)
+    for candidate in selected:
+        teachers_by_request[candidate.lesson_request_id].add(candidate.teacher_id)
+    return sum(max(0, len(teacher_ids) - 1) for teacher_ids in teachers_by_request.values())
+
+
+def _same_day_concentration_penalty(
+    data: OptimizationInput,
+    selected: tuple[CandidateData, ...],
+) -> int:
+    requests = {request.id: request for request in data.lesson_requests}
+    counts: dict[tuple[int, date], int] = defaultdict(int)
+    for candidate in selected:
+        if requests[candidate.lesson_request_id].required_sessions < 8:
+            counts[(candidate.lesson_request_id, candidate.day)] += 1
+    return sum(max(0, count - 1) for count in counts.values())
+
+
+def _period_distribution_score(
+    data: OptimizationInput,
+    selected: tuple[CandidateData, ...],
+) -> int:
+    if len({(day.year, day.month) for day in data.open_dates}) < 2:
+        return 0
+    requests = {request.id: request for request in data.lesson_requests}
+    return len(
+        {
+            (candidate.lesson_request_id, candidate.day.year, candidate.day.month)
+            for candidate in selected
+            if requests[candidate.lesson_request_id].required_sessions >= 2
+        }
+    )
 
 
 def _extract_snapshot(

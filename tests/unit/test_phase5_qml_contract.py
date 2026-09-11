@@ -22,8 +22,10 @@ def test_schedule_editor_uses_reusable_table_model_for_current_day() -> None:
     python = VIEW_MODEL.read_text(encoding="utf-8")
 
     assert "TableView {" in qml
-    assert "HorizontalHeaderView {" in qml
-    assert "VerticalHeaderView {" in qml
+    assert "model: root.viewModel.teacherHeaders" in qml
+    assert "model: root.viewModel.slotHeaders" in qml
+    assert "contentX: scheduleTable.contentX" in qml
+    assert "contentY: scheduleTable.contentY" in qml
     assert qml.count("reuseItems: true") >= 3
     assert "model: root.viewModel.gridModel" in qml
     assert "class ScheduleGridModel(QAbstractTableModel):" in python

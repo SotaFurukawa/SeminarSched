@@ -848,6 +848,7 @@ Item {
 
                 SplitView.minimumWidth: 420
                 SplitView.fillWidth: true
+                clip: true
                 color: "#e6e9ee"
                 border.color: "#cfd6df"
 
@@ -956,6 +957,7 @@ Item {
 
                         Layout.fillWidth: true
                         Layout.fillHeight: true
+                        clip: true
                         visible: root.viewModel.hasPreview
                         document: previewDocument
                     }

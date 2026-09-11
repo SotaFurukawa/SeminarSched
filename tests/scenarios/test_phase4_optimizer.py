@@ -22,6 +22,8 @@ from summer_scheduler.optimization.dto import (
 from summer_scheduler.optimization.solver import OptimizationProgress, solve_optimization
 
 DAY = date(2026, 8, 3)
+JULY_27 = date(2026, 7, 27)
+JULY_28 = date(2026, 7, 28)
 SUBJECT_1 = SubjectData(id=1, code="MATH", display_name="架空数学")
 SUBJECT_2 = SubjectData(id=2, code="ENGLISH", display_name="架空英語")
 
@@ -427,6 +429,48 @@ def test_unqualified_subject_is_never_assigned_for_aggregation() -> None:
     }
 
 
+def test_regular_teacher_bonus_breaks_a_previous_preference_tie() -> None:
+    request = replace(
+        _request(1, 1),
+        regular_teacher_id=1,
+        regular_teacher_priority=3,
+        preferred_teacher_ids=(None, 2, None),
+    )
+    source = _input(
+        students=(_student(1),),
+        teachers=(_teacher(1), _teacher(2)),
+        requests=(request,),
+        slots=_slots(1),
+    )
+
+    result = solve_optimization(source)
+
+    assert [item.teacher_id for item in result.assignments] == [1]
+
+
+def test_same_subject_uses_one_teacher_and_spreads_across_july_and_august() -> None:
+    days = (JULY_27, JULY_28, DAY)
+    slots = _slots(1)
+    students = (_student(1),)
+    teachers = (_teacher(1), _teacher(2))
+    source = replace(
+        _input(
+            students=students,
+            teachers=teachers,
+            requests=(_request(1, 1, sessions=2),),
+            slots=slots,
+        ),
+        open_dates=days,
+        availabilities=_availability_for_days(students, teachers, slots, days),
+    )
+
+    result = solve_optimization(source)
+
+    assert result.solver_status == "OPTIMAL"
+    assert len({item.teacher_id for item in result.assignments}) == 1
+    assert {item.day.month for item in result.assignments} == {7, 8}
+
+
 def test_required_session_count_is_exact_not_an_upper_bound() -> None:
     source = _input(
         students=(_student(1),),
@@ -630,6 +674,30 @@ def _availability(
                     level=1,
                 )
                 for teacher_id, slot_id in sorted(teacher_keys)
+            ),
+        ]
+    )
+
+
+def _availability_for_days(
+    students: tuple[StudentData, ...],
+    teachers: tuple[TeacherData, ...],
+    slots: tuple[TimeSlotData, ...],
+    days: tuple[date, ...],
+) -> tuple[AvailabilityData, ...]:
+    return tuple(
+        [
+            *(
+                AvailabilityData("student", student.id, day, slot.id, 1)
+                for student in students
+                for day in days
+                for slot in slots
+            ),
+            *(
+                AvailabilityData("teacher", teacher.id, day, slot.id, 1)
+                for teacher in teachers
+                for day in days
+                for slot in slots
             ),
         ]
     )

@@ -18,7 +18,7 @@
 
 ## 2. 実装済みのスコープ
 
-Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.6.8 (Beta)`の
+Phase 0からPhase 7までの段階的な開発項目を実装し、現在は`1.7.0 (Beta)`の
 公開準備版である。Windows成果物は社内利用向けに未署名で配布する方針である。
 
 ### Phase 0：設計
@@ -131,8 +131,8 @@ Assignmentの仮モデルや偽の検証結果を追加しなかった方針は�
   ロック済みAssignmentを用いた疎な候補生成
 - 各sessionの配置または未配置、生徒重複禁止、講師最大2名、1対1必須、固定、
   集団授業、生徒連続上限、生徒・講師の空きコマ禁止をCP-SATのハード制約として実装
-- 未配置、講師希望、稼働講師枠、希望日時、既存割当変更、勤務可能枠に対する
-  講師参加割合の任意調整の順による
+- 未配置、講師希望、担当講師数、同日集中、複数月への分散、稼働講師枠、希望日時、
+  既存割当変更、勤務可能枠に対する講師参加割合の任意調整の順による
   複数Solveの辞書式最適化
 - 独立検証済みgreedy初期解、全非固定変数complete hint、occupancy単位の制約集約
 - 全段階で共有する単一deadlineと、`OPTIMAL`の目的値だけを固定する安全規則
@@ -274,7 +274,7 @@ PDFとExcelの共通レイアウト、Qt選定、原子的保存、安全検証�
 
 ### Phase 7：品質保証・バックアップ・Windows配布
 
-- app version `1.6.8`とrelease channel `Beta`をpackage metadata、Qt application、
+- app version `1.7.0`とrelease channel `Beta`をpackage metadata、Qt application、
   About、log、帳票へ
   表示し、Alembic schema revisionとは別の版として扱う
 - project open直後と設定間隔ごとの自動backup。既定5分間隔・project別5世代で、

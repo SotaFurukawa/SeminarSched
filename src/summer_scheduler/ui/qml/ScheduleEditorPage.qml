@@ -630,24 +630,27 @@ Item {
                             }
                         }
 
-                        HorizontalHeaderView {
+                        ListView {
                             id: teacherHeader
 
                             Layout.fillWidth: true
                             Layout.preferredHeight: 38
-                            syncView: scheduleTable
+                            orientation: ListView.Horizontal
+                            model: root.viewModel.teacherHeaders
+                            contentX: scheduleTable.contentX
+                            interactive: false
                             clip: true
                             reuseItems: true
                             delegate: Rectangle {
-                                required property var display
-                                implicitWidth: 196 * root.viewModel.zoomFactor
-                                implicitHeight: teacherHeader.height
+                                required property var modelData
+                                width: 196 * root.viewModel.zoomFactor
+                                height: teacherHeader.height
                                 color: "#eef2f6"
                                 border.color: "#dce2ea"
                                 Label {
                                     anchors.fill: parent
                                     anchors.margins: 5
-                                    text: String(parent.display || "")
+                                    text: String(parent.modelData.label || "")
                                     color: "#344054"
                                     font.pixelSize: 9
                                     font.weight: Font.DemiBold
@@ -658,23 +661,26 @@ Item {
                             }
                         }
 
-                        VerticalHeaderView {
+                        ListView {
                             id: slotHeader
 
                             Layout.preferredWidth: 66
                             Layout.fillHeight: true
-                            syncView: scheduleTable
+                            orientation: ListView.Vertical
+                            model: root.viewModel.slotHeaders
+                            contentY: scheduleTable.contentY
+                            interactive: false
                             clip: true
                             reuseItems: true
                             delegate: Rectangle {
-                                required property var display
-                                implicitWidth: slotHeader.width
-                                implicitHeight: 124 * root.viewModel.zoomFactor
+                                required property var modelData
+                                width: slotHeader.width
+                                height: 124 * root.viewModel.zoomFactor
                                 color: "#eef2f6"
                                 border.color: "#dce2ea"
                                 Label {
                                     anchors.centerIn: parent
-                                    text: String(parent.display || "")
+                                    text: String(parent.modelData.code || "")
                                     color: "#344054"
                                     font.pixelSize: 10
                                     font.weight: Font.Bold

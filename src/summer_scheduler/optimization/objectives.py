@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import date
 from typing import Literal
 
 from ortools.sat.python import cp_model
@@ -21,6 +22,8 @@ from summer_scheduler.optimization.variables import ModelVariables
 
 ObjectiveDirection = Literal["minimize", "maximize"]
 TeacherLoad = dict[int, int]
+_REGULAR_TEACHER_SCORE_BONUS = 2
+_SAME_DAY_CONCENTRATION_EXCEPTION_SESSIONS = 8
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +44,8 @@ def build_objective_stages(
     """仕様順の辞書式目的を返す。
 
     `add_hard_constraints`の後に呼び出すこと。各式は整数係数だけを使用し、前段の
-    最適値を等式で固定してから次段へ進められる。第6段階だけは設定値が0なら省略する。
+    最適値を等式で固定してから次段へ進められる。公平性段階だけは設定値が0なら
+    省略する。
     """
     stages = [
         ObjectiveStage(
@@ -55,6 +59,26 @@ def build_objective_stages(
             name="teacher_preference_penalty",
             direction="minimize",
             expression=_teacher_preference_expression(data, generation, variables),
+        ),
+        ObjectiveStage(
+            name="teacher_continuity_penalty",
+            direction="minimize",
+            expression=_teacher_continuity_expression(model, generation, variables),
+        ),
+        ObjectiveStage(
+            name="same_day_concentration_penalty",
+            direction="minimize",
+            expression=_same_day_concentration_expression(
+                model,
+                data,
+                generation,
+                variables,
+            ),
+        ),
+        ObjectiveStage(
+            name="period_distribution_score",
+            direction="maximize",
+            expression=_period_distribution_expression(model, data, generation, variables),
         ),
         ObjectiveStage(
             name="active_teacher_slot_count",
@@ -209,7 +233,8 @@ def _teacher_preference_scores(
         _keep_maximum(
             scores,
             request.regular_teacher_id,
-            settings.regular_teacher_priority_weights[request.regular_teacher_priority - 1],
+            settings.regular_teacher_priority_weights[request.regular_teacher_priority - 1]
+            + _REGULAR_TEACHER_SCORE_BONUS,
         )
     for rank, teacher_id in enumerate(request.preferred_teacher_ids[:3]):
         if teacher_id is None:
@@ -238,6 +263,102 @@ def _availability_preference_expression(
         candidate_vars.append(variables.assignments[candidate])
         scores.append(score)
     return cp_model.LinearExpr.weighted_sum(candidate_vars, scores)
+
+
+def _teacher_continuity_expression(
+    model: cp_model.CpModel,
+    generation: CandidateGenerationResult,
+    variables: ModelVariables,
+) -> cp_model.LinearExpr:
+    """同一生徒・科目に相当する要求を、できるだけ少ない講師へまとめる。"""
+    grouped: dict[tuple[int, int], list[CandidateData]] = defaultdict(list)
+    for candidate in generation.candidates:
+        grouped[(candidate.lesson_request_id, candidate.teacher_id)].append(candidate)
+
+    used_by_request: dict[int, list[cp_model.IntVar]] = defaultdict(list)
+    for (request_id, teacher_id), candidates in sorted(grouped.items()):
+        used = model.new_bool_var(f"request_teacher_used_{request_id}_{teacher_id}")
+        variables.request_teacher_used[(request_id, teacher_id)] = used
+        selections = [variables.assignments[candidate] for candidate in candidates]
+        for selection in selections:
+            model.add(selection <= used)
+        model.add(used <= cp_model.LinearExpr.sum(selections))
+        used_by_request[request_id].append(used)
+
+    excess_variables: list[cp_model.IntVar] = []
+    for request_id, used_variables in sorted(used_by_request.items()):
+        upper_bound = max(0, len(used_variables) - 1)
+        excess = model.new_int_var(
+            0,
+            upper_bound,
+            f"request_teacher_excess_{request_id}",
+        )
+        model.add(excess >= cp_model.LinearExpr.sum(used_variables) - 1)
+        variables.request_teacher_excess[request_id] = excess
+        excess_variables.append(excess)
+    return cp_model.LinearExpr.sum(excess_variables)
+
+
+def _same_day_concentration_expression(
+    model: cp_model.CpModel,
+    data: OptimizationInput,
+    generation: CandidateGenerationResult,
+    variables: ModelVariables,
+) -> cp_model.LinearExpr:
+    """8回未満の同一要求は、同じ日に2回以上固めないことを優先する。"""
+    requests = {request.id: request for request in data.lesson_requests}
+    grouped: dict[tuple[int, date], list[CandidateData]] = defaultdict(list)
+    for candidate in generation.candidates:
+        request = requests[candidate.lesson_request_id]
+        if request.required_sessions >= _SAME_DAY_CONCENTRATION_EXCEPTION_SESSIONS:
+            continue
+        grouped[(candidate.lesson_request_id, candidate.day)].append(candidate)
+
+    excess_variables: list[cp_model.IntVar] = []
+    for (request_id, day), candidates in sorted(grouped.items()):
+        request = requests[request_id]
+        excess = model.new_int_var(
+            0,
+            max(0, request.required_sessions - 1),
+            f"request_day_excess_{request_id}_{day.isoformat()}",
+        )
+        selections = [variables.assignments[candidate] for candidate in candidates]
+        model.add(excess >= cp_model.LinearExpr.sum(selections) - 1)
+        variables.request_day_excess[(request_id, day)] = excess
+        excess_variables.append(excess)
+    return cp_model.LinearExpr.sum(excess_variables)
+
+
+def _period_distribution_expression(
+    model: cp_model.CpModel,
+    data: OptimizationInput,
+    generation: CandidateGenerationResult,
+    variables: ModelVariables,
+) -> cp_model.LinearExpr:
+    """複数月にまたがる講習では、同一要求が各月へ分散するほど高く評価する。"""
+    requests = {request.id: request for request in data.lesson_requests}
+    if len({(day.year, day.month) for day in data.open_dates}) < 2:
+        return cp_model.LinearExpr.constant(0)
+
+    grouped: dict[tuple[int, int, int], list[CandidateData]] = defaultdict(list)
+    for candidate in generation.candidates:
+        if requests[candidate.lesson_request_id].required_sessions < 2:
+            continue
+        grouped[(candidate.lesson_request_id, candidate.day.year, candidate.day.month)].append(
+            candidate
+        )
+
+    used_variables: list[cp_model.IntVar] = []
+    for key, candidates in sorted(grouped.items()):
+        request_id, year, month = key
+        used = model.new_bool_var(f"request_month_used_{request_id}_{year}_{month}")
+        selections = [variables.assignments[candidate] for candidate in candidates]
+        for selection in selections:
+            model.add(selection <= used)
+        model.add(used <= cp_model.LinearExpr.sum(selections))
+        variables.request_month_used[key] = used
+        used_variables.append(used)
+    return cp_model.LinearExpr.sum(used_variables)
 
 
 def _changed_assignment_expression(

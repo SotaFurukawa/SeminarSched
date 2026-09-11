@@ -572,6 +572,7 @@ def _lesson_request_issues(
                             "subject": subject_name,
                             "teacher": teacher_name,
                         },
+                        severity="warning",
                     )
                 )
         for rank, teacher_id in enumerate(

@@ -34,6 +34,7 @@ from summer_scheduler.infrastructure.db.models import (
     TimeSlot,
 )
 from summer_scheduler.optimization.dto import (
+    DiagnosticCode,
     ObjectiveBreakdown,
     OptimizationResult,
     ScheduledAssignment,
@@ -430,6 +431,34 @@ def test_prepare_rejects_validation_errors_without_creating_run(
     assert error.value.issues
     assert all(issue.severity == "error" for issue in error.value.issues)
     assert _runs(project_service, project_id) == []
+
+
+def test_unqualified_regular_teacher_is_warning_but_never_becomes_candidate(
+    project_service: ProjectService,
+) -> None:
+    graph = _seed_valid_graph(project_service)
+    database = project_service.require_database()
+    with database.session_factory.begin() as session:
+        qualification = session.get(
+            TeacherQualification,
+            (graph.teacher_id, graph.subject_id),
+        )
+        assert qualification is not None
+        qualification.can_teach = False
+
+    prepared = OptimizationRunService(project_service, _app_settings()).prepare(
+        "fast",
+        log_directory=_log_directory(project_service),
+    )
+    result = solve_optimization(prepared.input)
+
+    assert result.solver_status == "OPTIMAL"
+    assert not result.assignments
+    assert any(
+        reason.code == DiagnosticCode.TEACHER_UNQUALIFIED
+        for lesson in result.unassigned_lessons
+        for reason in lesson.reasons
+    )
 
 
 def test_changed_input_marks_run_failed_and_keeps_previous_assignments(

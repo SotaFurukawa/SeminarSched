@@ -60,6 +60,14 @@ def test_qtquick_pdf_preview_has_navigation_zoom_and_cleanup_contract() -> None:
     assert "import QtQuick.Pdf" in qml
     assert "PdfDocument {" in qml
     assert "PdfMultiPageView {" in qml
+    assert (
+        "id: previewPane\n\n                SplitView.minimumWidth: 420\n                SplitView.fillWidth: true\n                clip: true"
+        in qml
+    )
+    assert (
+        "id: pdfView\n\n                        Layout.fillWidth: true\n                        Layout.fillHeight: true\n                        clip: true"
+        in qml
+    )
     assert "goToPage(" in qml
     assert "renderScale" in qml
     assert "scaleToWidth(" in qml

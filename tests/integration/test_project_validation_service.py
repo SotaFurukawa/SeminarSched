@@ -205,6 +205,12 @@ def test_validation_detects_capacity_qualification_and_group_conflicts(
     issues = ProjectValidationService(project_service).run_validation()
     issue_types = {issue.issue_type for issue in issues}
     assert "regular_teacher_unqualified" in issue_types
+    assert (
+        next(
+            issue for issue in issues if issue.issue_type == "regular_teacher_unqualified"
+        ).severity
+        == "warning"
+    )
     assert "group_teacher_unqualified" in issue_types
     assert "group_teacher_overlap" in issue_types
     assert "group_student_overlap" in issue_types

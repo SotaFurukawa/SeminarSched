@@ -15,7 +15,7 @@ Availability取込みの同一transactionでBLOB、SHA-256、元ファイル名�
 
 ## 1. この文書の位置づけ
 
-このガイドは`1.6.8 (Beta)`時点の実装を説明する。公開版の機能仕様と
+このガイドは`1.7.0 (Beta)`時点の実装を説明する。公開版の機能仕様と
 ハード制約は[`specification.md`](specification.md)、初期設計は
 [`phase0_design.md`](phase0_design.md)、主要な判断理由は[`adr/`](adr/)を参照する。
 このガイドは、仕様に定めたハード制約やデータ安全性要件を緩和しない。
@@ -618,10 +618,13 @@ LessonRequestの`max_consecutive_slots_override`があればStudent標準値よ�
 
 1. 未配置数を最小化
 2. 優先度1～4、通常担当、第1～第3希望の講師希望違反を最小化
-3. 稼働する講師×日付×コマ数を最小化
-4. 生徒・講師のavailability level 2を最大化
-5. 未ロック既存Assignmentからの変更を最小化
-6. 設定値が正の場合だけ、勤務可能枠に対する参加割合の講師間差を最小化
+3. 同じLessonRequestで使用する担当講師数を最小化
+4. 必要回数8回未満のLessonRequestで同日2回目以降を最小化
+5. 複数月の講習でLessonRequestが使用する月数を最大化
+6. 稼働する講師×日付×コマ数を最小化
+7. 生徒・講師のavailability level 2を最大化
+8. 未ロック既存Assignmentからの変更を最小化
+9. 設定値が正の場合だけ、勤務可能枠に対する参加割合の講師間差を最小化
 
 候補生成開始前から全処理で1つのdeadlineを共有する。候補生成とハード制約構築には
 利用者中止または期限到達を判定するcallbackを渡し、各Solveには残り時間だけを渡す。
@@ -1108,7 +1111,7 @@ py -3.12 -m venv .venv-release
 ```powershell
 .\scripts\build_windows.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.6.8
+  -Version 1.7.0
 ```
 
 scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し、
@@ -1116,7 +1119,7 @@ scriptはworkspace内の`build/deploy`と`build/portable`だけを初期化し�
 既定YAML、全Alembic revision、Qt Quick／PDF、OR-Tools native runtime、
 `THIRD_PARTY_NOTICES.md`、収集したlicenseが必要で、DB、`.jukuschedule`、log、
 入出力、backup、user config、build crash reportを拒否する。検査後に
-`dist/SummerCourseScheduler-Portable-1.6.8.zip`を決定的順序で作る。
+`dist/SummerCourseScheduler-Portable-1.7.0.zip`を決定的順序で作る。
 
 2026-07-29に同一build machineで生成した未公開候補は143,564,844 bytes、
 SHA-256 `5611f8e62b6e7e8e9ac456ca91186f5a52e207573fb866b377ccbaf0796eba2f`だった。
@@ -1138,13 +1141,13 @@ Inno Setupの基礎ライセンス条件とcommercial userへの購入要請に�
 ```powershell
 .\scripts\build_installer.ps1 `
   -Python .\.venv-release\Scripts\python.exe `
-  -Version 1.6.8 `
+  -Version 1.7.0 `
   -Iscc "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py checksums `
   --output dist\SHA256SUMS.txt `
-  dist\SummerCourseScheduler-Portable-1.6.8.zip `
-  dist\SummerCourseScheduler-Setup-1.6.8.exe
+  dist\SummerCourseScheduler-Portable-1.7.0.zip `
+  dist\SummerCourseScheduler-Setup-1.7.0.exe
 
 .\.venv-release\Scripts\python.exe scripts\package_release.py verify-checksums `
   --checksums dist\SHA256SUMS.txt `
