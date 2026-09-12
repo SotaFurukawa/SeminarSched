@@ -163,6 +163,17 @@ Rectangle {
                     }
                 }
 
+                SidebarNavButton {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 10
+                    Layout.rightMargin: 10
+                    enabled: root.projectOpen
+                    itemTitle: root.itemsModel.get(10).title
+                    iconText: root.itemsModel.get(10).shortLabel
+                    selected: root.currentIndex === 10
+                    onClicked: root.pageSelected(10)
+                }
+
                 Label {
                     Layout.leftMargin: 18
                     Layout.topMargin: 12

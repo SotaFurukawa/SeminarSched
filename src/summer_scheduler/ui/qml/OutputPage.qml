@@ -12,8 +12,14 @@ Item {
     required property var viewModel
     signal openHomeRequested
     signal openIssuesRequested
+    property bool distributionReviewMode: false
+    property int distributionCategory: 0
     property bool advancedSettingsVisible: false
     property bool openFolderAfterOutput: true
+    readonly property var distributionFormatOptions: [
+        {"label": qsTr("Excel（.xlsx）"), "value": "xlsx"},
+        {"label": qsTr("PDF（.pdf）"), "value": "pdf"}
+    ]
 
     UiTheme { id: theme }
 
@@ -33,7 +39,23 @@ Item {
         return [qsTr("Excelブック (*.xlsx)")]
     }
 
+    function syncDistributionReport() {
+        if (!root.distributionReviewMode)
+            return
+        if (root.distributionCategory === 0)
+            root.viewModel.setReportKind("students")
+        else if (root.distributionCategory === 2)
+            root.viewModel.setReportKind("student_handouts")
+        else if (teacherPacketBox.currentIndex === 1)
+            root.viewModel.setReportKind("teacher_packets")
+        else
+            root.viewModel.setReportKind("teacher_handouts")
+        if (root.viewModel.outputFormat === "csv")
+            root.viewModel.setOutputFormat("xlsx")
+    }
+
     Component.onCompleted: {
+        root.syncDistributionReport()
         if (root.viewModel.hasOpenProject)
             root.viewModel.refreshWorkspace()
     }
@@ -104,7 +126,8 @@ Item {
                 spacing: 1
 
                 Label {
-                    text: qsTr("時間割・帳票の出力")
+                    text: root.distributionReviewMode
+                          ? qsTr("配布物確認") : qsTr("時間割・帳票の出力")
                     color: "#18212f"
                     font.pixelSize: 24
                     font.weight: Font.Bold
@@ -135,6 +158,48 @@ Item {
         StatusBanner {
             Layout.fillWidth: true
             viewModel: root.viewModel
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: distributionRow.implicitHeight + 16
+            visible: root.distributionReviewMode
+            radius: 8
+            color: "#ffffff"
+            border.color: "#dce2ea"
+
+            RowLayout {
+                id: distributionRow
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                spacing: 8
+
+                Repeater {
+                    model: [qsTr("個別時間割"), qsTr("講師配布時間割"), qsTr("生徒配布時間割")]
+                    delegate: Button {
+                        required property int index
+                        required property string modelData
+                        Layout.fillWidth: true
+                        text: modelData
+                        highlighted: root.distributionCategory === index
+                        onClicked: {
+                            root.distributionCategory = index
+                            root.syncDistributionReport()
+                        }
+                    }
+                }
+                ComboBox {
+                    id: teacherPacketBox
+                    visible: root.distributionCategory === 1
+                    Layout.preferredWidth: 210
+                    model: [qsTr("学年順"), qsTr("講師ごと")]
+                    onActivated: root.syncDistributionReport()
+                    Accessible.name: qsTr("講師配布時間割の並び")
+                }
+            }
         }
 
         Rectangle {
@@ -199,6 +264,7 @@ Item {
                         id: reportBox
 
                         Layout.preferredWidth: 200
+                        visible: !root.distributionReviewMode
                         enabled: !root.viewModel.isBusy
                         model: root.viewModel.reportOptions
                         textRole: "label"
@@ -206,6 +272,18 @@ Item {
                         currentIndex: root.optionIndex(model, root.viewModel.reportKind)
                         onActivated: root.viewModel.setReportKind(String(currentValue))
                         Accessible.name: qsTr("出力する帳票")
+                    }
+                    Label {
+                        visible: root.distributionReviewMode
+                        Layout.preferredWidth: 200
+                        text: root.viewModel.reportKind === "students"
+                              ? qsTr("個別時間割")
+                              : root.viewModel.reportKind === "student_handouts"
+                                ? qsTr("生徒配布時間割")
+                                : root.viewModel.reportKind === "teacher_packets"
+                                  ? qsTr("講師配布時間割（講師ごと）")
+                                  : qsTr("講師配布時間割（学年順）")
+                        color: "#344054"
                     }
 
                     Label {
@@ -219,7 +297,9 @@ Item {
 
                         Layout.preferredWidth: 170
                         enabled: !root.viewModel.isBusy
-                        model: root.viewModel.formatOptions
+                        model: root.distributionReviewMode
+                               ? root.distributionFormatOptions
+                               : root.viewModel.formatOptions
                         textRole: "label"
                         valueRole: "value"
                         currentIndex: root.optionIndex(model, root.viewModel.outputFormat)
@@ -350,7 +430,7 @@ Item {
         SplitView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            orientation: Qt.Horizontal
+            orientation: root.width < 1120 ? Qt.Vertical : Qt.Horizontal
 
             ScrollView {
                 id: settingsPane
@@ -358,6 +438,8 @@ Item {
                 visible: root.advancedSettingsVisible
                 SplitView.minimumWidth: visible ? 390 : 0
                 SplitView.preferredWidth: visible ? 455 : 0
+                SplitView.minimumHeight: visible && root.width < 1120 ? 190 : 0
+                SplitView.preferredHeight: visible && root.width < 1120 ? 260 : 0
                 clip: true
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
@@ -850,6 +932,7 @@ Item {
                 id: previewPane
 
                 SplitView.minimumWidth: 420
+                SplitView.minimumHeight: 260
                 SplitView.fillWidth: true
                 clip: true
                 color: "#e6e9ee"

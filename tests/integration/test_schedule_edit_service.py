@@ -543,19 +543,10 @@ def test_unassign_assign_lock_note_and_detailed_edit_are_undoable(
     service.undo()
     restored = _assignment(project_service, graph, graph.request_1_id)
     assert restored is not None
-    assert restored.is_locked is False
+    # 未配置から手動で置いた授業は、自動作成で動かないよう既定で固定される。
+    assert restored.is_locked is True
     assert restored.note is None
 
-    service.set_lock(
-        lesson_request_id=graph.request_1_id,
-        session_index=1,
-        is_locked=True,
-        reason="単独ロック",
-    )
-    service.undo()
-    assert _require_assignment(project_service, graph, graph.request_1_id).is_locked is False
-    service.redo()
-    assert _require_assignment(project_service, graph, graph.request_1_id).is_locked is True
     service.set_lock(
         lesson_request_id=graph.request_1_id,
         session_index=1,
@@ -566,6 +557,16 @@ def test_unassign_assign_lock_note_and_detailed_edit_are_undoable(
     assert _require_assignment(project_service, graph, graph.request_1_id).is_locked is True
     service.redo()
     assert _require_assignment(project_service, graph, graph.request_1_id).is_locked is False
+    service.set_lock(
+        lesson_request_id=graph.request_1_id,
+        session_index=1,
+        is_locked=True,
+        reason="単独ロック",
+    )
+    service.undo()
+    assert _require_assignment(project_service, graph, graph.request_1_id).is_locked is False
+    service.redo()
+    assert _require_assignment(project_service, graph, graph.request_1_id).is_locked is True
 
 
 def test_preconfirmed_assignment_is_created_locked_with_audit_and_hard_validation(
@@ -610,6 +611,44 @@ def test_preconfirmed_assignment_is_created_locked_with_audit_and_hard_validatio
             time_slot_id=graph.y_slot_id,
             teacher_id=graph.teacher_1_id,
         )
+
+
+def test_teacher_availability_can_be_toggled_from_the_schedule_grid(
+    project_service: ProjectService,
+) -> None:
+    graph = _seed_graph(project_service)
+    service = ScheduleEditService(project_service, _app_settings())
+    service.load_board()
+
+    service.set_teacher_availability(
+        day=graph.day,
+        time_slot_id=graph.y_slot_id,
+        teacher_id=graph.teacher_1_id,
+        available=False,
+    )
+    unavailable = next(
+        row
+        for row in service.load_board().teacher_availabilities
+        if row.day == graph.day
+        and row.time_slot_id == graph.y_slot_id
+        and row.teacher_id == graph.teacher_1_id
+    )
+    assert unavailable.level == 0
+
+    service.set_teacher_availability(
+        day=graph.day,
+        time_slot_id=graph.y_slot_id,
+        teacher_id=graph.teacher_1_id,
+        available=True,
+    )
+    available = next(
+        row
+        for row in service.load_board().teacher_availabilities
+        if row.day == graph.day
+        and row.time_slot_id == graph.y_slot_id
+        and row.teacher_id == graph.teacher_1_id
+    )
+    assert available.level == 1
 
 
 def test_unlock_invalidates_locked_candidate_cache_and_allows_preview(

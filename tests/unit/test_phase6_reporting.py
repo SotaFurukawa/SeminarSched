@@ -33,6 +33,11 @@ from summer_scheduler.reporting.data import (
     UnassignedRecord,
     WarningRecord,
 )
+from summer_scheduler.reporting.distribution_builder import (
+    build_student_handout_document,
+    build_teacher_handout_document,
+    build_teacher_packet_document,
+)
 from summer_scheduler.reporting.issue_builder import build_issues_document
 from summer_scheduler.reporting.settings import (
     OutputSettings,
@@ -101,6 +106,41 @@ def test_student_teacher_and_issue_reports_cover_required_fields() -> None:
     assert "解決候補" in issue_text
     assert "対応状況" in issue_text
     assert "未対応" in issue_text
+
+
+def test_distribution_handouts_are_a4_weekly_and_ordered_for_each_audience() -> None:
+    snapshot = replace(
+        _snapshot(),
+        subjects=(
+            replace(_snapshot().subjects[0], short_name="数"),
+            replace(_snapshot().subjects[1], short_name="英"),
+        ),
+    )
+
+    student = build_student_handout_document(snapshot, _settings())
+    teacher = build_teacher_handout_document(snapshot, _settings())
+    packets = build_teacher_packet_document(snapshot, _settings())
+
+    assert student.page_size == "A4"
+    assert student.orientation == "portrait"
+    assert student.page_count == len(snapshot.students)
+    assert all(len(section.pages) == 1 for section in student.sections)
+    assert "(架空講師" not in _document_texts(student)
+    assert "数" in _document_texts(student)
+    assert "(架空講師一)" in _document_texts(teacher)
+    assert [section.name.split("_")[0] for section in teacher.sections] == [
+        "中1",
+        "中2",
+        "高1",
+    ]
+    assert [section.name for section in packets.sections] == [
+        "講師_架空講師一",
+        "講師_架空講師二",
+        "講師_架空講師三",
+    ]
+    first_teacher_pages = packets.sections[0].pages
+    assert "通常授業を担当" in first_teacher_pages[0].subheading
+    assert "その他の生徒" in packets.sections[2].pages[0].subheading
 
 
 def test_timetable_uses_family_name_unless_the_family_name_is_duplicated() -> None:

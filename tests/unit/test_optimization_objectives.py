@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date, time
+from datetime import date, time, timedelta
 
 from ortools.sat.python import cp_model
 
@@ -27,9 +27,12 @@ from summer_scheduler.optimization.hard_constraints import add_hard_constraints
 from summer_scheduler.optimization.objectives import (
     ObjectiveStage,
     build_objective_stages,
+    realized_teacher_active_days,
     realized_teacher_loads,
+    request_spacing_score,
     teacher_participation_imbalance,
     teacher_preference_penalty,
+    teacher_week_imbalance,
 )
 from summer_scheduler.optimization.variables import ModelVariables
 
@@ -71,8 +74,11 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
         ("teacher_preference_penalty", "minimize"),
         ("teacher_continuity_penalty", "minimize"),
         ("same_day_concentration_penalty", "minimize"),
+        ("request_spacing_score", "maximize"),
         ("student_period_imbalance", "minimize"),
         ("period_distribution_score", "maximize"),
+        ("active_teacher_day_count", "minimize"),
+        ("teacher_week_imbalance", "minimize"),
         ("active_teacher_slot_count", "minimize"),
         ("availability_preference_score", "maximize"),
         ("changed_assignment_count", "minimize"),
@@ -88,9 +94,9 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
         CandidateGenerationResult(sessions=(), candidates=(), diagnostics=()),
         ModelVariables(),
     )
-    assert enabled_stages[6].name == "teacher_load_imbalance"
-    assert enabled_stages[6].direction == "minimize"
-    assert enabled_stages[7].name == "active_teacher_slot_count"
+    assert enabled_stages[7].name == "teacher_load_imbalance"
+    assert enabled_stages[7].direction == "minimize"
+    assert enabled_stages[8].name == "active_teacher_day_count"
 
 
 def test_teacher_preference_uses_request_max_and_never_adds_duplicate_scores() -> None:
@@ -213,6 +219,39 @@ def test_eight_or_more_sessions_are_exempt_from_same_day_concentration_penalty()
     )
 
     assert _solve_value(model, _stage(stages, "same_day_concentration_penalty")) == 0
+
+
+def test_request_spacing_rewards_the_requested_open_day_interval() -> None:
+    open_dates = tuple(DAY + timedelta(days=index) for index in range(20))
+    request = replace(_request(), required_sessions=4)
+    data = replace(_input(requests=(request,)), open_dates=open_dates)
+    evenly_spaced = tuple(
+        _candidate_for_session(index + 1, teacher_id=10, day=open_dates[index * 5])
+        for index in range(4)
+    )
+    front_loaded = tuple(
+        _candidate_for_session(index + 1, teacher_id=10, day=open_dates[index])
+        for index in range(4)
+    )
+
+    assert request_spacing_score(data, evenly_spaced) > request_spacing_score(data, front_loaded)
+
+
+def test_teacher_days_are_counted_once_and_equal_counts_prefer_weekly_spread() -> None:
+    open_dates = tuple(DAY + timedelta(days=index) for index in range(14))
+    data = replace(_input(), open_dates=open_dates)
+    compact = (
+        _candidate_for_session(1, teacher_id=10, day=open_dates[0]),
+        _candidate_for_session(2, teacher_id=10, day=open_dates[1]),
+    )
+    spread = (
+        _candidate_for_session(1, teacher_id=10, day=open_dates[0]),
+        _candidate_for_session(2, teacher_id=10, day=open_dates[8]),
+    )
+
+    assert len(realized_teacher_active_days(data, compact)[10]) == 2
+    assert len(realized_teacher_active_days(data, spread)[10]) == 2
+    assert teacher_week_imbalance(data, spread) < teacher_week_imbalance(data, compact)
 
 
 def test_existing_unlocked_assignment_penalizes_every_non_exact_result() -> None:

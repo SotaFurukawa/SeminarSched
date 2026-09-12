@@ -70,6 +70,10 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
             "overall",
             output_dir / "季節講習時間割.xlsx",
         )
+        handout_result = service.export_excel(
+            "student_handouts",
+            output_dir / "生徒配布時間割.xlsx",
+        )
         csv_result = service.export_csv(output_dir / "割当て生データ.csv")
         filtered_csv_result = service.export_csv(
             output_dir / "対象生徒のみ.csv",
@@ -77,6 +81,18 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
         )
 
         assert excel_result.path.is_file()
+        assert handout_result.path.is_file()
+        handout_workbook = load_workbook(handout_result.path, read_only=False, data_only=False)
+        try:
+            assert handout_workbook.sheetnames
+            assert all(
+                sheet.page_setup.fitToWidth == 1
+                and sheet.page_setup.fitToHeight == 1
+                and sheet.freeze_panes is None
+                for sheet in handout_workbook.worksheets
+            )
+        finally:
+            handout_workbook.close()
         workbook = load_workbook(excel_result.path, read_only=False, data_only=False)
         try:
             assert workbook.sheetnames[0] == "出力情報"

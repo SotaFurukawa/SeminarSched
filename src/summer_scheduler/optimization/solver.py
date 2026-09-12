@@ -7,7 +7,7 @@ import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import date, timedelta
 
 from ortools.sat.python import cp_model
 
@@ -41,10 +41,13 @@ from summer_scheduler.optimization.initial_solution import (
 from summer_scheduler.optimization.objectives import (
     ObjectiveStage,
     build_objective_stages,
+    realized_teacher_active_days,
     realized_teacher_loads,
+    request_spacing_score,
     student_period_imbalance,
     teacher_participation_imbalance,
     teacher_preference_penalty,
+    teacher_week_imbalance,
 )
 from summer_scheduler.optimization.result_validation import validate_optimization_result
 from summer_scheduler.optimization.sessions import SessionExpansionError, expand_sessions
@@ -131,7 +134,7 @@ def solve_optimization(
     token = cancellation or CancellationToken()
     started_at = clock()
     deadline = started_at + data.settings.time_limit_seconds
-    expected_stage_count = 9 if data.settings.optional_balance_weight > 0 else 8
+    expected_stage_count = 13 if data.settings.optional_balance_weight > 0 else 12
     if progress is not None:
         progress(
             OptimizationProgress(
@@ -614,8 +617,69 @@ def _add_safe_initial_hint(
         add_hint(variable, max(0, used_teacher_count.get(request_id, 0) - 1))
     for day_key, variable in variables.request_day_excess.items():
         add_hint(variable, max(0, selected_by_request_day.get(day_key, 0) - 1))
+    for day_key, variable in variables.request_day_used.items():
+        add_hint(variable, int(selected_by_request_day.get(day_key, 0) > 0))
+    for (request_id, first_day, second_day), variable in variables.request_day_pairs.items():
+        add_hint(
+            variable,
+            int(
+                selected_by_request_day.get((request_id, first_day), 0) > 0
+                and selected_by_request_day.get((request_id, second_day), 0) > 0
+            ),
+        )
     for month_key, variable in variables.request_month_used.items():
         add_hint(variable, int(selected_by_request_month.get(month_key, 0) > 0))
+
+    request_students = {request.id: request.student_id for request in data.lesson_requests}
+    student_week_values: dict[tuple[int, date], int] = defaultdict(int)
+    for candidate in selected_candidates:
+        student_week_values[
+            (request_students[candidate.lesson_request_id], _sunday_start(candidate.day))
+        ] += 1
+    for week_key, variable in variables.student_week_counts.items():
+        add_hint(variable, student_week_values.get(week_key, 0))
+    for (
+        student_id,
+        first_week,
+        second_week,
+    ), variable in variables.student_week_deviations.items():
+        add_hint(
+            variable,
+            abs(
+                student_week_values.get((student_id, first_week), 0)
+                - student_week_values.get((student_id, second_week), 0)
+            ),
+        )
+
+    teacher_day_values = {
+        (teacher_id, day_value): int(
+            any(
+                active
+                for (owner_id, active_day, _slot_id), active in teacher_active_values.items()
+                if owner_id == teacher_id and active_day == day_value
+            )
+        )
+        for teacher_id, day_value in variables.teacher_day_used
+    }
+    for day_key, variable in variables.teacher_day_used.items():
+        add_hint(variable, teacher_day_values[day_key])
+    teacher_week_values: dict[tuple[int, date], int] = defaultdict(int)
+    for (teacher_id, day_value), active in teacher_day_values.items():
+        teacher_week_values[(teacher_id, _sunday_start(day_value))] += active
+    for week_key, variable in variables.teacher_week_counts.items():
+        add_hint(variable, teacher_week_values.get(week_key, 0))
+    for (
+        teacher_id,
+        first_week,
+        second_week,
+    ), variable in variables.teacher_week_deviations.items():
+        add_hint(
+            variable,
+            abs(
+                teacher_week_values.get((teacher_id, first_week), 0)
+                - teacher_week_values.get((teacher_id, second_week), 0)
+            ),
+        )
 
     load_values: dict[int, int] = {}
     for teacher_id, variable in sorted(variables.teacher_loads.items()):
@@ -646,6 +710,10 @@ def _integer_value(solver: cp_model.CpSolver, stage: ObjectiveStage) -> int:
     return int(rounded)
 
 
+def _sunday_start(day_value: date) -> date:
+    return day_value - timedelta(days=(day_value.weekday() + 1) % 7)
+
+
 def _snapshot_stage_value(
     data: OptimizationInput,
     generation: CandidateGenerationResult,
@@ -667,12 +735,17 @@ def _snapshot_stage_value(
             data,
             snapshot.selected,
         ),
+        "request_spacing_score": request_spacing_score(data, snapshot.selected),
         "student_period_imbalance": student_period_imbalance(
             data,
             generation,
             snapshot.selected,
         ),
         "period_distribution_score": _period_distribution_score(data, snapshot.selected),
+        "active_teacher_day_count": sum(
+            len(days) for days in realized_teacher_active_days(data, snapshot.selected).values()
+        ),
+        "teacher_week_imbalance": teacher_week_imbalance(data, snapshot.selected),
         "active_teacher_slot_count": breakdown.active_teacher_slot_count,
         "availability_preference_score": breakdown.availability_preference_score,
         "changed_assignment_count": (

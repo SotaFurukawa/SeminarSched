@@ -267,7 +267,8 @@ def test_atomic_detail_lock_unassign_undo_redo_and_checkpoint(
     assert view_model.toggleSelectedLock()
     locked_call = service.lock_calls[-1]
     assert locked_call["is_locked"] is True
-    assert view_model.unassignSelected("ロック中") == "red"
+    # 右側の操作からは固定解除と未配置への移動を一度に行える。
+    assert view_model.unassignSelected("ロック中") == "yellow"
     assert service.unassign_calls == []
     assert view_model.toggleSelectedLock()
     unlocked_call = service.lock_calls[-1]

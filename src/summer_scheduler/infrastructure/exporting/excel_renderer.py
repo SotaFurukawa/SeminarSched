@@ -127,8 +127,14 @@ class ExcelRenderer:
             default=1,
         )
         worksheet.sheet_view.showGridLines = False
+        one_page_report = document.report_code in {
+            "overall",
+            "student_handouts",
+            "teacher_handouts",
+            "teacher_packets",
+        }
         overall_timetable = document.report_code == "overall"
-        worksheet.freeze_panes = None if overall_timetable else "A4"
+        worksheet.freeze_panes = None if one_page_report else "A4"
         worksheet.sheet_properties.pageSetUpPr = PageSetupProperties(
             fitToPage=True,
             autoPageBreaks=False,
@@ -142,7 +148,7 @@ class ExcelRenderer:
             else worksheet.ORIENTATION_PORTRAIT
         )
         worksheet.page_setup.fitToWidth = 1
-        worksheet.page_setup.fitToHeight = 1 if document.report_code == "overall" else 0
+        worksheet.page_setup.fitToHeight = 1 if one_page_report else 0
         margin_inches = document.margin_mm / 25.4
         worksheet.page_margins.left = margin_inches
         worksheet.page_margins.right = margin_inches

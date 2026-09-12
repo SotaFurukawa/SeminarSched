@@ -121,6 +121,8 @@ def test_unassigned_detail_history_diff_undo_lock_and_reoptimization_are_present
     assert "時間割を自動作成" in source
     assert "配置をリセット" in source
     assert "addTeacherToCurrentDate" in source
+    assert "setTeacherAvailability" in source
+    assert "unassignedDragPreview" in source
     assert "選択日・選択生徒・選択講師だけの部分再最適化" in source
 
 

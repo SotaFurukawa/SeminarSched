@@ -168,6 +168,15 @@ class ScheduleEditServiceProtocol(Protocol):
 
     def reset_assignments(self) -> int: ...
 
+    def set_teacher_availability(
+        self,
+        *,
+        day: date,
+        time_slot_id: int,
+        teacher_id: int,
+        available: bool,
+    ) -> None: ...
+
 
 class ScheduleGridModel(QAbstractTableModel):
     """当日分だけを保持する、講師列×コマ行の再利用可能TableView model。"""
@@ -444,7 +453,10 @@ class ScheduleEditorViewModel(QObject):
         board = self._board
         if board is None:
             return []
-        return [self._unassigned_dict(row) for row in board.unassigned]
+        rows = [self._unassigned_dict(row) for row in board.unassigned]
+        if self._search_query:
+            rows.sort(key=lambda row: (not bool(row["matchesFilter"]),))
+        return rows
 
     unassignedLessons = Property(list, _get_unassigned_lessons, notify=filterChanged)
 
@@ -665,6 +677,33 @@ class ScheduleEditorViewModel(QObject):
         self.navigationChanged.emit()
         return True
 
+    @Slot(str, int, int, bool, result=bool)
+    def setTeacherAvailability(
+        self,
+        day_value: str,
+        time_slot_id: int,
+        teacher_id: int,
+        available: bool,
+    ) -> bool:
+        try:
+            selected_day = date.fromisoformat(day_value)
+        except ValueError:
+            self._set_error("講師の出勤可否を変更する日付が不正です")
+            return False
+        self._begin_save()
+        try:
+            self._service.set_teacher_availability(
+                day=selected_day,
+                time_slot_id=time_slot_id,
+                teacher_id=teacher_id,
+                available=available,
+            )
+        except Exception as exc:
+            return self._action_failed("講師の出勤可否変更", exc)
+        return self._action_succeeded(
+            f"講師の出勤可否を{'出勤可能' if available else '出勤不可'}へ変更しました"
+        )
+
     @Slot(str)
     def setViewMode(self, value: str) -> None:
         if value not in {"day", "multiple"}:
@@ -883,8 +922,17 @@ class ScheduleEditorViewModel(QObject):
             self._set_error("配置済みの授業を選択してください")
             return "red"
         if bool(selected.get("isLocked", False)):
-            self._set_error("ロック済み授業は、先に明示的にロック解除してください")
-            return "red"
+            self._begin_save()
+            try:
+                self._service.set_lock(
+                    lesson_request_id=key[0],
+                    session_index=key[1],
+                    is_locked=False,
+                    reason="未配置へ戻すため固定を解除",
+                )
+            except Exception as exc:
+                self._action_failed("固定解除", exc)
+                return "red"
         pending = _PendingEdit(
             kind="unassign",
             lesson_request_id=key[0],
@@ -1111,6 +1159,8 @@ class ScheduleEditorViewModel(QObject):
                     if source is not None
                     else []
                 )
+                if self._search_query:
+                    card_rows.sort(key=lambda card: (not bool(card["matchesFilter"]),))
                 group_rows = (
                     [
                         _group_dict(groups[group_id])
@@ -1209,7 +1259,7 @@ class ScheduleEditorViewModel(QObject):
             "grade": card.grade,
             "subjectId": card.subject_id,
             "subjectCode": card.subject_code,
-            "subjectShortName": card.subject_code or card.subject_name,
+            "subjectShortName": card.subject_name,
             "subjectName": card.subject_name,
             "date": card.day.isoformat(),
             "timeSlotId": card.time_slot_id,
@@ -1243,7 +1293,7 @@ class ScheduleEditorViewModel(QObject):
             "grade": row.grade,
             "subjectId": row.subject_id,
             "subjectCode": row.subject_code,
-            "subjectShortName": row.subject_code or row.subject_name,
+            "subjectShortName": row.subject_name,
             "subjectName": row.subject_name,
             "date": "",
             "timeSlotId": 0,

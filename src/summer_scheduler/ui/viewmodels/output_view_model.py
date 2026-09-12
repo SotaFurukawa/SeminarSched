@@ -45,7 +45,16 @@ from summer_scheduler.reporting.settings import (
 logger = logging.getLogger(__name__)
 
 OutputFormat = Literal["xlsx", "pdf", "csv"]
-OutputKind = Literal["overall", "students", "teachers", "issues", "raw"]
+OutputKind = Literal[
+    "overall",
+    "students",
+    "teachers",
+    "issues",
+    "raw",
+    "student_handouts",
+    "teacher_handouts",
+    "teacher_packets",
+]
 _SelectionValue = TypeVar("_SelectionValue", date, int)
 
 _REPORT_OPTIONS = (
@@ -54,6 +63,9 @@ _REPORT_OPTIONS = (
     {"label": "講師別時間割", "value": "teachers"},
     {"label": "未配置・警告一覧", "value": "issues"},
     {"label": "割当て生データ", "value": "raw"},
+    {"label": "生徒配布時間割", "value": "student_handouts"},
+    {"label": "講師配布時間割（学年順）", "value": "teacher_handouts"},
+    {"label": "講師配布時間割（講師別）", "value": "teacher_packets"},
 )
 _FORMAT_OPTIONS = (
     {"label": "Excel（.xlsx）", "value": "xlsx"},

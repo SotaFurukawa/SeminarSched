@@ -61,7 +61,7 @@ def test_qtquick_pdf_preview_has_navigation_zoom_and_cleanup_contract() -> None:
     assert "PdfDocument {" in qml
     assert "PdfMultiPageView {" in qml
     assert (
-        "id: previewPane\n\n                SplitView.minimumWidth: 420\n                SplitView.fillWidth: true\n                clip: true"
+        "id: previewPane\n\n                SplitView.minimumWidth: 420\n                SplitView.minimumHeight: 260\n                SplitView.fillWidth: true\n                clip: true"
         in qml
     )
     assert (
@@ -101,6 +101,8 @@ def test_main_uses_output_page_and_composes_project_switch_guards() -> None:
     assert "readonly property var output: outputViewModel" in main
     assert "root.currentPageIndex === 6" in main
     assert "OutputPage {" in main
+    assert 'title: "配布物確認"' in main
+    assert "distributionReviewMode: true" in main
     assert "OutputViewModel(" in app
     assert "OutputService(" in app
     assert "output_defaults=runtime.settings.output" in app
@@ -112,3 +114,17 @@ def test_main_uses_output_page_and_composes_project_switch_guards() -> None:
     assert "optimization_view_model.ensure_project_switch_allowed()" in guard
     assert "output_view_model.ensure_project_switch_allowed()" in guard
     assert "application.aboutToQuit.connect(output_view_model.shutdown)" in app
+
+
+def test_distribution_review_exposes_audience_reports_and_responsive_preview() -> None:
+    qml = QML.read_text(encoding="utf-8")
+    python = VIEW_MODEL.read_text(encoding="utf-8")
+
+    assert 'qsTr("個別時間割")' in qml
+    assert 'qsTr("講師配布時間割")' in qml
+    assert 'qsTr("生徒配布時間割")' in qml
+    assert 'root.viewModel.setReportKind("teacher_packets")' in qml
+    assert "root.width < 1120 ? Qt.Vertical : Qt.Horizontal" in qml
+    assert '"student_handouts"' in python
+    assert '"teacher_handouts"' in python
+    assert '"teacher_packets"' in python

@@ -76,6 +76,11 @@ def build_objective_stages(
             ),
         ),
         ObjectiveStage(
+            name="request_spacing_score",
+            direction="maximize",
+            expression=_request_spacing_expression(model, data, generation, variables),
+        ),
+        ObjectiveStage(
             name="student_period_imbalance",
             direction="minimize",
             expression=_student_period_imbalance_expression(
@@ -101,6 +106,18 @@ def build_objective_stages(
         )
     stages.extend(
         [
+            ObjectiveStage(
+                name="active_teacher_day_count",
+                direction="minimize",
+                expression=cp_model.LinearExpr.sum(
+                    list(_teacher_day_used_variables(model, data, variables).values())
+                ),
+            ),
+            ObjectiveStage(
+                name="teacher_week_imbalance",
+                direction="minimize",
+                expression=_teacher_week_imbalance_expression(model, data, variables),
+            ),
             ObjectiveStage(
                 name="active_teacher_slot_count",
                 direction="minimize",
@@ -375,6 +392,90 @@ def _period_distribution_expression(
     return cp_model.LinearExpr.sum(used_variables)
 
 
+def _request_spacing_expression(
+    model: cp_model.CpModel,
+    data: OptimizationInput,
+    generation: CandidateGenerationResult,
+    variables: ModelVariables,
+) -> cp_model.LinearExpr:
+    """同一生徒・科目の授業日を、開校日数÷回数の格子へ近づける。"""
+    open_days = tuple(sorted(set(data.open_dates)))
+    if len(open_days) < 2:
+        return cp_model.LinearExpr.constant(0)
+    day_positions = {day_value: index for index, day_value in enumerate(open_days)}
+    requests = {request.id: request for request in data.lesson_requests}
+    candidates_by_request_day: dict[tuple[int, date], list[CandidateData]] = defaultdict(list)
+    for candidate in generation.candidates:
+        candidates_by_request_day[(candidate.lesson_request_id, candidate.day)].append(candidate)
+
+    used_days_by_request: dict[int, dict[date, cp_model.IntVar]] = defaultdict(dict)
+    for (request_id, day_value), candidates in sorted(candidates_by_request_day.items()):
+        request = requests[request_id]
+        if request.required_sessions < 2:
+            continue
+        used = model.new_bool_var(f"request_day_used_{request_id}_{day_value.isoformat()}")
+        selections = [variables.assignments[candidate] for candidate in candidates]
+        for selection in selections:
+            model.add(selection <= used)
+        model.add(used <= cp_model.LinearExpr.sum(selections))
+        variables.request_day_used[(request_id, day_value)] = used
+        used_days_by_request[request_id][day_value] = used
+
+    pair_variables: list[cp_model.IntVar] = []
+    pair_scores: list[int] = []
+    open_day_count = len(open_days)
+    for request_id, days in sorted(used_days_by_request.items()):
+        required_sessions = requests[request_id].required_sessions
+        ordered_days = sorted(days)
+        for position, first_day in enumerate(ordered_days):
+            for second_day in ordered_days[position + 1 :]:
+                pair_used = model.new_bool_var(
+                    f"request_day_pair_{request_id}_{first_day.isoformat()}_{second_day.isoformat()}"
+                )
+                model.add(pair_used <= days[first_day])
+                model.add(pair_used <= days[second_day])
+                model.add(pair_used >= days[first_day] + days[second_day] - 1)
+                variables.request_day_pairs[(request_id, first_day, second_day)] = pair_used
+                distance = day_positions[second_day] - day_positions[first_day]
+                penalty = min(
+                    abs(distance * required_sessions - open_day_count * multiple)
+                    for multiple in range(1, required_sessions)
+                )
+                pair_variables.append(pair_used)
+                pair_scores.append(open_day_count * required_sessions + 1 - penalty)
+    return cp_model.LinearExpr.weighted_sum(pair_variables, pair_scores)
+
+
+def request_spacing_score(
+    data: OptimizationInput,
+    selected: Iterable[CandidateData],
+) -> int:
+    """選択済み解の、開校日間隔に基づく要求別分散スコアを返す。"""
+    open_days = tuple(sorted(set(data.open_dates)))
+    if len(open_days) < 2:
+        return 0
+    day_positions = {day_value: index for index, day_value in enumerate(open_days)}
+    requests = {request.id: request for request in data.lesson_requests}
+    selected_days: dict[int, set[date]] = defaultdict(set)
+    for candidate in selected:
+        selected_days[candidate.lesson_request_id].add(candidate.day)
+    total = 0
+    for request_id, days in selected_days.items():
+        required_sessions = requests[request_id].required_sessions
+        if required_sessions < 2:
+            continue
+        ordered_days = sorted(days)
+        for position, first_day in enumerate(ordered_days):
+            for second_day in ordered_days[position + 1 :]:
+                distance = day_positions[second_day] - day_positions[first_day]
+                penalty = min(
+                    abs(distance * required_sessions - len(open_days) * multiple)
+                    for multiple in range(1, required_sessions)
+                )
+                total += len(open_days) * required_sessions + 1 - penalty
+    return total
+
+
 def _student_period_imbalance_expression(
     model: cp_model.CpModel,
     data: OptimizationInput,
@@ -418,6 +519,7 @@ def _student_period_imbalance_expression(
                 )
             )
             weekly_counts[week_start] = count
+            variables.student_week_counts[(student_id, week_start)] = count
         for position, first_week in enumerate(distinct_weeks):
             for second_week in distinct_weeks[position + 1 :]:
                 deviation = model.new_int_var(
@@ -433,7 +535,107 @@ def _student_period_imbalance_expression(
                     weekly_counts[first_week] - weekly_counts[second_week],
                 )
                 deviations.append(deviation)
+                variables.student_week_deviations[(student_id, first_week, second_week)] = deviation
     return cp_model.LinearExpr.sum(deviations)
+
+
+def _teacher_day_used_variables(
+    model: cp_model.CpModel,
+    data: OptimizationInput,
+    variables: ModelVariables,
+) -> dict[tuple[int, date], cp_model.IntVar]:
+    if variables.teacher_day_used:
+        return variables.teacher_day_used
+    active_by_teacher_day: dict[tuple[int, date], list[cp_model.IntVar]] = defaultdict(list)
+    for (teacher_id, day_value, _slot_id), active in sorted(variables.teacher_active.items()):
+        active_by_teacher_day[(teacher_id, day_value)].append(active)
+    for (teacher_id, day_value), active_slots in sorted(active_by_teacher_day.items()):
+        used = model.new_bool_var(f"teacher_day_used_{teacher_id}_{day_value.isoformat()}")
+        for active in active_slots:
+            model.add(active <= used)
+        model.add(used <= cp_model.LinearExpr.sum(active_slots))
+        variables.teacher_day_used[(teacher_id, day_value)] = used
+    return variables.teacher_day_used
+
+
+def _teacher_week_imbalance_expression(
+    model: cp_model.CpModel,
+    data: OptimizationInput,
+    variables: ModelVariables,
+) -> cp_model.LinearExpr:
+    day_used = _teacher_day_used_variables(model, data, variables)
+    days_by_teacher_week: dict[tuple[int, date], list[cp_model.IntVar]] = defaultdict(list)
+    for (teacher_id, day_value), used in sorted(day_used.items()):
+        days_by_teacher_week[(teacher_id, _sunday_of_week(day_value))].append(used)
+    weeks_by_teacher: dict[int, list[date]] = defaultdict(list)
+    for teacher_id, week_start in sorted(days_by_teacher_week):
+        weeks_by_teacher[teacher_id].append(week_start)
+
+    deviations: list[cp_model.IntVar] = []
+    for teacher_id, week_values in sorted(weeks_by_teacher.items()):
+        weeks = sorted(set(week_values))
+        if len(weeks) < 2:
+            continue
+        counts: dict[date, cp_model.IntVar] = {}
+        for week_start in weeks:
+            day_variables = days_by_teacher_week[(teacher_id, week_start)]
+            count = model.new_int_var(
+                0,
+                len(day_variables),
+                f"teacher_week_count_{teacher_id}_{week_start.isoformat()}",
+            )
+            model.add(count == cp_model.LinearExpr.sum(day_variables))
+            variables.teacher_week_counts[(teacher_id, week_start)] = count
+            counts[week_start] = count
+        for position, first_week in enumerate(weeks):
+            for second_week in weeks[position + 1 :]:
+                deviation = model.new_int_var(
+                    0,
+                    max(
+                        len(days_by_teacher_week[(teacher_id, first_week)]),
+                        len(days_by_teacher_week[(teacher_id, second_week)]),
+                    ),
+                    f"teacher_week_deviation_{teacher_id}_{first_week.isoformat()}_{second_week.isoformat()}",
+                )
+                model.add_abs_equality(
+                    deviation,
+                    counts[first_week] - counts[second_week],
+                )
+                deviations.append(deviation)
+                variables.teacher_week_deviations[(teacher_id, first_week, second_week)] = deviation
+    return cp_model.LinearExpr.sum(deviations)
+
+
+def realized_teacher_active_days(
+    data: OptimizationInput,
+    selected: Iterable[CandidateData],
+) -> dict[int, set[date]]:
+    """解と固定授業を含む、講師ごとの実出勤日を返す。"""
+    result: dict[int, set[date]] = defaultdict(set)
+    for candidate in selected:
+        result[candidate.teacher_id].add(candidate.day)
+    for block in data.group_blocks:
+        if block.teacher_id is not None:
+            result[block.teacher_id].add(block.day)
+    return result
+
+
+def teacher_week_imbalance(
+    data: OptimizationInput,
+    selected: Iterable[CandidateData],
+) -> int:
+    """講師ごとの週別出勤日数のばらつきを返す。"""
+    active_days = realized_teacher_active_days(data, selected)
+    weeks = sorted({_sunday_of_week(day_value) for day_value in data.open_dates})
+    return sum(
+        abs(
+            sum(_sunday_of_week(day_value) == first for day_value in days)
+            - sum(_sunday_of_week(day_value) == second for day_value in days)
+        )
+        for days in active_days.values()
+        for position, first in enumerate(weeks)
+        for second in weeks[position + 1 :]
+    )
 
 
 def student_period_imbalance(
@@ -549,8 +751,11 @@ __all__ = [
     "TeacherLoad",
     "build_objective_stages",
     "realized_teacher_loads",
+    "realized_teacher_active_days",
+    "request_spacing_score",
     "teacher_availability_capacities",
     "teacher_participation_imbalance",
     "teacher_preference_penalty",
+    "teacher_week_imbalance",
     "student_period_imbalance",
 ]

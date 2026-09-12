@@ -33,7 +33,14 @@ from summer_scheduler.application.schedule_board_query import (
     audit_log_to_dto,
     build_schedule_board,
 )
-from summer_scheduler.infrastructure.db.models import AuditLog, OptimizationRun
+from summer_scheduler.infrastructure.db.models import (
+    AuditLog,
+    OpenDate,
+    OptimizationRun,
+    Teacher,
+    TeacherAvailability,
+    TimeSlot,
+)
 from summer_scheduler.infrastructure.repositories import (
     AssignmentSnapshot,
     Phase5Repository,
@@ -249,6 +256,66 @@ class ScheduleEditService:
         self._last_diff = _schedule_diff(before_context.schedule, after_context.schedule)
         self._clear_command_history(clear_diff=False)
         return len(snapshots)
+
+    def set_teacher_availability(
+        self,
+        *,
+        day: date,
+        time_slot_id: int,
+        teacher_id: int,
+        available: bool,
+    ) -> None:
+        """時間割編集画面から講師の当日コマ可否を即時保存する。"""
+        project = self._require_project()
+        database = self._projects.require_database()
+        try:
+            with database.session_factory.begin() as session:
+                open_date = session.scalar(
+                    select(OpenDate).where(
+                        OpenDate.project_id == project.project_id,
+                        OpenDate.date == day,
+                    )
+                )
+                teacher = session.get(Teacher, teacher_id)
+                slot = session.scalar(
+                    select(TimeSlot).where(
+                        TimeSlot.project_id == project.project_id,
+                        TimeSlot.id == time_slot_id,
+                    )
+                )
+                if open_date is None or not open_date.is_open:
+                    raise ScheduleEditValidationError("開校日を選択してください")
+                if teacher is None or not teacher.active:
+                    raise ScheduleEditValidationError("有効な講師を選択してください")
+                if slot is None or not slot.enabled:
+                    raise ScheduleEditValidationError("有効なコマを選択してください")
+                key = (project.project_id, teacher_id, day, time_slot_id)
+                row = session.get(TeacherAvailability, key)
+                level = 1 if available else 0
+                if row is None:
+                    session.add(
+                        TeacherAvailability(
+                            project_id=project.project_id,
+                            teacher_id=teacher_id,
+                            date=day,
+                            time_slot_id=time_slot_id,
+                            availability_level=level,
+                        )
+                    )
+                elif available and row.availability_level > 0:
+                    return
+                else:
+                    row.availability_level = level
+        except ScheduleEditError:
+            raise
+        except Exception as exc:
+            raise ScheduleSaveError("講師の出勤可否を保存できませんでした") from exc
+        self._candidate_cache_key = None
+        self._candidate_cache = None
+        self._context_cache = None
+        self._known_fingerprint = None
+        self._checkpoint_baseline = None
+        self._clear_command_history()
 
     def preview_move(
         self,
@@ -605,7 +672,8 @@ class ScheduleEditService:
                         time_slot_id=time_slot_id,
                         teacher_id=teacher_id,
                         optimization_run_id_optional=None,
-                        is_locked=is_locked or False,
+                        # 未配置からの手動配置は利用者が先に確定した枠として扱う。
+                        is_locked=True if is_locked is None else is_locked,
                         is_manual=True,
                         created_by="manual",
                         note=_normalized_note(note) if change_note else None,

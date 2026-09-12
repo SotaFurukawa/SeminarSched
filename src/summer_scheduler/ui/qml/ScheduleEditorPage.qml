@@ -11,6 +11,9 @@ Item {
     signal openHomeRequested
     signal openOptimizationRequested
     property bool unassignedDragActive: false
+    property var dragPreviewLesson: null
+    property real dragPreviewX: 0
+    property real dragPreviewY: 0
 
     function rowValue(row, key, fallback) {
         if (row && row[key] !== undefined && row[key] !== null)
@@ -51,6 +54,23 @@ Item {
                           Number(targetTeacherId))
         if (outcome === "yellow")
             softWarningDialog.open()
+    }
+
+    function beginUnassignedDrag(card, lesson) {
+        root.unassignedDragActive = true
+        root.dragPreviewLesson = lesson
+        root.updateUnassignedDrag(card)
+    }
+
+    function updateUnassignedDrag(card) {
+        const position = card.mapToItem(root, 0, 0)
+        root.dragPreviewX = position.x
+        root.dragPreviewY = position.y
+    }
+
+    function endUnassignedDrag() {
+        root.unassignedDragActive = false
+        root.dragPreviewLesson = null
     }
 
     function findById(rows, value) {
@@ -571,8 +591,11 @@ Item {
                                     unassignedRailCard.homeY = unassignedRailCard.y
                                     unassignedRailCard.dragHotSpotX = mouse.x
                                     unassignedRailCard.dragHotSpotY = mouse.y
-                                    root.unassignedDragActive = true
+                                    root.beginUnassignedDrag(
+                                                unassignedRailCard,
+                                                unassignedRailCard.modelData)
                                 }
+                                onPositionChanged: root.updateUnassignedDrag(unassignedRailCard)
                                 onClicked: root.viewModel.selectLesson(
                                                Number(root.rowValue(
                                                           unassignedRailCard.modelData,
@@ -584,12 +607,12 @@ Item {
                                     unassignedRailCard.Drag.drop()
                                     unassignedRailCard.x = unassignedRailCard.homeX
                                     unassignedRailCard.y = unassignedRailCard.homeY
-                                    root.unassignedDragActive = false
+                                    root.endUnassignedDrag()
                                 }
                                 onCanceled: {
                                     unassignedRailCard.x = unassignedRailCard.homeX
                                     unassignedRailCard.y = unassignedRailCard.homeY
-                                    root.unassignedDragActive = false
+                                    root.endUnassignedDrag()
                                 }
                             }
                         }
@@ -991,6 +1014,34 @@ Item {
                                     onExited: root.viewModel.clearDropPreview()
                                 }
 
+                                ToolButton {
+                                    anchors.top: parent.top
+                                    anchors.right: parent.right
+                                    anchors.margins: 3
+                                    width: 34
+                                    height: 20
+                                    z: 30
+                                    text: root.rowValue(scheduleCell.cellData,
+                                                        "teacherAvailable", false)
+                                          ? qsTr("可") : qsTr("不可")
+                                    font.pixelSize: 7
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: qsTr("この講師・日付・コマの出勤可否を切り替える")
+                                    onClicked: root.viewModel.setTeacherAvailability(
+                                                   String(root.rowValue(
+                                                              scheduleCell.cellData,
+                                                              "date", "")),
+                                                   Number(root.rowValue(
+                                                              scheduleCell.cellData,
+                                                              "timeSlotId", 0)),
+                                                   Number(root.rowValue(
+                                                              scheduleCell.cellData,
+                                                              "teacherId", 0)),
+                                                   !Boolean(root.rowValue(
+                                                               scheduleCell.cellData,
+                                                               "teacherAvailable", false)))
+                                }
+
                                 Rectangle {
                                     anchors.left: parent.left
                                     anchors.right: parent.right
@@ -1294,8 +1345,11 @@ Item {
                                         unassignedCard.homeY = unassignedCard.y
                                         unassignedCard.dragHotSpotX = mouse.x
                                         unassignedCard.dragHotSpotY = mouse.y
-                                        root.unassignedDragActive = true
+                                        root.beginUnassignedDrag(
+                                                    unassignedCard,
+                                                    unassignedCard.modelData)
                                     }
+                                    onPositionChanged: root.updateUnassignedDrag(unassignedCard)
                                     onClicked: root.viewModel.selectLesson(
                                                    Number(root.rowValue(
                                                               unassignedCard.modelData,
@@ -1307,12 +1361,12 @@ Item {
                                         unassignedCard.Drag.drop()
                                         unassignedCard.x = unassignedCard.homeX
                                         unassignedCard.y = unassignedCard.homeY
-                                        root.unassignedDragActive = false
+                                        root.endUnassignedDrag()
                                     }
                                     onCanceled: {
                                         unassignedCard.x = unassignedCard.homeX
                                         unassignedCard.y = unassignedCard.homeY
-                                        root.unassignedDragActive = false
+                                        root.endUnassignedDrag()
                                     }
                                 }
                             }
@@ -1399,13 +1453,14 @@ Item {
                                 }
                                 Button {
                                     Layout.fillWidth: true
-                                    text: qsTr("未配置へ移動")
+                                    text: root.rowValue(
+                                              root.viewModel.selectedLesson,
+                                              "isLocked", false)
+                                          ? qsTr("固定解除して未配置へ移動")
+                                          : qsTr("未配置へ移動")
                                     enabled: root.rowValue(
                                                  root.viewModel.selectedLesson,
                                                  "teacherId", 0) > 0
-                                             && !root.rowValue(
-                                                 root.viewModel.selectedLesson,
-                                                 "isLocked", false)
                                     onClicked: {
                                         const outcome = root.viewModel.unassignSelected(
                                                           qsTr("画面から未配置へ移動"))
@@ -1543,6 +1598,44 @@ Item {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    Rectangle {
+        id: unassignedDragPreview
+
+        x: root.dragPreviewX
+        y: root.dragPreviewY
+        width: 220
+        height: 82
+        visible: root.unassignedDragActive && root.dragPreviewLesson !== null
+        z: 10000
+        radius: 6
+        color: "#fff8f6"
+        border.width: 2
+        border.color: "#c86f66"
+        opacity: 0.94
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 7
+            spacing: 2
+            Label {
+                Layout.fillWidth: true
+                text: root.rowValue(root.dragPreviewLesson, "studentName", "")
+                      + " / "
+                      + root.rowValue(root.dragPreviewLesson, "subjectName", "")
+                color: "#592c29"
+                font.pixelSize: 10
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("時間割の配置先へ移動中")
+                color: "#667085"
+                font.pixelSize: 8
             }
         }
     }

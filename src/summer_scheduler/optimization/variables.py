@@ -29,7 +29,18 @@ class ModelVariables:
     request_teacher_used: dict[tuple[int, int], cp_model.IntVar] = field(default_factory=dict)
     request_teacher_excess: dict[int, cp_model.IntVar] = field(default_factory=dict)
     request_day_excess: dict[tuple[int, date], cp_model.IntVar] = field(default_factory=dict)
+    request_day_used: dict[tuple[int, date], cp_model.IntVar] = field(default_factory=dict)
+    request_day_pairs: dict[tuple[int, date, date], cp_model.IntVar] = field(default_factory=dict)
     request_month_used: dict[tuple[int, int, int], cp_model.IntVar] = field(default_factory=dict)
+    student_week_counts: dict[tuple[int, date], cp_model.IntVar] = field(default_factory=dict)
+    student_week_deviations: dict[tuple[int, date, date], cp_model.IntVar] = field(
+        default_factory=dict
+    )
+    teacher_day_used: dict[tuple[int, date], cp_model.IntVar] = field(default_factory=dict)
+    teacher_week_counts: dict[tuple[int, date], cp_model.IntVar] = field(default_factory=dict)
+    teacher_week_deviations: dict[tuple[int, date, date], cp_model.IntVar] = field(
+        default_factory=dict
+    )
     teacher_loads: dict[int, cp_model.IntVar] = field(default_factory=dict)
     teacher_load_pairwise_deviations: dict[tuple[int, int], cp_model.IntVar] = field(
         default_factory=dict

@@ -79,7 +79,9 @@ class HtmlRenderer:
             for width in table.column_widths
         )
         rows = "".join(
-            "<tr>" + "".join(self._cell(cell, settings) for cell in row.cells) + "</tr>"
+            f"<tr{_row_style(row.height_points_optional)}>"
+            + "".join(self._cell(cell, settings) for cell in row.cells)
+            + "</tr>"
             for row in table.rows
         )
         return f'<table class="report-table"><colgroup>{columns}</colgroup>{rows}</table>'
@@ -92,6 +94,8 @@ class HtmlRenderer:
             attributes.append(f'rowspan="{cell.row_span}"')
         rule = _highest_priority_rule(cell, settings)
         styles = [f"text-align:{cell.alignment}"]
+        if cell.vertical_text:
+            styles.extend(("writing-mode:vertical-rl", "text-orientation:upright"))
         if rule is not None:
             styles.extend(
                 (
@@ -102,6 +106,10 @@ class HtmlRenderer:
         attributes.append(f'class="role-{cell.role}"')
         attributes.append(f'style="{";".join(styles)}"')
         return f"<td {' '.join(attributes)}>{_text(cell.text) or '&nbsp;'}</td>"
+
+
+def _row_style(height_points: float | None) -> str:
+    return "" if height_points is None else f' style="height:{height_points:.1f}pt"'
 
 
 def _highest_priority_rule(
