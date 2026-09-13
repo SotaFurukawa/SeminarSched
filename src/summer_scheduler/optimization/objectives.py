@@ -804,10 +804,7 @@ def maximum_teacher_week_deviation(
         (
             abs(
                 sum(_sunday_of_week(day_value) == first for day_value in active_days[teacher_id])
-                - sum(
-                    _sunday_of_week(day_value) == second
-                    for day_value in active_days[teacher_id]
-                )
+                - sum(_sunday_of_week(day_value) == second for day_value in active_days[teacher_id])
             )
             for teacher_id, weeks in eligible_weeks.items()
             for position, first in enumerate(sorted(weeks))

@@ -644,9 +644,7 @@ def _add_safe_initial_hint(
             maximum_score = 2 * request.required_sessions * len(open_days) + 1
             actual_position = 2 * request.required_sessions * day_positions[candidate.day]
             target_position = (2 * candidate.session_index - 1) * len(open_days)
-            request_scores[request.id] += maximum_score - abs(
-                actual_position - target_position
-            )
+            request_scores[request.id] += maximum_score - abs(actual_position - target_position)
     for request_id, variable in variables.request_spacing_scores.items():
         add_hint(variable, request_scores[request_id])
     if variables.request_spacing_quality_minimum is not None:
