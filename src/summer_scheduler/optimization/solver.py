@@ -41,6 +41,8 @@ from summer_scheduler.optimization.initial_solution import (
 from summer_scheduler.optimization.objectives import (
     ObjectiveStage,
     build_objective_stages,
+    maximum_student_week_deviation,
+    maximum_teacher_week_deviation,
     realized_teacher_active_days,
     realized_teacher_loads,
     request_spacing_score,
@@ -48,6 +50,7 @@ from summer_scheduler.optimization.objectives import (
     teacher_participation_imbalance,
     teacher_preference_penalty,
     teacher_week_imbalance,
+    worst_request_spacing_quality,
 )
 from summer_scheduler.optimization.result_validation import validate_optimization_result
 from summer_scheduler.optimization.sessions import SessionExpansionError, expand_sessions
@@ -134,7 +137,7 @@ def solve_optimization(
     token = cancellation or CancellationToken()
     started_at = clock()
     deadline = started_at + data.settings.time_limit_seconds
-    expected_stage_count = 13 if data.settings.optional_balance_weight > 0 else 12
+    expected_stage_count = 16 if data.settings.optional_balance_weight > 0 else 15
     if progress is not None:
         progress(
             OptimizationProgress(
@@ -249,6 +252,7 @@ def solve_optimization(
             _add_safe_initial_hint(
                 model,
                 data,
+                generation,
                 variables,
                 initial_snapshot.selected,
             )
@@ -383,7 +387,7 @@ def solve_optimization(
                 raise RuntimeError("OPTIMALなのに目的値を取得できませんでした")
             model.add(stage.expression == objective_value)
             if best is not None:
-                _add_safe_initial_hint(model, data, variables, best.selected)
+                _add_safe_initial_hint(model, data, generation, variables, best.selected)
             continue
 
         completed_all_stages = False
@@ -495,6 +499,7 @@ def _set_objective(model: cp_model.CpModel, stage: ObjectiveStage) -> None:
 def _add_safe_initial_hint(
     model: cp_model.CpModel,
     data: OptimizationInput,
+    generation: CandidateGenerationResult,
     variables: ModelVariables,
     selected: tuple[CandidateData, ...] | None = None,
 ) -> None:
@@ -627,6 +632,28 @@ def _add_safe_initial_hint(
                 and selected_by_request_day.get((request_id, second_day), 0) > 0
             ),
         )
+    request_scores: dict[int, int] = defaultdict(int)
+    if variables.request_spacing_scores:
+        open_days = tuple(sorted(set(data.open_dates)))
+        day_positions = {day_value: index for index, day_value in enumerate(open_days)}
+        request_lookup = {request.id: request for request in data.lesson_requests}
+        for candidate in selected_candidates:
+            request = request_lookup[candidate.lesson_request_id]
+            if request.required_sessions < 2:
+                continue
+            maximum_score = 2 * request.required_sessions * len(open_days) + 1
+            actual_position = 2 * request.required_sessions * day_positions[candidate.day]
+            target_position = (2 * candidate.session_index - 1) * len(open_days)
+            request_scores[request.id] += maximum_score - abs(
+                actual_position - target_position
+            )
+    for request_id, variable in variables.request_spacing_scores.items():
+        add_hint(variable, request_scores[request_id])
+    if variables.request_spacing_quality_minimum is not None:
+        add_hint(
+            variables.request_spacing_quality_minimum,
+            worst_request_spacing_quality(data, generation, selected_candidates),
+        )
     for month_key, variable in variables.request_month_used.items():
         add_hint(variable, int(selected_by_request_month.get(month_key, 0) > 0))
 
@@ -649,6 +676,11 @@ def _add_safe_initial_hint(
                 student_week_values.get((student_id, first_week), 0)
                 - student_week_values.get((student_id, second_week), 0)
             ),
+        )
+    if variables.student_week_deviation_maximum is not None:
+        add_hint(
+            variables.student_week_deviation_maximum,
+            maximum_student_week_deviation(data, generation, selected_candidates),
         )
 
     teacher_day_values = {
@@ -679,6 +711,11 @@ def _add_safe_initial_hint(
                 teacher_week_values.get((teacher_id, first_week), 0)
                 - teacher_week_values.get((teacher_id, second_week), 0)
             ),
+        )
+    if variables.teacher_week_deviation_maximum is not None:
+        add_hint(
+            variables.teacher_week_deviation_maximum,
+            maximum_teacher_week_deviation(data, generation, selected_candidates),
         )
 
     load_values: dict[int, int] = {}
@@ -735,7 +772,17 @@ def _snapshot_stage_value(
             data,
             snapshot.selected,
         ),
+        "worst_request_spacing_quality": worst_request_spacing_quality(
+            data,
+            generation,
+            snapshot.selected,
+        ),
         "request_spacing_score": request_spacing_score(data, snapshot.selected),
+        "maximum_student_week_deviation": maximum_student_week_deviation(
+            data,
+            generation,
+            snapshot.selected,
+        ),
         "student_period_imbalance": student_period_imbalance(
             data,
             generation,
@@ -744,6 +791,11 @@ def _snapshot_stage_value(
         "period_distribution_score": _period_distribution_score(data, snapshot.selected),
         "active_teacher_day_count": sum(
             len(days) for days in realized_teacher_active_days(data, snapshot.selected).values()
+        ),
+        "maximum_teacher_week_deviation": maximum_teacher_week_deviation(
+            data,
+            generation,
+            snapshot.selected,
         ),
         "teacher_week_imbalance": teacher_week_imbalance(data, snapshot.selected),
         "active_teacher_slot_count": breakdown.active_teacher_slot_count,

@@ -68,6 +68,23 @@ def build_student_handout_document(
     )
 
 
+def build_student_schedule_document(
+    snapshot: OutputSnapshot,
+    settings: OutputSettings,
+    selection: OutputSelection = DEFAULT_OUTPUT_SELECTION,
+) -> LayoutDocument:
+    """通常の生徒別出力も、確認済みの週カレンダー形式で返す。"""
+    settings.validate()
+    return _grade_ordered_handouts(
+        snapshot,
+        settings,
+        selection,
+        include_teacher=False,
+        report_code="student_schedules",
+        title="生徒別時間割",
+    )
+
+
 def build_teacher_handout_document(
     snapshot: OutputSnapshot,
     settings: OutputSettings,
@@ -589,6 +606,7 @@ def _document(
 
 __all__ = [
     "build_student_handout_document",
+    "build_student_schedule_document",
     "build_teacher_handout_document",
     "build_teacher_packet_document",
 ]

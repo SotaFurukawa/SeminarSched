@@ -51,7 +51,7 @@ def test_verified_initial_solution_produces_complete_feasible_hint() -> None:
     variables = ModelVariables()
     add_hard_constraints(model, data, generation, variables)
     stages = build_objective_stages(model, data, generation, variables)
-    _add_safe_initial_hint(model, data, variables, initial.selected_candidates)
+    _add_safe_initial_hint(model, data, generation, variables, initial.selected_candidates)
     model.minimize(stages[0].expression)
 
     hint_indices = list(model.proto.solution_hint.vars)
@@ -103,7 +103,7 @@ def test_optional_balance_variables_are_also_hinted() -> None:
     variables = ModelVariables()
     add_hard_constraints(model, data, generation, variables)
     stages = build_objective_stages(model, data, generation, variables)
-    _add_safe_initial_hint(model, data, variables, initial.selected_candidates)
+    _add_safe_initial_hint(model, data, generation, variables, initial.selected_candidates)
 
     hinted = set(model.proto.solution_hint.vars)
     assert all(variable.index in hinted for variable in variables.teacher_loads.values())

@@ -58,7 +58,7 @@ _ROLE_TEXT: Final = {
     "closed": "FFFFFF",
 }
 _DISTRIBUTION_REPORTS: Final = frozenset(
-    {"student_handouts", "teacher_handouts", "teacher_packets"}
+    {"student_schedules", "student_handouts", "teacher_handouts", "teacher_packets"}
 )
 _BLACK_SIDE: Final = Side(style="thin", color="000000")
 _NO_BORDER: Final = Border()
@@ -197,6 +197,7 @@ class ExcelRenderer:
         worksheet.sheet_view.showGridLines = False
         one_page_report = document.report_code in {
             "overall",
+            "student_schedules",
             "student_handouts",
             "teacher_handouts",
             "teacher_packets",

@@ -231,8 +231,8 @@ def run_benchmark(
                 f"{list(config.sessions_pattern)}; deterministic subject distribution"
             ),
             "solver": (
-                "fixed seed, one CP-SAT search worker, five required lexicographic stages; "
-                "optional sixth balance stage disabled"
+                "fixed seed, one CP-SAT search worker, fifteen required lexicographic stages; "
+                "optional teacher participation balance stage disabled"
             ),
             "group_blocks": 0,
             "existing_assignments": 0,

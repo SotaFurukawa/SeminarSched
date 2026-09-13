@@ -70,6 +70,10 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
             "overall",
             output_dir / "季節講習時間割.xlsx",
         )
+        student_result = service.export_excel(
+            "students",
+            output_dir / "生徒別時間割.xlsx",
+        )
         handout_result = service.export_excel(
             "student_handouts",
             output_dir / "生徒配布時間割.xlsx",
@@ -85,6 +89,7 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
         )
 
         assert excel_result.path.is_file()
+        assert student_result.path.is_file()
         assert handout_result.path.is_file()
         assert teacher_packet_result.path.is_dir()
         assert [path.name for path in teacher_packet_result.path.glob("*.xlsx")] == ["架空t用.xlsx"]
@@ -108,6 +113,16 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
             assert "A1:I1" in {str(value) for value in first_handout.merged_cells.ranges}
         finally:
             handout_workbook.close()
+        student_workbook = load_workbook(student_result.path, read_only=False, data_only=False)
+        try:
+            first_student = student_workbook.worksheets[0]
+            assert first_student.max_column == 9
+            assert first_student.column_dimensions["A"].width == pytest.approx(9.0)
+            assert first_student.column_dimensions["I"].width == pytest.approx(9.875)
+            assert first_student.row_dimensions[1].height == pytest.approx(45.0)
+            assert "A1:I1" in {str(value) for value in first_student.merged_cells.ranges}
+        finally:
+            student_workbook.close()
         workbook = load_workbook(excel_result.path, read_only=False, data_only=False)
         try:
             assert workbook.sheetnames[0] == "出力情報"

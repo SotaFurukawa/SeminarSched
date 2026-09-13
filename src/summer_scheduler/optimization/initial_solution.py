@@ -107,6 +107,9 @@ def build_initial_solution(
             sorted(data.time_slots, key=lambda item: (item.sort_order, item.id))
         )
     }
+    open_day_positions = {
+        day_value: position for position, day_value in enumerate(sorted(set(data.open_dates)))
+    }
     existing_positions = {
         (
             item.lesson_request_id,
@@ -142,6 +145,7 @@ def build_initial_solution(
                 candidate,
                 requests,
                 slot_positions,
+                open_day_positions,
                 existing_positions,
             ),
         )
@@ -262,8 +266,9 @@ def _candidate_preference_key(
     candidate: CandidateData,
     requests: dict[int, LessonRequestData],
     slot_positions: dict[int, int],
+    open_day_positions: dict[date, int],
     existing_positions: set[tuple[int, int, date, int, int]],
-) -> tuple[int, int, int, int, date, int, int, int]:
+) -> tuple[int, int, int, int, int, date, int, int, int]:
     request = requests[candidate.lesson_request_id]
     availability_score = (
         data.settings.student_preferred_time_weight
@@ -284,7 +289,15 @@ def _candidate_preference_key(
     teacher_slot_already_active = bool(
         state.teacher_occupancy.get((candidate.teacher_id, candidate.day, candidate.time_slot_id))
     )
+    spacing_penalty = 0
+    if request.required_sessions >= 2:
+        open_day_count = len(open_day_positions)
+        spacing_penalty = abs(
+            2 * request.required_sessions * open_day_positions[candidate.day]
+            - (2 * candidate.session_index - 1) * open_day_count
+        )
     return (
+        spacing_penalty,
         teacher_preference_penalty(request, candidate.teacher_id, data.settings),
         0 if teacher_slot_already_active else 1,
         -availability_score,

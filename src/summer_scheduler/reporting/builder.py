@@ -7,13 +7,13 @@ from typing import Literal
 from summer_scheduler.reporting.data import OutputSelection, OutputSnapshot
 from summer_scheduler.reporting.distribution_builder import (
     build_student_handout_document,
+    build_student_schedule_document,
     build_teacher_handout_document,
     build_teacher_packet_document,
 )
 from summer_scheduler.reporting.issue_builder import build_issues_document
 from summer_scheduler.reporting.layout import LayoutDocument
 from summer_scheduler.reporting.settings import OutputSettings
-from summer_scheduler.reporting.student_builder import build_student_document
 from summer_scheduler.reporting.teacher_builder import build_teacher_document
 from summer_scheduler.reporting.timetable_builder import build_timetable_document
 
@@ -36,7 +36,7 @@ def build_report_document(
 ) -> LayoutDocument:
     builders = {
         "overall": build_timetable_document,
-        "students": build_student_document,
+        "students": build_student_schedule_document,
         "teachers": build_teacher_document,
         "issues": build_issues_document,
         "student_handouts": build_student_handout_document,

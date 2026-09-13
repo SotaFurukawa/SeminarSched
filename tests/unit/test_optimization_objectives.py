@@ -27,12 +27,14 @@ from summer_scheduler.optimization.hard_constraints import add_hard_constraints
 from summer_scheduler.optimization.objectives import (
     ObjectiveStage,
     build_objective_stages,
+    maximum_student_week_deviation,
     realized_teacher_active_days,
     realized_teacher_loads,
     request_spacing_score,
     teacher_participation_imbalance,
     teacher_preference_penalty,
     teacher_week_imbalance,
+    worst_request_spacing_quality,
 )
 from summer_scheduler.optimization.variables import ModelVariables
 
@@ -71,13 +73,16 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
 
     assert [(stage.name, stage.direction) for stage in stages] == [
         ("unassigned_count", "minimize"),
-        ("teacher_preference_penalty", "minimize"),
-        ("teacher_continuity_penalty", "minimize"),
         ("same_day_concentration_penalty", "minimize"),
+        ("worst_request_spacing_quality", "maximize"),
+        ("maximum_student_week_deviation", "minimize"),
         ("request_spacing_score", "maximize"),
         ("student_period_imbalance", "minimize"),
         ("period_distribution_score", "maximize"),
+        ("teacher_preference_penalty", "minimize"),
+        ("teacher_continuity_penalty", "minimize"),
         ("active_teacher_day_count", "minimize"),
+        ("maximum_teacher_week_deviation", "minimize"),
         ("teacher_week_imbalance", "minimize"),
         ("active_teacher_slot_count", "minimize"),
         ("availability_preference_score", "maximize"),
@@ -94,9 +99,9 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
         CandidateGenerationResult(sessions=(), candidates=(), diagnostics=()),
         ModelVariables(),
     )
-    assert enabled_stages[7].name == "teacher_load_imbalance"
-    assert enabled_stages[7].direction == "minimize"
-    assert enabled_stages[8].name == "active_teacher_day_count"
+    assert enabled_stages[9].name == "teacher_load_imbalance"
+    assert enabled_stages[9].direction == "minimize"
+    assert enabled_stages[10].name == "active_teacher_day_count"
 
 
 def test_teacher_preference_uses_request_max_and_never_adds_duplicate_scores() -> None:
@@ -235,6 +240,107 @@ def test_request_spacing_rewards_the_requested_open_day_interval() -> None:
     )
 
     assert request_spacing_score(data, evenly_spaced) > request_spacing_score(data, front_loaded)
+
+
+def test_worst_request_spacing_requires_every_subject_to_be_distributed() -> None:
+    open_dates = tuple(DAY + timedelta(days=index) for index in range(20))
+    first = replace(_request(), id=1, subject_id=1, required_sessions=4)
+    second = replace(_request(), id=2, subject_id=2, required_sessions=4)
+    data = replace(_input(requests=(first, second)), open_dates=open_dates)
+    candidates = tuple(
+        _candidate_for_session(
+            session_index,
+            teacher_id=10,
+            day=day_value,
+            lesson_request_id=request_id,
+        )
+        for request_id in (1, 2)
+        for session_index, day_value in enumerate(open_dates, start=1)
+    )
+    generation = CandidateGenerationResult(sessions=(), candidates=candidates, diagnostics=())
+    first_spread = tuple(
+        _candidate_for_session(
+            index + 1,
+            teacher_id=10,
+            day=open_dates[index * 5],
+            lesson_request_id=1,
+        )
+        for index in range(4)
+    )
+    second_front_loaded = tuple(
+        _candidate_for_session(
+            index + 1,
+            teacher_id=10,
+            day=open_dates[index],
+            lesson_request_id=2,
+        )
+        for index in range(4)
+    )
+    second_spread = tuple(
+        _candidate_for_session(
+            index + 1,
+            teacher_id=10,
+            day=open_dates[index * 5 + 2],
+            lesson_request_id=2,
+        )
+        for index in range(4)
+    )
+
+    unfair = worst_request_spacing_quality(
+        data,
+        generation,
+        (*first_spread, *second_front_loaded),
+    )
+    fair = worst_request_spacing_quality(
+        data,
+        generation,
+        (*first_spread, *second_spread),
+    )
+
+    assert fair > unfair
+
+
+def test_maximum_student_week_deviation_tracks_the_worst_student() -> None:
+    open_dates = tuple(DAY + timedelta(days=index) for index in range(21))
+    first = replace(_request(), id=1, student_id=1, required_sessions=3)
+    second = replace(_request(), id=2, student_id=2, required_sessions=3)
+    data = replace(_input(requests=(first, second)), open_dates=open_dates)
+    candidates = tuple(
+        _candidate_for_session(
+            session_index,
+            teacher_id=10,
+            day=day_value,
+            lesson_request_id=request_id,
+            student_id=student_id,
+        )
+        for request_id, student_id in ((1, 1), (2, 2))
+        for session_index, day_value in enumerate(open_dates, start=1)
+    )
+    generation = CandidateGenerationResult(sessions=(), candidates=candidates, diagnostics=())
+    selected = (
+        *(
+            _candidate_for_session(
+                index + 1,
+                teacher_id=10,
+                day=open_dates[index * 7],
+                lesson_request_id=1,
+                student_id=1,
+            )
+            for index in range(3)
+        ),
+        *(
+            _candidate_for_session(
+                index + 1,
+                teacher_id=10,
+                day=open_dates[index],
+                lesson_request_id=2,
+                student_id=2,
+            )
+            for index in range(3)
+        ),
+    )
+
+    assert maximum_student_week_deviation(data, generation, selected) == 3
 
 
 def test_teacher_days_are_counted_once_and_equal_counts_prefer_weekly_spread() -> None:
@@ -539,9 +645,13 @@ def _candidate_for_session(
     *,
     teacher_id: int,
     day: date,
+    lesson_request_id: int = 1000,
+    student_id: int = 1,
 ) -> CandidateData:
     return replace(
         _candidate(teacher_id=teacher_id),
+        lesson_request_id=lesson_request_id,
         session_index=session_index,
+        student_id=student_id,
         day=day,
     )

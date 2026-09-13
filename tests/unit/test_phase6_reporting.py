@@ -35,6 +35,7 @@ from summer_scheduler.reporting.data import (
 )
 from summer_scheduler.reporting.distribution_builder import (
     build_student_handout_document,
+    build_student_schedule_document,
     build_teacher_handout_document,
     build_teacher_packet_document,
 )
@@ -141,6 +142,19 @@ def test_distribution_handouts_are_a4_weekly_and_ordered_for_each_audience() -> 
     first_teacher_pages = packets.sections[0].pages
     assert first_teacher_pages[0].subheading.startswith("中1_")
     assert len(packets.sections[2].pages) == len(snapshot.students)
+
+
+def test_standard_student_report_uses_the_same_calendar_layout() -> None:
+    snapshot = _snapshot()
+
+    document = build_student_schedule_document(snapshot, _settings())
+    table = document.sections[0].pages[0].tables[0]
+
+    assert document.report_code == "student_schedules"
+    assert document.title == "生徒別時間割"
+    assert document.page_count == len(snapshot.students)
+    assert table.column_widths == (9.0, 12.125, 9.875, 9.875, 9.875, 9.875, 9.875, 9.875, 9.875)
+    assert table.rows[0].height_points_optional == 45.0
 
 
 def test_distribution_calendar_counts_configured_sunday_to_saturday_weeks() -> None:

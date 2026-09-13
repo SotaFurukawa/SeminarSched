@@ -47,6 +47,20 @@ def build_objective_stages(
     最適値を等式で固定してから次段へ進められる。勤務可能枠に対する実稼働率の
     公平性は、講師コマ数の圧縮などより先に評価する。設定値が0なら省略する。
     """
+    worst_spacing_quality, spacing_score = _request_spacing_expressions(
+        model,
+        data,
+        generation,
+        variables,
+    )
+    maximum_student_week_deviation, student_period_imbalance_expression = (
+        _student_period_imbalance_expressions(
+            model,
+            data,
+            generation,
+            variables,
+        )
+    )
     stages = [
         ObjectiveStage(
             name="unassigned_count",
@@ -54,16 +68,6 @@ def build_objective_stages(
             expression=cp_model.LinearExpr.sum(
                 [variables.unassigned[key] for key in sorted(variables.unassigned)]
             ),
-        ),
-        ObjectiveStage(
-            name="teacher_preference_penalty",
-            direction="minimize",
-            expression=_teacher_preference_expression(data, generation, variables),
-        ),
-        ObjectiveStage(
-            name="teacher_continuity_penalty",
-            direction="minimize",
-            expression=_teacher_continuity_expression(model, generation, variables),
         ),
         ObjectiveStage(
             name="same_day_concentration_penalty",
@@ -76,24 +80,39 @@ def build_objective_stages(
             ),
         ),
         ObjectiveStage(
+            name="worst_request_spacing_quality",
+            direction="maximize",
+            expression=worst_spacing_quality,
+        ),
+        ObjectiveStage(
+            name="maximum_student_week_deviation",
+            direction="minimize",
+            expression=maximum_student_week_deviation,
+        ),
+        ObjectiveStage(
             name="request_spacing_score",
             direction="maximize",
-            expression=_request_spacing_expression(model, data, generation, variables),
+            expression=spacing_score,
         ),
         ObjectiveStage(
             name="student_period_imbalance",
             direction="minimize",
-            expression=_student_period_imbalance_expression(
-                model,
-                data,
-                generation,
-                variables,
-            ),
+            expression=student_period_imbalance_expression,
         ),
         ObjectiveStage(
             name="period_distribution_score",
             direction="maximize",
             expression=_period_distribution_expression(model, data, generation, variables),
+        ),
+        ObjectiveStage(
+            name="teacher_preference_penalty",
+            direction="minimize",
+            expression=_teacher_preference_expression(data, generation, variables),
+        ),
+        ObjectiveStage(
+            name="teacher_continuity_penalty",
+            direction="minimize",
+            expression=_teacher_continuity_expression(model, generation, variables),
         ),
     ]
     if data.settings.optional_balance_weight > 0:
@@ -104,6 +123,9 @@ def build_objective_stages(
                 expression=_teacher_load_imbalance_expression(model, data, variables),
             )
         )
+    maximum_teacher_week_deviation, teacher_week_imbalance_expression = (
+        _teacher_week_imbalance_expressions(model, data, variables)
+    )
     stages.extend(
         [
             ObjectiveStage(
@@ -114,9 +136,14 @@ def build_objective_stages(
                 ),
             ),
             ObjectiveStage(
+                name="maximum_teacher_week_deviation",
+                direction="minimize",
+                expression=maximum_teacher_week_deviation,
+            ),
+            ObjectiveStage(
                 name="teacher_week_imbalance",
                 direction="minimize",
-                expression=_teacher_week_imbalance_expression(model, data, variables),
+                expression=teacher_week_imbalance_expression,
             ),
             ObjectiveStage(
                 name="active_teacher_slot_count",
@@ -392,58 +419,79 @@ def _period_distribution_expression(
     return cp_model.LinearExpr.sum(used_variables)
 
 
-def _request_spacing_expression(
+def _request_spacing_expressions(
     model: cp_model.CpModel,
     data: OptimizationInput,
     generation: CandidateGenerationResult,
     variables: ModelVariables,
-) -> cp_model.LinearExpr:
+) -> tuple[cp_model.LinearExpr, cp_model.LinearExpr]:
     """同一生徒・科目の授業日を、開校日数÷回数の格子へ近づける。"""
     open_days = tuple(sorted(set(data.open_dates)))
     if len(open_days) < 2:
-        return cp_model.LinearExpr.constant(0)
+        zero = cp_model.LinearExpr.constant(0)
+        return zero, zero
     day_positions = {day_value: index for index, day_value in enumerate(open_days)}
     requests = {request.id: request for request in data.lesson_requests}
-    candidates_by_request_day: dict[tuple[int, date], list[CandidateData]] = defaultdict(list)
+    request_score_terms: dict[int, list[tuple[cp_model.IntVar, int]]] = defaultdict(list)
     for candidate in generation.candidates:
-        candidates_by_request_day[(candidate.lesson_request_id, candidate.day)].append(candidate)
-
-    used_days_by_request: dict[int, dict[date, cp_model.IntVar]] = defaultdict(dict)
-    for (request_id, day_value), candidates in sorted(candidates_by_request_day.items()):
-        request = requests[request_id]
+        request = requests[candidate.lesson_request_id]
         if request.required_sessions < 2:
             continue
-        used = model.new_bool_var(f"request_day_used_{request_id}_{day_value.isoformat()}")
-        selections = [variables.assignments[candidate] for candidate in candidates]
-        for selection in selections:
-            model.add(selection <= used)
-        model.add(used <= cp_model.LinearExpr.sum(selections))
-        variables.request_day_used[(request_id, day_value)] = used
-        used_days_by_request[request_id][day_value] = used
+        request_score_terms[request.id].append(
+            (
+                variables.assignments[candidate],
+                _request_candidate_spacing_score(
+                    len(open_days),
+                    day_positions[candidate.day],
+                    request.required_sessions,
+                    candidate.session_index,
+                ),
+            )
+        )
 
-    pair_variables: list[cp_model.IntVar] = []
-    pair_scores: list[int] = []
-    open_day_count = len(open_days)
-    for request_id, days in sorted(used_days_by_request.items()):
+    score_variables: list[cp_model.IntVar] = []
+    quality_minimum: cp_model.IntVar | None = None
+    for request_id, terms in sorted(request_score_terms.items()):
         required_sessions = requests[request_id].required_sessions
-        ordered_days = sorted(days)
-        for position, first_day in enumerate(ordered_days):
-            for second_day in ordered_days[position + 1 :]:
-                pair_used = model.new_bool_var(
-                    f"request_day_pair_{request_id}_{first_day.isoformat()}_{second_day.isoformat()}"
-                )
-                model.add(pair_used <= days[first_day])
-                model.add(pair_used <= days[second_day])
-                model.add(pair_used >= days[first_day] + days[second_day] - 1)
-                variables.request_day_pairs[(request_id, first_day, second_day)] = pair_used
-                distance = day_positions[second_day] - day_positions[first_day]
-                penalty = min(
-                    abs(distance * required_sessions - open_day_count * multiple)
-                    for multiple in range(1, required_sessions)
-                )
-                pair_variables.append(pair_used)
-                pair_scores.append(open_day_count * required_sessions + 1 - penalty)
-    return cp_model.LinearExpr.weighted_sum(pair_variables, pair_scores)
+        maximum_session_score = 2 * required_sessions * len(open_days) + 1
+        maximum_request_score = required_sessions * maximum_session_score
+        score = model.new_int_var(
+            0,
+            maximum_request_score,
+            f"request_spacing_score_{request_id}",
+        )
+        model.add(
+            score
+            == cp_model.LinearExpr.weighted_sum(
+                [variable for variable, _weight in terms],
+                [weight for _variable, weight in terms],
+            )
+        )
+        variables.request_spacing_scores[request_id] = score
+        score_variables.append(score)
+        if quality_minimum is None:
+            quality_minimum = model.new_int_var(0, 1000, "request_spacing_quality_minimum")
+            variables.request_spacing_quality_minimum = quality_minimum
+        # 各科目を0～1000へ正規化し、最も分散できていない科目を先に改善する。
+        model.add(score * 1000 >= quality_minimum * maximum_request_score)
+
+    if quality_minimum is None:
+        zero = cp_model.LinearExpr.constant(0)
+        return zero, zero
+    return quality_minimum, cp_model.LinearExpr.sum(score_variables)
+
+
+def _request_candidate_spacing_score(
+    open_day_count: int,
+    day_position: int,
+    required_sessions: int,
+    session_index: int,
+) -> int:
+    """講習期間を回数で等分した各回の中心へ近いほど高い整数点を返す。"""
+    maximum_score = 2 * required_sessions * open_day_count + 1
+    actual_position = 2 * required_sessions * day_position
+    target_position = (2 * session_index - 1) * open_day_count
+    return maximum_score - abs(actual_position - target_position)
 
 
 def request_spacing_score(
@@ -456,32 +504,64 @@ def request_spacing_score(
         return 0
     day_positions = {day_value: index for index, day_value in enumerate(open_days)}
     requests = {request.id: request for request in data.lesson_requests}
-    selected_days: dict[int, set[date]] = defaultdict(set)
+    return sum(
+        _request_candidate_spacing_score(
+            len(open_days),
+            day_positions[candidate.day],
+            requests[candidate.lesson_request_id].required_sessions,
+            candidate.session_index,
+        )
+        for candidate in selected
+        if requests[candidate.lesson_request_id].required_sessions >= 2
+    )
+
+
+def worst_request_spacing_quality(
+    data: OptimizationInput,
+    generation: CandidateGenerationResult,
+    selected: Iterable[CandidateData],
+) -> int:
+    """最も分散できていない生徒・科目の正規化スコア（0～1000）を返す。"""
+    open_days = tuple(sorted(set(data.open_dates)))
+    if len(open_days) < 2:
+        return 0
+    requests = {request.id: request for request in data.lesson_requests}
+    eligible_request_ids: set[int] = set()
+    for candidate in generation.candidates:
+        request = requests[candidate.lesson_request_id]
+        if request.required_sessions >= 2:
+            eligible_request_ids.add(request.id)
+    if not eligible_request_ids:
+        return 0
+
+    day_positions = {day_value: index for index, day_value in enumerate(open_days)}
+    scores: dict[int, int] = defaultdict(int)
     for candidate in selected:
-        selected_days[candidate.lesson_request_id].add(candidate.day)
-    total = 0
-    for request_id, days in selected_days.items():
+        request = requests[candidate.lesson_request_id]
+        if request.id in eligible_request_ids:
+            scores[request.id] += _request_candidate_spacing_score(
+                len(open_days),
+                day_positions[candidate.day],
+                request.required_sessions,
+                candidate.session_index,
+            )
+
+    qualities: list[int] = []
+    open_day_count = len(open_days)
+    for request_id in sorted(eligible_request_ids):
         required_sessions = requests[request_id].required_sessions
-        if required_sessions < 2:
-            continue
-        ordered_days = sorted(days)
-        for position, first_day in enumerate(ordered_days):
-            for second_day in ordered_days[position + 1 :]:
-                distance = day_positions[second_day] - day_positions[first_day]
-                penalty = min(
-                    abs(distance * required_sessions - len(open_days) * multiple)
-                    for multiple in range(1, required_sessions)
-                )
-                total += len(open_days) * required_sessions + 1 - penalty
-    return total
+        maximum_session_score = 2 * required_sessions * open_day_count + 1
+        maximum_request_score = required_sessions * maximum_session_score
+        qualities.append((scores[request_id] * 1000) // maximum_request_score)
+    return min(qualities)
 
 
-def _student_period_imbalance_expression(
+def _student_period_imbalance_expressions(
     model: cp_model.CpModel,
     data: OptimizationInput,
     generation: CandidateGenerationResult,
     variables: ModelVariables,
-) -> cp_model.LinearExpr:
+) -> tuple[cp_model.LinearExpr, cp_model.LinearExpr]:
     """生徒ごとに、受講可能な週の授業数をできるだけ均等にする。"""
     requests = {request.id: request for request in data.lesson_requests}
     candidates_by_student_week: dict[tuple[int, date], list[CandidateData]] = defaultdict(list)
@@ -536,7 +616,17 @@ def _student_period_imbalance_expression(
                 )
                 deviations.append(deviation)
                 variables.student_week_deviations[(student_id, first_week, second_week)] = deviation
-    return cp_model.LinearExpr.sum(deviations)
+    if not deviations:
+        zero = cp_model.LinearExpr.constant(0)
+        return zero, zero
+    maximum = model.new_int_var(
+        0,
+        max(total_sessions_by_student.values(), default=0),
+        "student_week_deviation_maximum",
+    )
+    model.add_max_equality(maximum, deviations)
+    variables.student_week_deviation_maximum = maximum
+    return maximum, cp_model.LinearExpr.sum(deviations)
 
 
 def _teacher_day_used_variables(
@@ -558,11 +648,11 @@ def _teacher_day_used_variables(
     return variables.teacher_day_used
 
 
-def _teacher_week_imbalance_expression(
+def _teacher_week_imbalance_expressions(
     model: cp_model.CpModel,
     data: OptimizationInput,
     variables: ModelVariables,
-) -> cp_model.LinearExpr:
+) -> tuple[cp_model.LinearExpr, cp_model.LinearExpr]:
     day_used = _teacher_day_used_variables(model, data, variables)
     days_by_teacher_week: dict[tuple[int, date], list[cp_model.IntVar]] = defaultdict(list)
     for (teacher_id, day_value), used in sorted(day_used.items()):
@@ -603,7 +693,17 @@ def _teacher_week_imbalance_expression(
                 )
                 deviations.append(deviation)
                 variables.teacher_week_deviations[(teacher_id, first_week, second_week)] = deviation
-    return cp_model.LinearExpr.sum(deviations)
+    if not deviations:
+        zero = cp_model.LinearExpr.constant(0)
+        return zero, zero
+    maximum = model.new_int_var(
+        0,
+        max((len(values) for values in days_by_teacher_week.values()), default=0),
+        "teacher_week_deviation_maximum",
+    )
+    model.add_max_equality(maximum, deviations)
+    variables.teacher_week_deviation_maximum = maximum
+    return maximum, cp_model.LinearExpr.sum(deviations)
 
 
 def realized_teacher_active_days(
@@ -658,6 +758,62 @@ def student_period_imbalance(
         for student_id, weeks in eligible_weeks.items()
         for position, first in enumerate(sorted(weeks))
         for second in sorted(weeks)[position + 1 :]
+    )
+
+
+def maximum_student_week_deviation(
+    data: OptimizationInput,
+    generation: CandidateGenerationResult,
+    selected: Iterable[CandidateData],
+) -> int:
+    """全生徒のうち最も大きい週別授業数差を返す。"""
+    requests = {request.id: request for request in data.lesson_requests}
+    eligible_weeks: dict[int, set[date]] = defaultdict(set)
+    for candidate in generation.candidates:
+        student_id = requests[candidate.lesson_request_id].student_id
+        eligible_weeks[student_id].add(_sunday_of_week(candidate.day))
+    counts: dict[tuple[int, date], int] = defaultdict(int)
+    for candidate in selected:
+        student_id = requests[candidate.lesson_request_id].student_id
+        counts[(student_id, _sunday_of_week(candidate.day))] += 1
+    return max(
+        (
+            abs(counts[(student_id, first)] - counts[(student_id, second)])
+            for student_id, weeks in eligible_weeks.items()
+            for position, first in enumerate(sorted(weeks))
+            for second in sorted(weeks)[position + 1 :]
+        ),
+        default=0,
+    )
+
+
+def maximum_teacher_week_deviation(
+    data: OptimizationInput,
+    generation: CandidateGenerationResult,
+    selected: Iterable[CandidateData],
+) -> int:
+    """候補がある週の範囲で、講師ごとの最大週別出勤日数差を返す。"""
+    eligible_weeks: dict[int, set[date]] = defaultdict(set)
+    for candidate in generation.candidates:
+        eligible_weeks[candidate.teacher_id].add(_sunday_of_week(candidate.day))
+    for block in data.group_blocks:
+        if block.teacher_id is not None:
+            eligible_weeks[block.teacher_id].add(_sunday_of_week(block.day))
+    active_days = realized_teacher_active_days(data, selected)
+    return max(
+        (
+            abs(
+                sum(_sunday_of_week(day_value) == first for day_value in active_days[teacher_id])
+                - sum(
+                    _sunday_of_week(day_value) == second
+                    for day_value in active_days[teacher_id]
+                )
+            )
+            for teacher_id, weeks in eligible_weeks.items()
+            for position, first in enumerate(sorted(weeks))
+            for second in sorted(weeks)[position + 1 :]
+        ),
+        default=0,
     )
 
 
@@ -753,9 +909,12 @@ __all__ = [
     "realized_teacher_loads",
     "realized_teacher_active_days",
     "request_spacing_score",
+    "worst_request_spacing_quality",
     "teacher_availability_capacities",
     "teacher_participation_imbalance",
     "teacher_preference_penalty",
     "teacher_week_imbalance",
     "student_period_imbalance",
+    "maximum_student_week_deviation",
+    "maximum_teacher_week_deviation",
 ]

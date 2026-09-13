@@ -29,7 +29,9 @@ _LOGO_MIME_TYPES = {
     ".gif": "image/gif",
     ".bmp": "image/bmp",
 }
-_DISTRIBUTION_REPORTS = frozenset({"student_handouts", "teacher_handouts", "teacher_packets"})
+_DISTRIBUTION_REPORTS = frozenset(
+    {"student_schedules", "student_handouts", "teacher_handouts", "teacher_packets"}
+)
 
 
 class HtmlRenderError(OutputRenderError):
