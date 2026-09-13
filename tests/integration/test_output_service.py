@@ -74,6 +74,10 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
             "student_handouts",
             output_dir / "生徒配布時間割.xlsx",
         )
+        teacher_packet_result = service.export_excel(
+            "teacher_packets",
+            output_dir / "講師別配布時間割.xlsx",
+        )
         csv_result = service.export_csv(output_dir / "割当て生データ.csv")
         filtered_csv_result = service.export_csv(
             output_dir / "対象生徒のみ.csv",
@@ -82,6 +86,8 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
 
         assert excel_result.path.is_file()
         assert handout_result.path.is_file()
+        assert teacher_packet_result.path.is_dir()
+        assert [path.name for path in teacher_packet_result.path.glob("*.xlsx")] == ["架空t用.xlsx"]
         handout_workbook = load_workbook(handout_result.path, read_only=False, data_only=False)
         try:
             assert handout_workbook.sheetnames
@@ -91,6 +97,15 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
                 and sheet.freeze_panes is None
                 for sheet in handout_workbook.worksheets
             )
+            first_handout = handout_workbook.worksheets[0]
+            assert first_handout.column_dimensions["A"].width == pytest.approx(9.0)
+            assert first_handout.column_dimensions["B"].width == pytest.approx(12.125)
+            assert first_handout.column_dimensions["C"].width == pytest.approx(9.875)
+            assert first_handout.row_dimensions[1].height == pytest.approx(45.0)
+            assert first_handout.row_dimensions[4].height == pytest.approx(24.0)
+            assert first_handout["A1"].font.name == "BIZ UD明朝 Medium"
+            assert first_handout["A1"].font.sz == pytest.approx(16.0)
+            assert "A1:I1" in {str(value) for value in first_handout.merged_cells.ranges}
         finally:
             handout_workbook.close()
         workbook = load_workbook(excel_result.path, read_only=False, data_only=False)

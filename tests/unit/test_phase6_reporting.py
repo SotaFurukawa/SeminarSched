@@ -8,7 +8,7 @@ import pickle
 import subprocess
 import sys
 from dataclasses import replace
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 import pytest
@@ -127,20 +127,109 @@ def test_distribution_handouts_are_a4_weekly_and_ordered_for_each_audience() -> 
     assert all(len(section.pages) == 1 for section in student.sections)
     assert "(架空講師" not in _document_texts(student)
     assert "数" in _document_texts(student)
-    assert "(架空講師一)" in _document_texts(teacher)
+    assert "数　架空講師一" in _document_texts(teacher)
     assert [section.name.split("_")[0] for section in teacher.sections] == [
         "中1",
         "中2",
         "高1",
     ]
     assert [section.name for section in packets.sections] == [
-        "講師_架空講師一",
-        "講師_架空講師二",
-        "講師_架空講師三",
+        "架空講師一t用",
+        "架空講師二t用",
+        "架空講師三t用",
     ]
     first_teacher_pages = packets.sections[0].pages
-    assert "通常授業を担当" in first_teacher_pages[0].subheading
-    assert "その他の生徒" in packets.sections[2].pages[0].subheading
+    assert first_teacher_pages[0].subheading.startswith("中1_")
+    assert len(packets.sections[2].pages) == len(snapshot.students)
+
+
+def test_distribution_calendar_counts_configured_sunday_to_saturday_weeks() -> None:
+    base = _snapshot()
+    first = date(2026, 12, 13)
+    configured_dates = tuple(
+        DateRecord(first + timedelta(days=index), True, "") for index in range(21)
+    )
+    snapshot = replace(
+        base,
+        project=replace(
+            base.project,
+            title="2026年度 夏期講習",
+            start_date=configured_dates[0].day,
+            end_date=configured_dates[-1].day,
+        ),
+        dates=configured_dates,
+    )
+
+    document = build_student_handout_document(
+        snapshot,
+        _settings(),
+        OutputSelection(dates=(configured_dates[10].day,)),
+    )
+    table = document.sections[0].pages[0].tables[0]
+
+    assert (
+        sum("dist_week_corner" in cell.style_codes for row in table.rows for cell in row.cells) == 3
+    )
+    assert table.rows[0].cells[0].text.startswith("2026　夏期講習")
+
+
+def test_six_week_handout_matches_reference_row_count_with_one_closed_week() -> None:
+    base = _snapshot()
+    first = date(2026, 7, 19)
+    summer_dates = tuple(
+        DateRecord(
+            first + timedelta(days=index),
+            not 21 <= index <= 27,
+            "",
+        )
+        for index in range(42)
+    )
+    snapshot = replace(
+        base,
+        project=replace(
+            base.project,
+            start_date=summer_dates[0].day,
+            end_date=summer_dates[-1].day,
+        ),
+        dates=summer_dates,
+        slots=(
+            *base.slots,
+            SlotRecord(4, "B", "Bコマ", time(14, 30), time(15, 50), 4, True),
+        ),
+    )
+
+    table = build_student_handout_document(snapshot, _settings()).sections[0].pages[0].tables[0]
+
+    assert len(table.rows) == 43
+    assert (
+        sum("dist_week_corner" in cell.style_codes for row in table.rows for cell in row.cells) == 5
+    )
+    assert (
+        sum("dist_closed_week" in cell.style_codes for row in table.rows for cell in row.cells) == 1
+    )
+
+
+def test_distribution_week_count_increases_at_sunday_boundary() -> None:
+    base = _snapshot()
+    configured_dates = (
+        DateRecord(date(2026, 12, 19), True, ""),
+        DateRecord(date(2026, 12, 20), True, ""),
+    )
+    snapshot = replace(
+        base,
+        project=replace(
+            base.project,
+            start_date=configured_dates[0].day,
+            end_date=configured_dates[-1].day,
+        ),
+        dates=configured_dates,
+    )
+
+    table = build_student_handout_document(snapshot, _settings()).sections[0].pages[0].tables[0]
+
+    assert (
+        sum("dist_week_corner" in cell.style_codes for row in table.rows for cell in row.cells) == 2
+    )
 
 
 def test_timetable_uses_family_name_unless_the_family_name_is_duplicated() -> None:
@@ -492,6 +581,7 @@ reader.close()
 """
     environment = dict(os.environ)
     environment["QT_QPA_PLATFORM"] = "offscreen"
+    environment["PYTHONIOENCODING"] = "utf-8"
     completed = subprocess.run(
         [sys.executable, "-c", script, str(payload_path)],
         cwd=Path(__file__).parents[2],
@@ -499,6 +589,7 @@ reader.close()
         capture_output=True,
         text=True,
         encoding="utf-8",
+        errors="replace",
         check=False,
         timeout=60,
     )
@@ -513,6 +604,70 @@ reader.close()
     assert result["width"] == pytest.approx(1191, abs=3)
     assert result["height"] == pytest.approx(842, abs=3)
     assert result["overwrite_blocked"] is True
+
+
+def test_teacher_packet_pdf_creates_one_file_per_teacher_in_a_folder(
+    tmp_path: Path,
+) -> None:
+    settings = _settings()
+    document = build_teacher_packet_document(_snapshot(), settings)
+    target = tmp_path / "講師別配布時間割.pdf"
+    payload_path = tmp_path / "teacher-packet-input.pickle"
+    payload_path.write_bytes(pickle.dumps((document, settings, target)))
+    script = r"""
+import json
+import pickle
+import sys
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtPdf import QPdfDocument
+from summer_scheduler.application.output_service import OutputService
+
+app = QGuiApplication(["teacher-packet-pdf-test", "-platform", "offscreen"])
+document, settings, target = pickle.loads(open(sys.argv[1], "rb").read())
+folder = OutputService._export_teacher_packet_directory(
+    document,
+    target,
+    output_format="pdf",
+    settings=settings,
+    overwrite=False,
+)
+files = sorted(folder.glob("*.pdf"))
+page_counts = []
+for path in files:
+    reader = QPdfDocument()
+    reader.load(str(path))
+    page_counts.append(reader.pageCount())
+    reader.close()
+print(json.dumps({
+    "folder": str(folder),
+    "files": [path.name for path in files],
+    "page_counts": page_counts,
+}, ensure_ascii=False))
+"""
+    environment = dict(os.environ)
+    environment["QT_QPA_PLATFORM"] = "offscreen"
+    environment["PYTHONIOENCODING"] = "utf-8"
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(payload_path)],
+        cwd=Path(__file__).parents[2],
+        env=environment,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        timeout=60,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout.strip().splitlines()[-1])
+    assert Path(result["folder"]) == target.with_suffix("").resolve()
+    assert result["files"] == [
+        "架空講師一t用.pdf",
+        "架空講師三t用.pdf",
+        "架空講師二t用.pdf",
+    ]
+    assert result["page_counts"] == [3, 3, 3]
 
 
 def _settings(**changes: object) -> OutputSettings:

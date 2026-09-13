@@ -57,6 +57,18 @@ _ROLE_TEXT: Final = {
     "header": "FFFFFF",
     "closed": "FFFFFF",
 }
+_DISTRIBUTION_REPORTS: Final = frozenset(
+    {"student_handouts", "teacher_handouts", "teacher_packets"}
+)
+_BLACK_SIDE: Final = Side(style="thin", color="000000")
+_NO_BORDER: Final = Border()
+_BOTTOM_BORDER: Final = Border(bottom=_BLACK_SIDE)
+_DISTRIBUTION_BORDER: Final = Border(
+    left=_BLACK_SIDE,
+    right=_BLACK_SIDE,
+    top=_BLACK_SIDE,
+    bottom=_BLACK_SIDE,
+)
 
 
 class ExcelRenderer:
@@ -98,8 +110,18 @@ class ExcelRenderer:
             for section in document.sections:
                 if not section.pages:
                     continue
-                worksheet = workbook.create_sheet(_unique_sheet_name(section.name, used_names))
-                self._render_section(worksheet, document, section)
+                if document.report_code in _DISTRIBUTION_REPORTS:
+                    for page_index, page in enumerate(section.pages, start=1):
+                        sheet_name = section.name if len(section.pages) == 1 else page.subheading
+                        if not sheet_name:
+                            sheet_name = f"{section.name}_{page_index}"
+                        worksheet = workbook.create_sheet(
+                            _unique_sheet_name(sheet_name, used_names)
+                        )
+                        self._render_distribution_page(worksheet, document, page)
+                else:
+                    worksheet = workbook.create_sheet(_unique_sheet_name(section.name, used_names))
+                    self._render_section(worksheet, document, section)
             if not workbook.worksheets:
                 raise OutputRenderError("Excelへ出力するセクションがありません")
 
@@ -115,6 +137,52 @@ class ExcelRenderer:
         finally:
             workbook.close()
         return target.expanduser().resolve()
+
+    def _render_distribution_page(
+        self,
+        worksheet: Worksheet,
+        document: LayoutDocument,
+        page: LayoutPage,
+    ) -> None:
+        """添付見本と同じA:I寸法で、1生徒を1印刷ページへ描く。"""
+        if len(page.tables) != 1:
+            raise OutputRenderError("配布時間割のページ構造が不正です")
+        worksheet.freeze_panes = None
+        worksheet.sheet_format.defaultRowHeight = 18.75
+        worksheet.sheet_properties.pageSetUpPr = PageSetupProperties(
+            fitToPage=True,
+            autoPageBreaks=False,
+        )
+        worksheet.page_setup.paperSize = worksheet.PAPERSIZE_A4
+        worksheet.page_setup.orientation = worksheet.ORIENTATION_PORTRAIT
+        worksheet.page_setup.fitToWidth = 1
+        worksheet.page_setup.fitToHeight = 1
+        worksheet.page_margins.left = 0.7
+        worksheet.page_margins.right = 0.7
+        worksheet.page_margins.top = 0.75
+        worksheet.page_margins.bottom = 0.75
+        worksheet.page_margins.header = 0.3
+        worksheet.page_margins.footer = 0.3
+        worksheet.print_options.horizontalCentered = True
+        table = page.tables[0]
+        end_row = self._write_table(
+            worksheet,
+            table,
+            start_row=1,
+            font_size=11.0,
+        )
+        worksheet.print_area = f"A1:I{end_row - 1}"
+        worksheet.auto_filter.ref = None
+        odd_header = worksheet.oddHeader
+        odd_footer = worksheet.oddFooter
+        if odd_header is not None:
+            odd_header.left.text = ""
+            odd_header.center.text = ""
+            odd_header.right.text = ""
+        if odd_footer is not None:
+            odd_footer.left.text = ""
+            odd_footer.center.text = ""
+            odd_footer.right.text = ""
 
     def _render_section(
         self,
@@ -393,23 +461,27 @@ class ExcelRenderer:
         last_column: int,
         font_size: float,
     ) -> None:
+        distribution_style = _distribution_style(layout_cell)
         fill_color, text_color = self._colors(layout_cell)
         for row_number in range(first_row, last_row + 1):
             for column_number in range(first_column, last_column + 1):
                 cell = worksheet.cell(row=row_number, column=column_number)
-                cell.border = _CELL_BORDER
-                cell.fill = PatternFill(fill_type="solid", fgColor=fill_color)
-                cell.font = Font(
-                    name="Yu Gothic UI",
-                    size=font_size,
-                    bold=layout_cell.role in {"title", "subtitle", "header"},
-                    color=text_color,
-                )
+                if distribution_style is None:
+                    cell.border = _CELL_BORDER
+                    cell.fill = PatternFill(fill_type="solid", fgColor=fill_color)
+                    cell.font = Font(
+                        name="Yu Gothic UI",
+                        size=font_size,
+                        bold=layout_cell.role in {"title", "subtitle", "header"},
+                        color=text_color,
+                    )
+                else:
+                    _apply_distribution_style(cast(Cell, cell), distribution_style)
                 cell.alignment = Alignment(
                     horizontal=layout_cell.alignment,
                     vertical="center",
-                    wrap_text=True,
-                    shrink_to_fit=True,
+                    wrap_text=distribution_style not in {"dist_blank", "dist_title"},
+                    shrink_to_fit=distribution_style not in {"dist_blank", "dist_title"},
                     text_rotation=255 if layout_cell.vertical_text else 0,
                 )
         value_cell = cast(Cell, worksheet.cell(row=first_row, column=first_column))
@@ -489,6 +561,58 @@ def _set_explicit_text(cell: Cell, value: str) -> None:
 
     cell.value = value
     cell.data_type = "s"
+
+
+def _distribution_style(cell: LayoutCell) -> str | None:
+    return next((code for code in cell.style_codes if code.startswith("dist_")), None)
+
+
+def _apply_distribution_style(cell: Cell, style: str) -> None:
+    """見本ブックから採寸した罫線・書体・塗りを個人情報なしで再現する。"""
+    fill = "FFFFFF"
+    text = "000000"
+    border = _DISTRIBUTION_BORDER
+    font_name = "Yu Gothic"
+    font_size = 11.0
+    bold = False
+    if style == "dist_title":
+        border = _NO_BORDER
+        font_name = "BIZ UD明朝 Medium"
+        font_size = 16.0
+        bold = True
+    elif style == "dist_blank":
+        border = _NO_BORDER
+    elif style == "dist_name":
+        border = _BOTTOM_BORDER
+        font_size = 14.0
+    elif style == "dist_profile":
+        border = _BOTTOM_BORDER
+    elif style == "dist_month":
+        fill = "0B3041"
+        text = "FFFFFF"
+        bold = True
+    elif style == "dist_day":
+        fill = "F2F2F2"
+    elif style == "dist_week_corner":
+        fill = "F2F2F2"
+    elif style == "dist_outside":
+        fill = "0E2841"
+        text = "FFFFFF"
+    elif style in {"dist_closed", "dist_closed_week"}:
+        fill = "E8E8E8"
+        bold = style == "dist_closed_week"
+    elif style == "dist_final_left":
+        border = Border(left=_BLACK_SIDE, top=_BLACK_SIDE, bottom=_BLACK_SIDE)
+    elif style == "dist_final_right":
+        border = Border(right=_BLACK_SIDE, top=_BLACK_SIDE, bottom=_BLACK_SIDE)
+    cell.border = border
+    cell.fill = PatternFill(fill_type="solid", fgColor=fill)
+    cell.font = Font(
+        name=font_name,
+        size=font_size,
+        bold=bold,
+        color=text,
+    )
 
 
 def _require_suffix(path: Path, suffix: str) -> Path:

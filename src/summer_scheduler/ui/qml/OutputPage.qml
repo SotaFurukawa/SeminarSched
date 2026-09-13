@@ -353,7 +353,9 @@ Item {
                         enabled: !root.viewModel.isBusy
                         text: root.viewModel.destinationPath
                         selectByMouse: true
-                        placeholderText: qsTr("保存するファイルを選択してください")
+                        placeholderText: root.viewModel.reportKind === "teacher_packets"
+                                         ? qsTr("生成する講師別フォルダー名を指定してください")
+                                         : qsTr("保存するファイルを選択してください")
                         onEditingFinished: root.viewModel.setDestination(text)
                         Accessible.name: qsTr("出力ファイルの保存先")
                     }
@@ -370,7 +372,9 @@ Item {
                         onClicked: saveDialog.open()
                     }
                     Button {
-                        text: qsTr("ファイルを生成")
+                        text: root.viewModel.reportKind === "teacher_packets"
+                              ? qsTr("講師別フォルダーを生成")
+                              : qsTr("ファイルを生成")
                         highlighted: true
                         enabled: root.viewModel.canGenerate
                         onClicked: {

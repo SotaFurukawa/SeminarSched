@@ -144,6 +144,15 @@ class _OutputWorker(QObject):
     def _execute(self) -> OutputResultDto:
         job = self._job
         if job.is_preview:
+            if job.kind == "teacher_packets":
+                return self._service.export_pdf(
+                    cast(ReportKind, job.kind),
+                    job.destination,
+                    job.selection,
+                    settings_override=job.settings,
+                    overwrite=True,
+                    split_teacher_packets=False,
+                )
             return self._service.export_pdf(
                 cast(ReportKind, job.kind),
                 job.destination,
@@ -338,8 +347,15 @@ class OutputViewModel(QObject):
 
     destinationUrl = Property(QUrl, _get_destination_url, notify=outputStateChanged)
 
+    def _effective_destination(self, destination: Path | None = None) -> Path | None:
+        value = destination if destination is not None else self._destination
+        if value is not None and self._report_kind == "teacher_packets":
+            return value.with_suffix("")
+        return value
+
     def _get_destination_exists(self) -> bool:
-        return self._destination is not None and self._destination.exists()
+        destination = self._effective_destination()
+        return destination is not None and destination.exists()
 
     destinationExists = Property(bool, _get_destination_exists, notify=outputStateChanged)
 
@@ -720,7 +736,11 @@ class OutputViewModel(QObject):
         if self._last_output_path is None:
             self._set_error("先に出力ファイルを生成してください")
             return False
-        directory = self._last_output_path.parent.resolve(strict=False)
+        directory = (
+            self._last_output_path
+            if self._last_output_path.is_dir()
+            else self._last_output_path.parent
+        ).resolve(strict=False)
         if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory))):
             self._set_error("出力先フォルダーを開けませんでした")
             return False
@@ -740,10 +760,12 @@ class OutputViewModel(QObject):
             return False
         destination = _path_with_extension(self._destination, self._output_format)
         self._destination = destination
-        if destination.exists() and not overwrite:
+        effective_destination = self._effective_destination(destination)
+        assert effective_destination is not None
+        if effective_destination.exists() and not overwrite:
             self._overwrite_required = True
             self.outputStateChanged.emit()
-            self.overwriteConfirmationRequested.emit(destination.name)
+            self.overwriteConfirmationRequested.emit(effective_destination.name)
             return False
         self._overwrite_required = False
         job = _OutputJob(
@@ -1156,7 +1178,8 @@ class OutputViewModel(QObject):
             f"、{value.page_count_optional}ページ" if value.page_count_optional is not None else ""
         )
         self._last_result_summary = f"{value.record_count}件{page_text}／{value.format.upper()}"
-        self._set_status(f"出力ファイルを保存しました: {value.path.name}")
+        output_label = "出力フォルダー" if value.path.is_dir() else "出力ファイル"
+        self._set_status(f"{output_label}を保存しました: {value.path.name}")
         self.outputStateChanged.emit()
         self.outputGenerated.emit(str(value.path))
 

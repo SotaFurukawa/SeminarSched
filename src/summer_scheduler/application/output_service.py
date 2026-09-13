@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import tempfile
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 from typing import Final
+from uuid import uuid4
 
 from summer_scheduler.application.optimization_input_builder import (
     build_optimization_input,
@@ -22,7 +26,12 @@ from summer_scheduler.application.project_service import ProjectService
 from summer_scheduler.application.project_validation_service import (
     ProjectValidationService,
 )
-from summer_scheduler.infrastructure.exporting import CsvRenderer, ExcelRenderer
+from summer_scheduler.infrastructure.exporting import (
+    CsvRenderer,
+    ExcelRenderer,
+    OutputDestinationExistsError,
+    OutputWriteError,
+)
 from summer_scheduler.infrastructure.exporting.pdf_renderer import QtPdfRenderer
 from summer_scheduler.infrastructure.repositories import OutputRepository
 from summer_scheduler.optimization.candidates import generate_candidates
@@ -39,7 +48,7 @@ from summer_scheduler.reporting.data import (
     OutputSelection,
     OutputSnapshot,
 )
-from summer_scheduler.reporting.layout import LayoutDocument
+from summer_scheduler.reporting.layout import LayoutDocument, LayoutSection
 from summer_scheduler.reporting.settings import OutputSettings, OutputSettingsDefaults
 from summer_scheduler.reporting.unassigned_builder import (
     build_current_result,
@@ -179,11 +188,20 @@ class OutputService:
         prepared = self._prepare(refresh=True)
         settings = self._effective_settings(prepared, settings_override)
         document = build_report_document(kind, prepared.snapshot, settings, selection)
-        path = ExcelRenderer(settings.style_rules).render(
-            document,
-            destination,
-            overwrite=overwrite,
-        )
+        if kind == "teacher_packets":
+            path = self._export_teacher_packet_directory(
+                document,
+                destination,
+                output_format="xlsx",
+                settings=settings,
+                overwrite=overwrite,
+            )
+        else:
+            path = ExcelRenderer(settings.style_rules).render(
+                document,
+                destination,
+                overwrite=overwrite,
+            )
         return OutputResultDto(
             kind=kind,
             format="xlsx",
@@ -200,16 +218,26 @@ class OutputService:
         *,
         settings_override: OutputSettings | None = None,
         overwrite: bool = False,
+        split_teacher_packets: bool = True,
     ) -> OutputResultDto:
         prepared = self._prepare(refresh=True)
         settings = self._effective_settings(prepared, settings_override)
         document = build_report_document(kind, prepared.snapshot, settings, selection)
-        path = QtPdfRenderer().render(
-            document,
-            settings,
-            destination,
-            overwrite=overwrite,
-        )
+        if kind == "teacher_packets" and split_teacher_packets:
+            path = self._export_teacher_packet_directory(
+                document,
+                destination,
+                output_format="pdf",
+                settings=settings,
+                overwrite=overwrite,
+            )
+        else:
+            path = QtPdfRenderer().render(
+                document,
+                settings,
+                destination,
+                overwrite=overwrite,
+            )
         return OutputResultDto(
             kind=kind,
             format="pdf",
@@ -242,6 +270,49 @@ class OutputService:
             page_count_optional=None,
             record_count=self._record_count(prepared.snapshot, "raw", selection),
         )
+
+    @staticmethod
+    def _export_teacher_packet_directory(
+        document: LayoutDocument,
+        destination: Path,
+        *,
+        output_format: str,
+        settings: OutputSettings,
+        overwrite: bool,
+    ) -> Path:
+        """講師別ページを講師名の個別ファイルへ分割してフォルダー保存する。"""
+        target = destination.expanduser().resolve().with_suffix("")
+        if target.exists() and not overwrite:
+            raise OutputDestinationExistsError(f"同名の出力フォルダーが既にあります: {target.name}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = Path(tempfile.mkdtemp(prefix=f".{target.name}.tmp-", dir=str(target.parent)))
+        used_names: set[str] = set()
+        try:
+            for section in document.sections:
+                stem = _unique_output_stem(_safe_filename_stem(section.name), used_names)
+                page_sections = tuple(
+                    LayoutSection(
+                        name=page.subheading or f"時間割_{index}",
+                        pages=(page,),
+                    )
+                    for index, page in enumerate(section.pages, start=1)
+                )
+                individual = replace(
+                    document,
+                    title=section.name,
+                    sections=page_sections,
+                )
+                output_path = temporary / f"{stem}.{output_format}"
+                if output_format == "xlsx":
+                    ExcelRenderer(settings.style_rules).render(individual, output_path)
+                else:
+                    QtPdfRenderer().render(individual, settings, output_path)
+            _replace_directory_atomically(temporary, target, overwrite=overwrite)
+        except Exception:
+            if temporary.exists():
+                shutil.rmtree(temporary, ignore_errors=True)
+            raise
+        return target
 
     def suggested_filename(
         self,
@@ -433,6 +504,40 @@ def _safe_filename_stem(value: str) -> str:
     if windows_base_name in _WINDOWS_RESERVED:
         sanitized = f"_{sanitized}"
     return sanitized[:180].rstrip(" .")
+
+
+def _unique_output_stem(value: str, used_names: set[str]) -> str:
+    candidate = value
+    index = 2
+    while candidate.casefold() in used_names:
+        suffix = f"_{index}"
+        candidate = f"{value[: 180 - len(suffix)]}{suffix}"
+        index += 1
+    used_names.add(candidate.casefold())
+    return candidate
+
+
+def _replace_directory_atomically(temporary: Path, target: Path, *, overwrite: bool) -> None:
+    backup: Path | None = None
+    if target.exists():
+        if not overwrite:
+            raise OutputDestinationExistsError(f"同名の出力フォルダーが既にあります: {target.name}")
+        backup = target.with_name(f".{target.name}.backup-{uuid4().hex}")
+        try:
+            os.replace(target, backup)
+        except OSError as exc:
+            raise OutputWriteError("既存の出力フォルダーを更新できません") from exc
+    try:
+        os.replace(temporary, target)
+    except OSError as exc:
+        if backup is not None and backup.exists() and not target.exists():
+            os.replace(backup, target)
+        raise OutputWriteError("講師別ファイルの保存を完了できません") from exc
+    if backup is not None:
+        if backup.is_dir():
+            shutil.rmtree(backup)
+        else:
+            backup.unlink()
 
 
 __all__ = [
