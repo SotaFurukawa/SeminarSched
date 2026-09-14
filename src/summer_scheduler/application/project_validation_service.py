@@ -19,6 +19,7 @@ from summer_scheduler.application.phase3_dto import (
     ValidationIssueDto,
 )
 from summer_scheduler.application.project_service import ProjectFileError, ProjectService
+from summer_scheduler.domain.teacher_priority import maximum_other_teacher_sessions
 from summer_scheduler.domain.time_ranges import time_ranges_overlap
 from summer_scheduler.infrastructure.db.models import (
     Assignment,
@@ -712,9 +713,38 @@ def _assignment_issues(
     """現在割当とロック済み入力の明白な矛盾を最適化前に検出する。"""
     issues: list[_Issue] = []
     by_teacher_slot: dict[tuple[int, date, int], list[Assignment]] = defaultdict(list)
+    by_request: dict[int, list[Assignment]] = defaultdict(list)
     for assignment in assignments:
+        by_request[assignment.lesson_request_id].append(assignment)
         by_teacher_slot[(assignment.teacher_id, assignment.date, assignment.time_slot_id)].append(
             assignment
+        )
+
+    for request_id, rows in sorted(by_request.items()):
+        request = requests_by_id.get(request_id)
+        if request is None or request.regular_teacher_id_optional is None:
+            continue
+        maximum_other = maximum_other_teacher_sessions(
+            request.required_sessions,
+            request.regular_teacher_priority,
+        )
+        other_rows = [row for row in rows if row.teacher_id != request.regular_teacher_id_optional]
+        if len(other_rows) <= maximum_other:
+            continue
+        issues.append(
+            _assignment_issue(
+                other_rows[maximum_other],
+                "regular_teacher_minimum_shortage",
+                (
+                    f"担当優先度{request.regular_teacher_priority}で必要な通常担当講師の"
+                    "最低回数を満たしていません"
+                ),
+                details={
+                    "regular_teacher_id": request.regular_teacher_id_optional,
+                    "other_teacher_count": len(other_rows),
+                    "maximum_other_teacher_count": maximum_other,
+                },
+            )
         )
 
     for (_teacher_id, _day, _slot_id), rows in sorted(by_teacher_slot.items()):

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from summer_scheduler.domain.teacher_priority import maximum_other_teacher_sessions
 from summer_scheduler.domain.time_ranges import InvalidTimeRangeError
 from summer_scheduler.optimization.diagnostics import diagnostic_message
 from summer_scheduler.optimization.dto import (
@@ -32,6 +33,7 @@ _VALIDATION_ORDER = (
     DiagnosticCode.UNEXPECTED_SESSION,
     DiagnosticCode.RESULT_REFERENCE_MISMATCH,
     DiagnosticCode.ASSIGNMENT_NOT_CANDIDATE,
+    DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED,
     DiagnosticCode.LOCKED_ASSIGNMENT_NOT_PRESERVED,
     DiagnosticCode.STUDENT_TIME_CONFLICT,
     DiagnosticCode.TEACHER_CAPACITY_EXCEEDED,
@@ -176,6 +178,31 @@ def validate_optimization_result(
             )
         if key not in expected:
             continue
+
+    for request in requests.values():
+        if request.regular_teacher_id is None:
+            continue
+        maximum_other = maximum_other_teacher_sessions(
+            request.required_sessions,
+            request.regular_teacher_priority,
+        )
+        other_count = sum(
+            assignment.lesson_request_id == request.id
+            and assignment.teacher_id != request.regular_teacher_id
+            for assignment in result.assignments
+        )
+        if other_count > maximum_other:
+            violations.append(
+                _violation(
+                    DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED,
+                    lesson_request_id=request.id,
+                    details=(
+                        ("other_teacher_count", str(other_count)),
+                        ("maximum_other_teacher_count", str(maximum_other)),
+                        ("priority", str(request.regular_teacher_priority)),
+                    ),
+                )
+            )
 
     for unassigned in result.unassigned_lessons:
         request = requests.get(unassigned.lesson_request_id)

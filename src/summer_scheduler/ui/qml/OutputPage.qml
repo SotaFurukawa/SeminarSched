@@ -12,14 +12,8 @@ Item {
     required property var viewModel
     signal openHomeRequested
     signal openIssuesRequested
-    property bool distributionReviewMode: false
-    property int distributionCategory: 0
     property bool advancedSettingsVisible: false
     property bool openFolderAfterOutput: true
-    readonly property var distributionFormatOptions: [
-        {"label": qsTr("Excel（.xlsx）"), "value": "xlsx"},
-        {"label": qsTr("PDF（.pdf）"), "value": "pdf"}
-    ]
 
     UiTheme { id: theme }
 
@@ -34,28 +28,10 @@ Item {
     function outputNameFilters() {
         if (root.viewModel.outputFormat === "pdf")
             return [qsTr("PDF文書 (*.pdf)")]
-        if (root.viewModel.outputFormat === "csv")
-            return [qsTr("CSVファイル (*.csv)")]
         return [qsTr("Excelブック (*.xlsx)")]
     }
 
-    function syncDistributionReport() {
-        if (!root.distributionReviewMode)
-            return
-        if (root.distributionCategory === 0)
-            root.viewModel.setReportKind("students")
-        else if (root.distributionCategory === 2)
-            root.viewModel.setReportKind("student_handouts")
-        else if (teacherPacketBox.currentIndex === 1)
-            root.viewModel.setReportKind("teacher_packets")
-        else
-            root.viewModel.setReportKind("teacher_handouts")
-        if (root.viewModel.outputFormat === "csv")
-            root.viewModel.setOutputFormat("xlsx")
-    }
-
     Component.onCompleted: {
-        root.syncDistributionReport()
         if (root.viewModel.hasOpenProject)
             root.viewModel.refreshWorkspace()
     }
@@ -126,8 +102,7 @@ Item {
                 spacing: 1
 
                 Label {
-                    text: root.distributionReviewMode
-                          ? qsTr("配布物確認") : qsTr("時間割・帳票の出力")
+                    text: qsTr("時間割・帳票の出力")
                     color: "#18212f"
                     font.pixelSize: 24
                     font.weight: Font.Bold
@@ -158,48 +133,6 @@ Item {
         StatusBanner {
             Layout.fillWidth: true
             viewModel: root.viewModel
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: distributionRow.implicitHeight + 16
-            visible: root.distributionReviewMode
-            radius: 8
-            color: "#ffffff"
-            border.color: "#dce2ea"
-
-            RowLayout {
-                id: distributionRow
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 8
-
-                Repeater {
-                    model: [qsTr("個別時間割"), qsTr("講師配布時間割"), qsTr("生徒配布時間割")]
-                    delegate: Button {
-                        required property int index
-                        required property string modelData
-                        Layout.fillWidth: true
-                        text: modelData
-                        highlighted: root.distributionCategory === index
-                        onClicked: {
-                            root.distributionCategory = index
-                            root.syncDistributionReport()
-                        }
-                    }
-                }
-                ComboBox {
-                    id: teacherPacketBox
-                    visible: root.distributionCategory === 1
-                    Layout.preferredWidth: 210
-                    model: [qsTr("学年順"), qsTr("講師ごと")]
-                    onActivated: root.syncDistributionReport()
-                    Accessible.name: qsTr("講師配布時間割の並び")
-                }
-            }
         }
 
         Rectangle {
@@ -264,7 +197,6 @@ Item {
                         id: reportBox
 
                         Layout.preferredWidth: 200
-                        visible: !root.distributionReviewMode
                         enabled: !root.viewModel.isBusy
                         model: root.viewModel.reportOptions
                         textRole: "label"
@@ -273,19 +205,6 @@ Item {
                         onActivated: root.viewModel.setReportKind(String(currentValue))
                         Accessible.name: qsTr("出力する帳票")
                     }
-                    Label {
-                        visible: root.distributionReviewMode
-                        Layout.preferredWidth: 200
-                        text: root.viewModel.reportKind === "students"
-                              ? qsTr("個別時間割")
-                              : root.viewModel.reportKind === "student_handouts"
-                                ? qsTr("生徒配布時間割")
-                                : root.viewModel.reportKind === "teacher_packets"
-                                  ? qsTr("講師配布時間割（講師ごと）")
-                                  : qsTr("講師配布時間割（学年順）")
-                        color: "#344054"
-                    }
-
                     Label {
                         text: qsTr("2. 形式")
                         color: "#344054"
@@ -297,9 +216,7 @@ Item {
 
                         Layout.preferredWidth: 170
                         enabled: !root.viewModel.isBusy
-                        model: root.distributionReviewMode
-                               ? root.distributionFormatOptions
-                               : root.viewModel.formatOptions
+                        model: root.viewModel.formatOptions
                         textRole: "label"
                         valueRole: "value"
                         currentIndex: root.optionIndex(model, root.viewModel.outputFormat)
@@ -312,9 +229,7 @@ Item {
                         enabled: root.viewModel.canPreview
                         onClicked: root.viewModel.generatePreview()
                         ToolTip.visible: hovered && !enabled
-                        ToolTip.text: root.viewModel.reportKind === "raw"
-                                      ? qsTr("CSV生データはプレビュー対象外です。")
-                                      : qsTr("生成中は操作できません。")
+                        ToolTip.text: qsTr("生成中は操作できません。")
                     }
 
                     Item {
@@ -652,31 +567,6 @@ Item {
                                 }
                             }
 
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Label {
-                                    text: qsTr("生徒別")
-                                    color: "#344054"
-                                }
-                                ComboBox {
-                                    Layout.fillWidth: true
-                                    enabled: !root.viewModel.isBusy
-                                    model: [
-                                        {"label": qsTr("1人1ページ"), "value": "one_per_page"},
-                                        {"label": qsTr("複数人をまとめる"), "value": "combined"}
-                                    ]
-                                    textRole: "label"
-                                    valueRole: "value"
-                                    currentIndex: root.optionIndex(model, root.viewModel.studentPageMode)
-                                    onActivated: root.viewModel.setStudentPageMode(String(currentValue))
-                                }
-                                CheckBox {
-                                    text: qsTr("CSVにBOM")
-                                    checked: root.viewModel.csvWithBom
-                                    enabled: !root.viewModel.isBusy
-                                    onToggled: root.viewModel.setCsvWithBom(checked)
-                                }
-                            }
                         }
                     }
 

@@ -4,11 +4,11 @@
 #define MyAppId "{{69E193A4-8240-49BD-9933-0E175303A4EE}"
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.9.2"
+  #define MyAppVersion "1.9.3"
 #endif
 
 #ifndef MyAppFileVersion
-  #define MyAppFileVersion "1.9.2.0"
+  #define MyAppFileVersion "1.9.3.0"
 #endif
 
 #ifndef SourceDirectory

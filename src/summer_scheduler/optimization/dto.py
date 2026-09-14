@@ -34,6 +34,7 @@ class DiagnosticCode(StrEnum):
     STUDENT_UNAVAILABLE = "student_unavailable"
     TEACHER_UNAVAILABLE = "teacher_unavailable"
     TEACHER_UNQUALIFIED = "teacher_unqualified"
+    REGULAR_TEACHER_MINIMUM_REQUIRED = "regular_teacher_minimum_required"
     PRIORITY_5_TEACHER_REQUIRED = "priority_5_teacher_required"
     PRIORITY_5_COMMON_SLOT_UNAVAILABLE = "priority_5_common_slot_unavailable"
     GROUP_LESSON_CONFLICT = "group_lesson_conflict"

@@ -7,6 +7,8 @@ from collections.abc import Callable, Iterable
 from datetime import date, time, timedelta
 from typing import Final, NoReturn
 
+from sqlalchemy import select
+
 from summer_scheduler.application.dto import (
     DashboardSummary,
     LessonRequestDto,
@@ -26,6 +28,7 @@ from summer_scheduler.application.project_service import (
 from summer_scheduler.domain.defaults import SCHOOL_LEVEL_LABELS, default_subject_short_name
 from summer_scheduler.domain.grades import grade_from_excel
 from summer_scheduler.domain.identifiers import next_person_external_id
+from summer_scheduler.domain.teacher_priority import maximum_other_teacher_sessions
 from summer_scheduler.domain.validation import (
     DomainValidationError,
     TimeSlotInput,
@@ -39,6 +42,7 @@ from summer_scheduler.domain.validation import (
     validate_time_slots,
 )
 from summer_scheduler.infrastructure.db.models import (
+    Assignment,
     LessonRequest,
     OpenDate,
     Student,
@@ -997,7 +1001,32 @@ class MasterDataService:
                 row = repository.create_lesson_request(LessonRequest(**values))
             else:
                 row = repository.update_lesson_request(existing, **values)
+            removed_assignments = 0
+            if regular_teacher_id is not None:
+                incompatible = tuple(
+                    session.scalars(
+                        select(Assignment)
+                        .where(
+                            Assignment.project_id == project_id,
+                            Assignment.lesson_request_id == row.id,
+                            Assignment.teacher_id != regular_teacher_id,
+                        )
+                        .order_by(Assignment.session_index, Assignment.id)
+                    )
+                )
+                maximum_other = maximum_other_teacher_sessions(
+                    required_sessions,
+                    regular_teacher_priority,
+                )
+                for assignment in incompatible[maximum_other:]:
+                    session.delete(assignment)
+                removed_assignments = max(0, len(incompatible) - maximum_other)
             warnings = tuple(issue.message for issue in issues if issue.severity == "warning")
+            if removed_assignments:
+                warnings += (
+                    "担当優先度の最低割合を適用するため、通常担当講師以外の配置"
+                    f"{removed_assignments}件を未配置へ戻しました",
+                )
             return SaveResult(row.id, warnings)
 
     def delete_lesson_request(self, record_id: int) -> None:

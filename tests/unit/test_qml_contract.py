@@ -20,7 +20,6 @@ def test_main_qml_contains_all_required_navigation_labels() -> None:
         "未配置・警告",
         "出力",
         "設定",
-        "配布物確認",
     }
     assert all(f'title: "{label}"' in source for label in required_labels)
     assert "季節講習 時間割作成" in source

@@ -354,6 +354,64 @@ def test_validation_detects_priority5_without_regular_teacher(
     assert missing_teacher[0].entity_type == "lesson_request"
 
 
+def test_validation_detects_priority5_assignment_with_another_teacher(
+    project_service: ProjectService,
+) -> None:
+    database = project_service.require_database()
+    project_id = project_service.require_project().project_id
+    with database.session_factory.begin() as session:
+        subject = session.scalar(select(Subject).where(Subject.code == "JH_MATH"))
+        slot = session.scalar(
+            select(TimeSlot).where(TimeSlot.project_id == project_id).order_by(TimeSlot.sort_order)
+        )
+        assert subject is not None and slot is not None
+        student = _student("S-P5-MISMATCH", "架空 優先生徒")
+        regular = Teacher(
+            external_id="T-P5-REGULAR",
+            name="架空 通常担当",
+            allow_gap=False,
+            active=True,
+        )
+        other = Teacher(
+            external_id="T-P5-OTHER",
+            name="架空 別担当",
+            allow_gap=False,
+            active=True,
+        )
+        session.add_all([student, regular, other])
+        session.flush()
+        request = LessonRequest(
+            project_id=project_id,
+            student_id=student.id,
+            subject_id=subject.id,
+            required_sessions=1,
+            regular_teacher_id_optional=regular.id,
+            regular_teacher_priority=5,
+            one_to_one_required=False,
+        )
+        session.add(request)
+        session.flush()
+        session.add(
+            Assignment(
+                project_id=project_id,
+                lesson_request_id=request.id,
+                session_index=1,
+                date=date(2026, 8, 1),
+                time_slot_id=slot.id,
+                teacher_id=other.id,
+                is_locked=True,
+                is_manual=True,
+                created_by="manual",
+            )
+        )
+
+    issues = ProjectValidationService(project_service).run_validation()
+
+    mismatch = [issue for issue in issues if issue.issue_type == "regular_teacher_minimum_shortage"]
+    assert len(mismatch) == 1
+    assert mismatch[0].severity == "error"
+
+
 def test_validation_detects_assignment_one_to_one_and_fixed_conflicts(
     project_service: ProjectService,
 ) -> None:

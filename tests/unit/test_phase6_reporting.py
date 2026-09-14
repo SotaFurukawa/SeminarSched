@@ -129,19 +129,41 @@ def test_distribution_handouts_are_a4_weekly_and_ordered_for_each_audience() -> 
     assert "(架空講師" not in _document_texts(student)
     assert "数" in _document_texts(student)
     assert "数　架空講師一" in _document_texts(teacher)
+    assert "数 架空講師一t" in _document_texts(teacher)
+    assert "数 架空講師一t" in _document_texts(packets)
+    assert "数 架空講師一t" not in _document_texts(student)
     assert [section.name.split("_")[0] for section in teacher.sections] == [
         "中1",
         "中2",
         "高1",
     ]
     assert [section.name for section in packets.sections] == [
-        "架空講師一t用",
-        "架空講師二t用",
-        "架空講師三t用",
+        "架空講師一t",
+        "架空講師二t",
+        "架空講師三t",
     ]
     first_teacher_pages = packets.sections[0].pages
     assert first_teacher_pages[0].subheading.startswith("中1_")
     assert len(packets.sections[2].pages) == len(snapshot.students)
+
+
+def test_distribution_handouts_list_nonparticipants_first_and_skip_their_calendars() -> None:
+    base = _snapshot()
+    absent = StudentRecord(99, "S099", "欠席 生徒", "高校2年", "", True)
+    snapshot = replace(base, students=(*base.students, absent))
+
+    student = build_student_handout_document(snapshot, _settings())
+    teacher = build_teacher_handout_document(snapshot, _settings())
+    packets = build_teacher_packet_document(snapshot, _settings())
+
+    assert student.sections[0].name == "講習欠席一覧"
+    assert teacher.sections[0].name == "講習欠席一覧"
+    assert "高2\n欠席 生徒" in _document_texts(student)
+    assert all("欠席 生徒" not in section.name for section in student.sections[1:])
+    assert student.page_count == len(base.students) + 1
+    assert teacher.page_count == len(base.students) + 1
+    assert all(section.pages[0].subheading == "講習欠席一覧" for section in packets.sections)
+    assert all(len(section.pages) == len(base.students) + 1 for section in packets.sections)
 
 
 def test_standard_student_report_uses_the_same_calendar_layout() -> None:
@@ -677,9 +699,9 @@ print(json.dumps({
     result = json.loads(completed.stdout.strip().splitlines()[-1])
     assert Path(result["folder"]) == target.with_suffix("").resolve()
     assert result["files"] == [
-        "架空講師一t用.pdf",
-        "架空講師三t用.pdf",
-        "架空講師二t用.pdf",
+        "架空講師一t.pdf",
+        "架空講師三t.pdf",
+        "架空講師二t.pdf",
     ]
     assert result["page_counts"] == [3, 3, 3]
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any, cast
@@ -16,11 +17,14 @@ from summer_scheduler.application.project_service import ProjectService
 from summer_scheduler.application.shared_roster_service import SharedRosterService
 from summer_scheduler.infrastructure.db import create_database, upgrade_database
 from summer_scheduler.infrastructure.db.models import (
+    Assignment,
+    LessonRequest,
     RegularLessonProfile,
     Student,
     Subject,
     Teacher,
     TeacherQualification,
+    TimeSlot,
 )
 from summer_scheduler.infrastructure.excel.shared_roster import (
     SharedQualification,
@@ -114,6 +118,83 @@ def test_shared_roster_syncs_people_qualifications_and_regular_lessons(
         assert workbook["科目"].max_row == 27
     finally:
         workbook.close()
+
+
+def test_shared_roster_priority_five_updates_requests_and_unassigns_other_teacher(
+    roster_service: SharedRosterService,
+) -> None:
+    initial = SharedRosterData(
+        students=(SharedStudent("S001", "架空", "生徒", "中2"),),
+        teachers=(
+            SharedTeacher("T001", "架空", "通常担当"),
+            SharedTeacher("T002", "架空", "別担当"),
+        ),
+        subjects=(SharedSubject("JH_MATH", "中学校・数学", "junior_high", 1),),
+        qualifications=(
+            SharedQualification("T001", "JH_MATH"),
+            SharedQualification("T002", "JH_MATH"),
+        ),
+        regular_lessons=(SharedRegularLesson("S001", "JH_MATH", "T001", 3, False),),
+    )
+    write_shared_roster(roster_service.path, initial)
+    roster_service.sync_to_current_project()
+    database = roster_service._projects.require_database()  # noqa: SLF001
+    project_id = roster_service._projects.require_project().project_id  # noqa: SLF001
+    with database.session_factory.begin() as session:
+        student = session.scalar(select(Student).where(Student.external_id == "S001"))
+        regular = session.scalar(select(Teacher).where(Teacher.external_id == "T001"))
+        other = session.scalar(select(Teacher).where(Teacher.external_id == "T002"))
+        subject = session.scalar(select(Subject).where(Subject.code == "JH_MATH"))
+        slot = session.scalar(
+            select(TimeSlot).where(TimeSlot.project_id == project_id).order_by(TimeSlot.sort_order)
+        )
+        assert student is not None and regular is not None and other is not None
+        assert subject is not None and slot is not None
+        request = LessonRequest(
+            project_id=project_id,
+            student_id=student.id,
+            subject_id=subject.id,
+            required_sessions=1,
+            regular_teacher_id_optional=regular.id,
+            regular_teacher_priority=3,
+            one_to_one_required=False,
+        )
+        session.add(request)
+        session.flush()
+        session.add(
+            Assignment(
+                project_id=project_id,
+                lesson_request_id=request.id,
+                session_index=1,
+                date=date(2026, 8, 1),
+                time_slot_id=slot.id,
+                teacher_id=other.id,
+                is_locked=True,
+                is_manual=True,
+                created_by="manual",
+            )
+        )
+        request_id = request.id
+        regular_id = regular.id
+
+    write_shared_roster(
+        roster_service.path,
+        replace(
+            initial,
+            regular_lessons=(SharedRegularLesson("S001", "JH_MATH", "T001", 5, False),),
+        ),
+    )
+    roster_service.sync_to_current_project()
+
+    with database.session_factory() as session:
+        loaded_request = session.get(LessonRequest, request_id)
+        assert loaded_request is not None
+        assert loaded_request.regular_teacher_priority == 5
+        assert loaded_request.regular_teacher_id_optional == regular_id
+        assert (
+            session.scalar(select(Assignment).where(Assignment.lesson_request_id == request_id))
+            is None
+        )
 
 
 def test_linked_names_follow_master_ids_and_can_be_reselected(tmp_path: Path) -> None:

@@ -95,6 +95,57 @@ def test_assignment_must_match_generated_candidate_and_request_references() -> N
     }.issubset(_codes(report))
 
 
+def test_priority_five_rejects_even_a_manual_existing_assignment_to_another_teacher() -> None:
+    request = _request(regular_teacher_id=10, regular_teacher_priority=5)
+    wrong_teacher = 20
+    manual = ExistingAssignmentData(
+        id=1,
+        lesson_request_id=request.id,
+        session_index=1,
+        day=DAY,
+        time_slot_id=Y.id,
+        teacher_id=wrong_teacher,
+        is_locked=False,
+        is_manual=True,
+    )
+    source = _input(
+        requests=(request,),
+        slots=(Y,),
+        teachers=(_teacher(10), _teacher(wrong_teacher)),
+        existing=(manual,),
+    )
+    result = _result(assignments=(_assignment(request, 1, Y, teacher_id=wrong_teacher),))
+
+    report = validate_optimization_result(source, generate_candidates(source), result)
+
+    assert DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED in _codes(report)
+
+
+def test_priority_four_rejects_more_than_one_other_teacher_in_four_sessions() -> None:
+    request = _request(
+        required_sessions=4,
+        regular_teacher_id=10,
+        regular_teacher_priority=4,
+    )
+    wrong_teacher = 20
+    source = _input(
+        requests=(request,),
+        slots=(Y, Z, A),
+        teachers=(_teacher(10), _teacher(wrong_teacher)),
+    )
+    result = _result(
+        assignments=(
+            _assignment(request, 1, Y, teacher_id=wrong_teacher),
+            _assignment(request, 2, Z, teacher_id=wrong_teacher),
+        ),
+        unassigned=(_unassigned(request, 3), _unassigned(request, 4)),
+    )
+
+    report = validate_optimization_result(source, generate_candidates(source), result)
+
+    assert DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED in _codes(report)
+
+
 def test_locked_assignment_must_keep_target_and_locked_flag() -> None:
     request = _request()
     source = _input(
@@ -360,12 +411,16 @@ def _request(
     one_to_one: bool = False,
     allow_gap_override: bool | None = None,
     max_consecutive_override: int | None = None,
+    regular_teacher_id: int | None = None,
+    regular_teacher_priority: int = 1,
 ) -> LessonRequestData:
     return LessonRequestData(
         id=request_id,
         student_id=student_id,
         subject_id=500,
         required_sessions=required_sessions,
+        regular_teacher_id=regular_teacher_id,
+        regular_teacher_priority=regular_teacher_priority,
         one_to_one_required=one_to_one,
         allow_gap_override=allow_gap_override,
         max_consecutive_slots_override=max_consecutive_override,

@@ -89,6 +89,19 @@ def build_objective_stages(
             direction="minimize",
             expression=maximum_student_week_deviation,
         ),
+        # 最悪ケースの分散を守ったうえで講師マッチングを先に確定する。
+        # 優先度ごとの最低担当率はハード制約で守り、1～4は最低率を超える
+        # 通常担当への割当ても、この段階で分散の合計点より先に評価する。
+        ObjectiveStage(
+            name="teacher_preference_penalty",
+            direction="minimize",
+            expression=_teacher_preference_expression(data, generation, variables),
+        ),
+        ObjectiveStage(
+            name="teacher_continuity_penalty",
+            direction="minimize",
+            expression=_teacher_continuity_expression(model, generation, variables),
+        ),
         ObjectiveStage(
             name="request_spacing_score",
             direction="maximize",
@@ -103,16 +116,6 @@ def build_objective_stages(
             name="period_distribution_score",
             direction="maximize",
             expression=_period_distribution_expression(model, data, generation, variables),
-        ),
-        ObjectiveStage(
-            name="teacher_preference_penalty",
-            direction="minimize",
-            expression=_teacher_preference_expression(data, generation, variables),
-        ),
-        ObjectiveStage(
-            name="teacher_continuity_penalty",
-            direction="minimize",
-            expression=_teacher_continuity_expression(model, generation, variables),
         ),
     ]
     if data.settings.optional_balance_weight > 0:

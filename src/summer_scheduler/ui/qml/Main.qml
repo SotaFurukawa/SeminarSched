@@ -120,12 +120,6 @@ ApplicationWindow {
             phaseLabel: "Phase 5"
             description: "未配置の授業を条件に沿って自動配置します。"
         }
-        ListElement {
-            title: "配布物確認"
-            shortLabel: "配"
-            phaseLabel: "Phase 6"
-            description: "個別・講師・生徒向けの配布時間割を確認して出力します。"
-        }
     }
 
     header: Rectangle {
@@ -318,8 +312,6 @@ ApplicationWindow {
                                                    ? questionnaireCreationComponent
                                                    : root.currentPageIndex === 9
                                                      ? optimizationComponent
-                                                   : root.currentPageIndex === 10
-                                                     ? distributionReviewComponent
                                                  : placeholderComponent
                 }
             }
@@ -443,17 +435,6 @@ ApplicationWindow {
 
         OutputPage {
             viewModel: root.output
-            onOpenHomeRequested: root.selectPage(0)
-            onOpenIssuesRequested: root.selectPage(5)
-        }
-    }
-
-    Component {
-        id: distributionReviewComponent
-
-        OutputPage {
-            viewModel: root.output
-            distributionReviewMode: true
             onOpenHomeRequested: root.selectPage(0)
             onOpenIssuesRequested: root.selectPage(5)
         }

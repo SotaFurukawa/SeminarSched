@@ -9,10 +9,12 @@ from typing import cast
 
 import pytest
 from PySide6.QtCore import QUrl
+from sqlalchemy import select
 
 from summer_scheduler.application.master_data_service import MasterDataService
 from summer_scheduler.application.project_service import ProjectFileError, ProjectService
 from summer_scheduler.infrastructure.db import create_database, upgrade_database
+from summer_scheduler.infrastructure.db.models import Student
 from summer_scheduler.infrastructure.excel.shared_roster import (
     SharedRegularLesson,
     read_shared_roster,
@@ -80,6 +82,51 @@ def test_shared_basic_information_is_available_without_an_open_project(
         ]
         assert view_model.saveAllData()
     finally:
+        registry.dispose()
+
+
+def test_save_all_reloads_externally_edited_shared_roster_into_open_project(
+    tmp_path: Path,
+) -> None:
+    registry = create_database(tmp_path / "registry.db")
+    upgrade_database(registry.engine)
+    projects = ProjectService(
+        registry,
+        tmp_path / "backups",
+        workspace_directory=tmp_path / "workspace",
+    )
+    view_model = WorkspaceViewModel(projects, MasterDataService(projects))
+
+    try:
+        assert view_model.saveStudent(0, "S-001", "変更前 生徒", "中2", 2, False, "", True)
+        project_path = tmp_path / "基本情報同期.jukuschedule"
+        assert view_model.createProject(
+            QUrl.fromLocalFile(str(project_path)).toString(),
+            "基本情報同期",
+            "架空校",
+            "2026-08-01",
+            "2026-08-02",
+        )
+
+        roster = read_shared_roster(view_model._shared_roster.path)  # noqa: SLF001
+        write_shared_roster(
+            view_model._shared_roster.path,  # noqa: SLF001
+            replace(
+                roster,
+                students=(replace(roster.students[0], surname="変更後", given_name="生徒"),),
+            ),
+        )
+        assert cast(list[dict[str, object]], view_model.students)[0]["name"] == "変更前 生徒"
+
+        assert view_model.saveAllData()
+        assert cast(list[dict[str, object]], view_model.students)[0]["name"] == "変更後 生徒"
+        database = projects.require_database()
+        with database.session_factory() as session:
+            assert session.scalar(select(Student.name).where(Student.external_id == "S-001")) == (
+                "変更後 生徒"
+            )
+    finally:
+        projects.close_project()
         registry.dispose()
 
 

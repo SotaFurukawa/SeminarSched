@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import replace
-from datetime import date, time
+from datetime import date, time, timedelta
+
+import pytest
 
 from summer_scheduler.optimization.dto import (
     AvailabilityData,
@@ -74,6 +76,80 @@ def test_priority_five_never_uses_another_teacher() -> None:
     assert not result.assignments
     assert len(result.unassigned_lessons) == 1
     assert DiagnosticCode.PRIORITY_5_COMMON_SLOT_UNAVAILABLE in {
+        reason.code for reason in result.unassigned_lessons[0].reasons
+    }
+
+
+@pytest.mark.parametrize(
+    ("priority", "minimum_regular"),
+    ((1, 0), (2, 1), (3, 2), (4, 3), (5, 4)),
+)
+def test_regular_teacher_priority_guarantees_minimum_share(
+    priority: int,
+    minimum_regular: int,
+) -> None:
+    students = (_student(1),)
+    teachers = (_teacher(1), _teacher(2))
+    slots = _slots(1)
+    days = tuple(DAY + timedelta(days=offset) for offset in range(4))
+    request = replace(
+        _request(1, 1, sessions=4),
+        regular_teacher_id=1,
+        regular_teacher_priority=priority,
+    )
+    availability = (
+        *(AvailabilityData("student", 1, day, 1, 1) for day in days),
+        *(AvailabilityData("teacher", 1, day, 1, 1) for day in days[:minimum_regular]),
+        *(AvailabilityData("teacher", 2, day, 1, 1) for day in days[minimum_regular:]),
+    )
+
+    result = solve_optimization(
+        _input(
+            students=students,
+            teachers=teachers,
+            requests=(request,),
+            slots=slots,
+            availability=availability,
+            extra_dates=days[1:],
+        )
+    )
+
+    assert len(result.assignments) == 4
+    assert sum(row.teacher_id == 1 for row in result.assignments) == minimum_regular
+
+
+def test_missing_regular_teacher_capacity_is_not_filled_beyond_priority_limit() -> None:
+    students = (_student(1),)
+    teachers = (_teacher(1), _teacher(2))
+    slots = _slots(1)
+    days = tuple(DAY + timedelta(days=offset) for offset in range(4))
+    request = replace(
+        _request(1, 1, sessions=4),
+        regular_teacher_id=1,
+        regular_teacher_priority=4,
+    )
+    availability = (
+        *(AvailabilityData("student", 1, day, 1, 1) for day in days),
+        *(AvailabilityData("teacher", 1, day, 1, 1) for day in days[:2]),
+        *(AvailabilityData("teacher", 2, day, 1, 1) for day in days),
+    )
+
+    result = solve_optimization(
+        _input(
+            students=students,
+            teachers=teachers,
+            requests=(request,),
+            slots=slots,
+            availability=availability,
+            extra_dates=days[1:],
+        )
+    )
+
+    assert len(result.assignments) == 3
+    assert sum(row.teacher_id == 1 for row in result.assignments) == 2
+    assert sum(row.teacher_id == 2 for row in result.assignments) == 1
+    assert len(result.unassigned_lessons) == 1
+    assert DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED in {
         reason.code for reason in result.unassigned_lessons[0].reasons
     }
 
@@ -346,7 +422,7 @@ def test_locked_assignment_is_preserved_even_when_another_teacher_is_preferred()
     request = replace(
         _request(1, 1),
         regular_teacher_id=1,
-        regular_teacher_priority=4,
+        regular_teacher_priority=1,
         preferred_teacher_ids=(1, None, None),
     )
     source = _input(
@@ -489,7 +565,7 @@ def test_unassigned_count_precedes_teacher_preferences() -> None:
     request = replace(
         _request(1, 1),
         regular_teacher_id=1,
-        regular_teacher_priority=4,
+        regular_teacher_priority=1,
         preferred_teacher_ids=(1, None, None),
     )
     students = (_student(1),)

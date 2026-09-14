@@ -110,6 +110,9 @@ def build_teacher_packet_document(
     """講師ごとに通常担当・講習担当・その他の順で同じ様式のページを返す。"""
     settings.validate()
     students = tuple(sorted(selected_students(snapshot, selection), key=_student_sort_key))
+    participating_ids = _participating_student_ids(snapshot)
+    participating_students = tuple(row for row in students if row.id in participating_ids)
+    absent_students = tuple(row for row in students if row.id not in participating_ids)
     teachers = selected_teachers(snapshot, selection)
     requests = {row.id: row for row in snapshot.lesson_requests}
     teacher_file_names = compact_person_name_map(teachers)
@@ -126,34 +129,37 @@ def build_teacher_packet_document(
             if assignment.teacher_id == teacher.id and assignment.lesson_request_id in requests
         }
         ordered_students = (
-            *(student for student in students if student.id in regular_ids),
+            *(student for student in participating_students if student.id in regular_ids),
             *(
                 student
-                for student in students
+                for student in participating_students
                 if student.id in seasonal_ids and student.id not in regular_ids
             ),
             *(
                 student
-                for student in students
+                for student in participating_students
                 if student.id not in regular_ids and student.id not in seasonal_ids
             ),
         )
-        pages = tuple(
-            _student_page(
-                snapshot,
-                selection,
-                student,
-                title=f"講師配布時間割（{teacher.name}用）",
-                category="講師別",
-                include_teacher=True,
-            )
-            for student in ordered_students
+        pages = (
+            *((_absence_page(absent_students),) if absent_students else ()),
+            *(
+                _student_page(
+                    snapshot,
+                    selection,
+                    student,
+                    title=f"講師配布時間割（{teacher.name}用）",
+                    category="講師別",
+                    include_teacher=True,
+                )
+                for student in ordered_students
+            ),
         )
         if not pages:
             pages = (_empty_page(f"講師配布時間割（{teacher.name}用）"),)
         sections.append(
             LayoutSection(
-                name=f"{teacher_file_names.get(teacher.id, teacher.name)}t用",
+                name=f"{teacher_file_names.get(teacher.id, teacher.name)}t",
                 pages=pages,
             )
         )
@@ -180,21 +186,31 @@ def _grade_ordered_handouts(
     title: str,
 ) -> LayoutDocument:
     students = tuple(sorted(selected_students(snapshot, selection), key=_student_sort_key))
-    sections = tuple(
-        LayoutSection(
-            name=f"{grade_from_excel(student.grade)}_{student.name}",
-            pages=(
-                _student_page(
-                    snapshot,
-                    selection,
-                    student,
-                    title=title,
-                    category="学年順",
-                    include_teacher=include_teacher,
+    participating_ids = _participating_student_ids(snapshot)
+    participating_students = tuple(row for row in students if row.id in participating_ids)
+    absent_students = tuple(row for row in students if row.id not in participating_ids)
+    sections = (
+        *(
+            (LayoutSection(name="講習欠席一覧", pages=(_absence_page(absent_students),)),)
+            if absent_students
+            else ()
+        ),
+        *(
+            LayoutSection(
+                name=f"{grade_from_excel(student.grade)}_{student.name}",
+                pages=(
+                    _student_page(
+                        snapshot,
+                        selection,
+                        student,
+                        title=title,
+                        category="学年順",
+                        include_teacher=include_teacher,
+                    ),
                 ),
-            ),
-        )
-        for student in students
+            )
+            for student in participating_students
+        ),
     )
     if not sections:
         sections = (LayoutSection(name=title, pages=(_empty_page(title),)),)
@@ -204,6 +220,97 @@ def _grade_ordered_handouts(
         report_code=report_code,
         title=title,
         sections=sections,
+    )
+
+
+def _participating_student_ids(snapshot: OutputSnapshot) -> set[int]:
+    """受講申込または集団授業への参加がある生徒IDを返す。"""
+    participating = {
+        row.student_id for row in snapshot.lesson_requests if row.required_sessions > 0
+    }
+    participating.update(
+        student_id for row in snapshot.group_lessons for student_id in row.student_ids
+    )
+    return participating
+
+
+def _absence_page(students: tuple[StudentRecord, ...]) -> LayoutPage:
+    """講習へ参加しない生徒を、配布帳票の先頭へ載せる。"""
+    rows: list[LayoutRow] = [
+        LayoutRow(
+            cells=(
+                LayoutCell(
+                    "講習欠席一覧",
+                    role="title",
+                    column_span=9,
+                    alignment="center",
+                    style_codes=("dist_title",),
+                    preserve_grade_notation=True,
+                ),
+            ),
+            height_points_optional=45.0,
+        ),
+        _blank_row(),
+        LayoutRow(
+            cells=(
+                LayoutCell(
+                    "学年",
+                    role="header",
+                    column_span=3,
+                    alignment="center",
+                    style_codes=("dist_profile",),
+                ),
+                LayoutCell(
+                    "生徒名",
+                    role="header",
+                    column_span=6,
+                    alignment="center",
+                    style_codes=("dist_profile",),
+                ),
+            ),
+            height_points_optional=24.0,
+        ),
+    ]
+    if students:
+        rows.extend(
+            LayoutRow(
+                cells=(
+                    LayoutCell(
+                        grade_from_excel(student.grade),
+                        column_span=3,
+                        alignment="center",
+                        style_codes=("dist_profile",),
+                    ),
+                    LayoutCell(
+                        student.name,
+                        column_span=6,
+                        alignment="center",
+                        style_codes=("dist_name",),
+                        preserve_grade_notation=True,
+                    ),
+                ),
+                height_points_optional=24.0,
+            )
+            for student in students
+        )
+    else:
+        rows.append(
+            LayoutRow(
+                cells=(
+                    LayoutCell(
+                        "該当者はいません",
+                        column_span=9,
+                        alignment="center",
+                        style_codes=("dist_blank",),
+                    ),
+                ),
+                height_points_optional=24.0,
+            )
+        )
+    return LayoutPage(
+        heading="講習欠席一覧",
+        subheading="講習欠席一覧",
+        tables=(LayoutTable(rows=tuple(rows), column_widths=_DISTRIBUTION_COLUMNS),),
     )
 
 
@@ -297,9 +404,30 @@ def _calendar_table(
             ),
             height_points_optional=24.0,
         ),
-        _blank_row(),
-        _blank_row(),
     ]
+    if include_teacher:
+        rows.append(
+            LayoutRow(
+                cells=(
+                    LayoutCell(
+                        _regular_teacher_summary(
+                            student.id,
+                            requests,
+                            subjects,
+                            teacher_names,
+                        ),
+                        column_span=9,
+                        alignment="center",
+                        style_codes=("dist_profile",),
+                        preserve_grade_notation=True,
+                    ),
+                ),
+                height_points_optional=24.0,
+            )
+        )
+    else:
+        rows.append(_blank_row())
+    rows.append(_blank_row())
     for week_start in _week_starts(start_date, end_date):
         week_days = tuple(week_start + timedelta(days=offset) for offset in range(7))
         if _is_fully_closed_week(week_days, dates_by_day):
@@ -351,6 +479,30 @@ def _calendar_table(
         )
     )
     return LayoutTable(rows=tuple(rows), column_widths=_DISTRIBUTION_COLUMNS)
+
+
+def _regular_teacher_summary(
+    student_id: int,
+    requests: Mapping[int, LessonRequestRecord],
+    subjects: Mapping[int, SubjectRecord],
+    teacher_names: Mapping[int, str],
+) -> str:
+    """科目略称と通常担当講師を、講師配布用の1行へまとめる。"""
+    values: list[str] = []
+    seen: set[tuple[int, int]] = set()
+    for request in sorted(requests.values(), key=lambda row: (row.subject_id, row.id)):
+        teacher_id = request.regular_teacher_id_optional
+        key = (request.subject_id, teacher_id or 0)
+        if request.student_id != student_id or teacher_id is None or key in seen:
+            continue
+        subject = subjects.get(request.subject_id)
+        teacher_name = teacher_names.get(teacher_id)
+        if subject is None or not teacher_name:
+            continue
+        seen.add(key)
+        short_name = subject.short_name or subject.name[:1]
+        values.append(f"{short_name} {teacher_name}t")
+    return "　".join(values) if values else "通常担当：―"
 
 
 def _week_rows(

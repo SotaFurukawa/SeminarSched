@@ -148,7 +148,7 @@ def _seed_graph(projects: ProjectService) -> _Graph:
                 subject_id=subject.id,
                 required_sessions=1,
                 regular_teacher_id_optional=teachers[0].id,
-                regular_teacher_priority=3,
+                regular_teacher_priority=1,
                 one_to_one_required=False,
             )
             for student in students

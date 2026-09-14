@@ -59,7 +59,7 @@ def test_scarce_priority_five_session_is_placed_before_flexible_session() -> Non
         _request(2000, 2),
         one_to_one_required=True,
         regular_teacher_id=10,
-        regular_teacher_priority=4,
+        regular_teacher_priority=1,
     )
     source = _input(
         requests=(priority_five, flexible),

@@ -501,6 +501,12 @@ class WorkspaceViewModel(QObject):
                 self._shared_roster.ensure_workbook()
                 self._refresh_shared_roster_collections()
                 return
+            # 「Excelで基本情報を編集」で開いた共通ブックはアプリ外で更新される。
+            # 保存時に正本を再読込みしないと、画面とプロジェクトDBが再起動まで古い
+            # ままになるため、バックアップより先に検証・同期する。
+            self._shared_roster.sync_to_current_project()
+            self._refresh_all_collections()
+            self.projectStateChanged.emit()
             self._projects.create_automatic_backup()
             self._refresh_recovery_candidates()
 

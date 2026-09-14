@@ -92,7 +92,7 @@ def test_output_service_rebuilds_unassigned_and_exports_excel_csv(
         assert student_result.path.is_file()
         assert handout_result.path.is_file()
         assert teacher_packet_result.path.is_dir()
-        assert [path.name for path in teacher_packet_result.path.glob("*.xlsx")] == ["架空t用.xlsx"]
+        assert [path.name for path in teacher_packet_result.path.glob("*.xlsx")] == ["架空t.xlsx"]
         handout_workbook = load_workbook(handout_result.path, read_only=False, data_only=False)
         try:
             assert handout_workbook.sheetnames

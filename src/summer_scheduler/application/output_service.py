@@ -62,9 +62,9 @@ _REPORT_NAMES: Final = {
     "teachers": "講師別時間割",
     "issues": "未配置・警告一覧",
     "raw": "割当て生データ",
-    "student_handouts": "生徒配布時間割",
-    "teacher_handouts": "講師配布時間割_学年順",
-    "teacher_packets": "講師配布時間割_講師別",
+    "student_handouts": "生徒配布用生徒別時間割",
+    "teacher_handouts": "講師配布用学年別時間割",
+    "teacher_packets": "講師配布用講師別時間割",
 }
 _INVALID_FILENAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _WINDOWS_RESERVED = {

@@ -496,7 +496,7 @@ def test_soft_warning_reports_all_required_before_after_deltas() -> None:
         2,
         2,
         regular_teacher_id=10,
-        regular_teacher_priority=4,
+        regular_teacher_priority=1,
         preferred_teacher_ids=(10, None, None),
     )
     existing = (_existing(1, request_2, Y, 10),)

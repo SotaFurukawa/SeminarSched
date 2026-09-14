@@ -1040,11 +1040,16 @@ Item {
                                     }
 
                                     Label {
-                                        visible: root.requestSaveAttempted && regularPriority.value === 5
-                                                 && root.teacherValue(regularTeacher) === ""
                                         Layout.fillWidth: true
-                                        text: qsTr("優先度5は通常担当講師の選択が必須です。")
-                                        color: "#a23b3b"
+                                        text: root.requestSaveAttempted
+                                              && regularPriority.value === 5
+                                              && root.teacherValue(regularTeacher) === ""
+                                              ? qsTr("優先度5は通常担当講師の選択が必須です。")
+                                              : qsTr("通常担当講師が設定済みの場合の最低割合：5＝100%、4＝75%、3＝50%、2＝25%、1＝0%")
+                                        color: root.requestSaveAttempted
+                                               && regularPriority.value === 5
+                                               && root.teacherValue(regularTeacher) === ""
+                                               ? "#a23b3b" : "#667085"
                                         font.pixelSize: 9
                                         wrapMode: Text.Wrap
                                     }

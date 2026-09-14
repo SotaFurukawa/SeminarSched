@@ -7,11 +7,13 @@ from datetime import date, time
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 
 from summer_scheduler.application.master_data_service import MasterDataService
 from summer_scheduler.application.project_service import ProjectService
 from summer_scheduler.domain.validation import DomainValidationError
 from summer_scheduler.infrastructure.db import create_database, upgrade_database
+from summer_scheduler.infrastructure.db.models import Assignment, TimeSlot
 
 
 @pytest.fixture
@@ -201,6 +203,101 @@ def test_qualification_and_lesson_request_rules(
             max_consecutive_slots_override=None,
             allow_gap_override=None,
             note="",
+        )
+
+
+def test_changing_to_priority_five_returns_other_teacher_assignments_to_unassigned(
+    master_service: MasterDataService,
+) -> None:
+    student_id = master_service.save_student(
+        record_id=None,
+        external_id="S-P5",
+        name="架空 優先生徒",
+        grade="中1",
+        default_max_consecutive_slots=2,
+        allow_gap=False,
+        note="",
+        active=True,
+    ).record_id
+    regular_teacher_id = master_service.save_teacher(
+        record_id=None,
+        external_id="T-P5-1",
+        name="架空 通常担当",
+        allow_gap=False,
+        note="",
+        active=True,
+    ).record_id
+    other_teacher_id = master_service.save_teacher(
+        record_id=None,
+        external_id="T-P5-2",
+        name="架空 別担当",
+        allow_gap=False,
+        note="",
+        active=True,
+    ).record_id
+    subject = next(item for item in master_service.list_subjects() if item.code == "JH_MATH")
+    master_service.set_qualification(regular_teacher_id, subject.id, can_teach=True)
+    master_service.set_qualification(other_teacher_id, subject.id, can_teach=True)
+    request = master_service.save_lesson_request(
+        record_id=None,
+        student_id=student_id,
+        subject_id=subject.id,
+        required_sessions=1,
+        regular_teacher_id=regular_teacher_id,
+        regular_teacher_priority=3,
+        preferred_teacher_1_id=None,
+        preferred_teacher_2_id=None,
+        preferred_teacher_3_id=None,
+        one_to_one_required=False,
+        max_consecutive_slots_override=None,
+        allow_gap_override=None,
+        note="",
+    )
+    projects = master_service._projects  # noqa: SLF001
+    project_id = projects.require_project().project_id
+    database = projects.require_database()
+    with database.session_factory.begin() as session:
+        slot = session.scalar(
+            select(TimeSlot).where(TimeSlot.project_id == project_id).order_by(TimeSlot.sort_order)
+        )
+        assert slot is not None
+        session.add(
+            Assignment(
+                project_id=project_id,
+                lesson_request_id=request.record_id,
+                session_index=1,
+                date=date(2026, 8, 1),
+                time_slot_id=slot.id,
+                teacher_id=other_teacher_id,
+                is_locked=True,
+                is_manual=True,
+                created_by="manual",
+            )
+        )
+
+    saved = master_service.save_lesson_request(
+        record_id=request.record_id,
+        student_id=student_id,
+        subject_id=subject.id,
+        required_sessions=1,
+        regular_teacher_id=regular_teacher_id,
+        regular_teacher_priority=5,
+        preferred_teacher_1_id=None,
+        preferred_teacher_2_id=None,
+        preferred_teacher_3_id=None,
+        one_to_one_required=False,
+        max_consecutive_slots_override=None,
+        allow_gap_override=None,
+        note="",
+    )
+
+    assert any("未配置へ戻しました" in warning for warning in saved.warnings)
+    with database.session_factory() as session:
+        assert (
+            session.scalar(
+                select(Assignment).where(Assignment.lesson_request_id == request.record_id)
+            )
+            is None
         )
 
 

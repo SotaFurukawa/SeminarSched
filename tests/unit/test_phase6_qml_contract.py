@@ -34,8 +34,6 @@ def test_output_page_exposes_all_phase6_settings_and_target_filters() -> None:
         "teacherColumnsPerPage",
         "fontSize",
         "marginMm",
-        "studentPageMode",
-        "csvWithBom",
         "fileNamePattern",
         "logoPath",
         "defaultOutputDirectory",
@@ -101,8 +99,8 @@ def test_main_uses_output_page_and_composes_project_switch_guards() -> None:
     assert "readonly property var output: outputViewModel" in main
     assert "root.currentPageIndex === 6" in main
     assert "OutputPage {" in main
-    assert 'title: "配布物確認"' in main
-    assert "distributionReviewMode: true" in main
+    assert 'title: "配布物確認"' not in main
+    assert "distributionReviewMode" not in main
     assert "OutputViewModel(" in app
     assert "OutputService(" in app
     assert "output_defaults=runtime.settings.output" in app
@@ -116,15 +114,19 @@ def test_main_uses_output_page_and_composes_project_switch_guards() -> None:
     assert "application.aboutToQuit.connect(output_view_model.shutdown)" in app
 
 
-def test_distribution_review_exposes_audience_reports_and_responsive_preview() -> None:
+def test_output_exposes_all_required_reports_and_responsive_preview() -> None:
     qml = QML.read_text(encoding="utf-8")
     python = VIEW_MODEL.read_text(encoding="utf-8")
 
-    assert 'qsTr("個別時間割")' in qml
-    assert 'qsTr("講師配布時間割")' in qml
-    assert 'qsTr("生徒配布時間割")' in qml
-    assert 'root.viewModel.setReportKind("teacher_packets")' in qml
+    assert "root.viewModel.reportOptions" in qml
+    assert "distributionReviewMode" not in qml
     assert "root.width < 1120 ? Qt.Vertical : Qt.Horizontal" in qml
+    assert '{"label": "全体時間割", "value": "overall"}' in python
+    assert '{"label": "未配置・警告一覧", "value": "issues"}' in python
     assert '"student_handouts"' in python
     assert '"teacher_handouts"' in python
     assert '"teacher_packets"' in python
+    options = python.split("_REPORT_OPTIONS = (", maxsplit=1)[1].split(")", maxsplit=1)[0]
+    assert '"生徒別時間割"' not in options
+    assert '"講師別時間割"' not in options
+    assert '"割当て生データ"' not in options

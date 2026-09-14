@@ -12,8 +12,10 @@ from sqlalchemy import delete, select
 from summer_scheduler.application.project_service import ProjectService
 from summer_scheduler.domain.defaults import DEFAULT_SUBJECTS, default_subject_short_name
 from summer_scheduler.domain.identifiers import next_person_external_id
+from summer_scheduler.domain.teacher_priority import maximum_other_teacher_sessions
 from summer_scheduler.domain.validation import raise_for_errors, validate_student, validate_teacher
 from summer_scheduler.infrastructure.db.models import (
+    Assignment,
     LessonRequest,
     RegularLessonProfile,
     Student,
@@ -195,6 +197,19 @@ class SharedRosterService:
                     RegularLessonProfile.project_id == project.project_id
                 )
             )
+            profile_values = {
+                (student_ids[row.student_external_id], subject_ids[row.subject_code]): (
+                    (
+                        teacher_ids.get(row.regular_teacher_external_id)
+                        if row.regular_teacher_external_id
+                        else None
+                    ),
+                    row.regular_teacher_priority,
+                    row.one_to_one_required,
+                    row.note or None,
+                )
+                for row in data.regular_lessons
+            }
             session.add_all(
                 RegularLessonProfile(
                     project_id=project.project_id,
@@ -211,6 +226,40 @@ class SharedRosterService:
                 )
                 for row in data.regular_lessons
             )
+            # 通常授業の担当・優先度は共通Excelを正本とする。アンケート取込後の
+            # 受講希望にも再同期し、優先度別の最低担当率を超える別講師の既存配置を
+            # 残さない。
+            lesson_requests = tuple(
+                session.scalars(
+                    select(LessonRequest).where(LessonRequest.project_id == project.project_id)
+                )
+            )
+            for request in lesson_requests:
+                profile = profile_values.get((request.student_id, request.subject_id))
+                if profile is None:
+                    continue
+                teacher_id, priority, one_to_one_required, _note = profile
+                request.regular_teacher_id_optional = teacher_id
+                request.regular_teacher_priority = priority
+                request.one_to_one_required = one_to_one_required
+                if teacher_id is not None:
+                    incompatible = tuple(
+                        session.scalars(
+                            select(Assignment)
+                            .where(
+                                Assignment.project_id == project.project_id,
+                                Assignment.lesson_request_id == request.id,
+                                Assignment.teacher_id != teacher_id,
+                            )
+                            .order_by(Assignment.session_index, Assignment.id)
+                        )
+                    )
+                    maximum_other = maximum_other_teacher_sessions(
+                        request.required_sessions,
+                        priority,
+                    )
+                    for assignment in incompatible[maximum_other:]:
+                        session.delete(assignment)
 
         # 空欄IDへ採番した結果と在籍者優先の並びを共通ファイルへ戻す。
         if write_back:

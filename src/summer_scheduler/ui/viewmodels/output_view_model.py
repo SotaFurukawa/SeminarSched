@@ -59,18 +59,14 @@ _SelectionValue = TypeVar("_SelectionValue", date, int)
 
 _REPORT_OPTIONS = (
     {"label": "全体時間割", "value": "overall"},
-    {"label": "生徒別時間割", "value": "students"},
-    {"label": "講師別時間割", "value": "teachers"},
-    {"label": "未配置・警告一覧", "value": "issues"},
-    {"label": "割当て生データ", "value": "raw"},
     {"label": "生徒配布時間割", "value": "student_handouts"},
     {"label": "講師配布時間割（学年順）", "value": "teacher_handouts"},
     {"label": "講師配布時間割（講師別）", "value": "teacher_packets"},
+    {"label": "未配置・警告一覧", "value": "issues"},
 )
 _FORMAT_OPTIONS = (
     {"label": "Excel（.xlsx）", "value": "xlsx"},
     {"label": "PDF（.pdf）", "value": "pdf"},
-    {"label": "CSV（.csv）", "value": "csv"},
 )
 _VISIBLE_FIELD_OPTIONS = (
     {"label": "学年", "value": "grade"},
