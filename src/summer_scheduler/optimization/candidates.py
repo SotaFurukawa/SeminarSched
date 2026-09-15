@@ -184,8 +184,6 @@ def _generate_session_candidates(
         for code, count in sorted(exclusion_counts.items(), key=lambda item: item[0].value)
     )
     if not candidates:
-        if request.regular_teacher_priority == 5:
-            reasons += (_reason(DiagnosticCode.PRIORITY_5_COMMON_SLOT_UNAVAILABLE),)
         reasons += (_reason(DiagnosticCode.NO_CANDIDATE),)
     return candidates, _session_diagnostics(session, len(candidates), reasons)
 
@@ -211,8 +209,6 @@ def _candidate_exclusion(
         return DiagnosticCode.INACTIVE_TEACHER
     if request.subject_id not in teacher.qualified_subject_ids:
         return DiagnosticCode.TEACHER_UNQUALIFIED
-    if request.regular_teacher_priority == 5 and teacher.id != request.regular_teacher_id:
-        return DiagnosticCode.PRIORITY_5_TEACHER_REQUIRED
     if indexes.availability.get(("teacher", teacher.id, day, slot.id), 0) == 0:
         return DiagnosticCode.TEACHER_UNAVAILABLE
     if _has_group_conflict(

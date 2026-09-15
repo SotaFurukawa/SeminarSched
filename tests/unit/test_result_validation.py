@@ -95,7 +95,7 @@ def test_assignment_must_match_generated_candidate_and_request_references() -> N
     }.issubset(_codes(report))
 
 
-def test_priority_five_rejects_even_a_manual_existing_assignment_to_another_teacher() -> None:
+def test_priority_five_accepts_a_manual_existing_assignment_to_another_teacher() -> None:
     request = _request(regular_teacher_id=10, regular_teacher_priority=5)
     wrong_teacher = 20
     manual = ExistingAssignmentData(
@@ -118,10 +118,10 @@ def test_priority_five_rejects_even_a_manual_existing_assignment_to_another_teac
 
     report = validate_optimization_result(source, generate_candidates(source), result)
 
-    assert DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED in _codes(report)
+    assert report.is_valid
 
 
-def test_priority_four_rejects_more_than_one_other_teacher_in_four_sessions() -> None:
+def test_priority_four_accepts_more_than_one_other_teacher_in_four_sessions() -> None:
     request = _request(
         required_sessions=4,
         regular_teacher_id=10,
@@ -143,7 +143,7 @@ def test_priority_four_rejects_more_than_one_other_teacher_in_four_sessions() ->
 
     report = validate_optimization_result(source, generate_candidates(source), result)
 
-    assert DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED in _codes(report)
+    assert report.is_valid
 
 
 def test_locked_assignment_must_keep_target_and_locked_flag() -> None:

@@ -215,7 +215,7 @@ def test_validation_detects_capacity_qualification_and_group_conflicts(
     assert "group_teacher_overlap" in issue_types
     assert "group_student_overlap" in issue_types
     assert "student_availability_shortage" in issue_types
-    assert "priority5_common_availability_shortage" in issue_types
+    assert "regular_teacher_target_availability_shortage" in issue_types
 
 
 def test_validation_detects_overlapping_enabled_time_slots(
@@ -409,7 +409,7 @@ def test_validation_detects_priority5_assignment_with_another_teacher(
 
     mismatch = [issue for issue in issues if issue.issue_type == "regular_teacher_minimum_shortage"]
     assert len(mismatch) == 1
-    assert mismatch[0].severity == "error"
+    assert mismatch[0].severity == "warning"
 
 
 def test_validation_detects_assignment_one_to_one_and_fixed_conflicts(

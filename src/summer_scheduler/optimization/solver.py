@@ -11,6 +11,7 @@ from datetime import date, timedelta
 
 from ortools.sat.python import cp_model
 
+from summer_scheduler.domain.teacher_priority import minimum_regular_teacher_sessions
 from summer_scheduler.domain.time_ranges import time_ranges_overlap
 from summer_scheduler.optimization.candidates import (
     CandidateGenerationCancelled,
@@ -45,6 +46,7 @@ from summer_scheduler.optimization.objectives import (
     maximum_teacher_week_deviation,
     realized_teacher_active_days,
     realized_teacher_loads,
+    regular_teacher_shortfall,
     request_spacing_score,
     student_period_imbalance,
     teacher_participation_imbalance,
@@ -137,7 +139,7 @@ def solve_optimization(
     token = cancellation or CancellationToken()
     started_at = clock()
     deadline = started_at + data.settings.time_limit_seconds
-    expected_stage_count = 16 if data.settings.optional_balance_weight > 0 else 15
+    expected_stage_count = 20 if data.settings.optional_balance_weight > 0 else 19
     if progress is not None:
         progress(
             OptimizationProgress(
@@ -615,6 +617,21 @@ def _add_safe_initial_hint(
         ] += 1
     for teacher_key, variable in variables.request_teacher_used.items():
         add_hint(variable, int(selected_by_request_teacher.get(teacher_key, 0) > 0))
+    request_lookup = {request.id: request for request in data.lesson_requests}
+    for (_priority, request_id), variable in variables.regular_teacher_shortfalls.items():
+        request = request_lookup[request_id]
+        regular_teacher_id = request.regular_teacher_id
+        if regular_teacher_id is None:
+            raise RuntimeError("通常担当講師がない受講希望に目標不足変数があります")
+        target = minimum_regular_teacher_sessions(
+            request.required_sessions,
+            request.regular_teacher_priority,
+        )
+        regular_count = selected_by_request_teacher.get(
+            (request_id, regular_teacher_id),
+            0,
+        )
+        add_hint(variable, max(0, target - regular_count))
     used_teacher_count: dict[int, int] = defaultdict(int)
     for (request_id, _teacher_id), count in selected_by_request_teacher.items():
         used_teacher_count[request_id] += int(count > 0)
@@ -636,7 +653,6 @@ def _add_safe_initial_hint(
     if variables.request_spacing_scores:
         open_days = tuple(sorted(set(data.open_dates)))
         day_positions = {day_value: index for index, day_value in enumerate(open_days)}
-        request_lookup = {request.id: request for request in data.lesson_requests}
         for candidate in selected_candidates:
             request = request_lookup[candidate.lesson_request_id]
             if request.required_sessions < 2:
@@ -764,6 +780,14 @@ def _snapshot_stage_value(
     )
     values = {
         "unassigned_count": breakdown.unassigned_count,
+        **{
+            f"regular_teacher_shortfall_priority_{priority}": regular_teacher_shortfall(
+                data,
+                snapshot.selected,
+                priority,
+            )
+            for priority in (5, 4, 3, 2)
+        },
         "teacher_preference_penalty": breakdown.teacher_preference_penalty,
         "teacher_continuity_penalty": _teacher_continuity_penalty(snapshot.selected),
         "same_day_concentration_penalty": _same_day_concentration_penalty(
@@ -961,13 +985,59 @@ def _result_from_snapshot(
             snapshot.unassigned,
         ),
         elapsed_seconds=elapsed_seconds,
-        warnings=warnings,
+        warnings=(*warnings, *_regular_teacher_target_warnings(data, assignments)),
         cancelled=cancelled,
     )
     return replace(
         preliminary,
         unassigned_lessons=diagnose_unassigned_lessons(data, generation, preliminary),
     )
+
+
+def _regular_teacher_target_warnings(
+    data: OptimizationInput,
+    assignments: tuple[ScheduledAssignment, ...],
+) -> tuple[str, ...]:
+    students = {student.id: student.display_name for student in data.students}
+    teachers = {teacher.id: teacher.display_name for teacher in data.teachers}
+    subjects = {subject.id: subject.display_name for subject in data.subjects}
+    regular_counts: dict[int, int] = defaultdict(int)
+    assigned_counts: dict[int, int] = defaultdict(int)
+    requests = {request.id: request for request in data.lesson_requests}
+    for assignment in assignments:
+        assigned_counts[assignment.lesson_request_id] += 1
+        request = requests.get(assignment.lesson_request_id)
+        if request is not None and assignment.teacher_id == request.regular_teacher_id:
+            regular_counts[request.id] += 1
+
+    warnings: list[str] = []
+    for request in data.lesson_requests:
+        if request.regular_teacher_id is None or request.regular_teacher_priority <= 1:
+            continue
+        target = minimum_regular_teacher_sessions(
+            request.required_sessions,
+            request.regular_teacher_priority,
+        )
+        actual = regular_counts.get(request.id, 0)
+        if actual >= target:
+            continue
+        assigned = assigned_counts.get(request.id, 0)
+        substitute = max(0, assigned - actual)
+        unassigned = max(0, request.required_sessions - assigned)
+        student_name = students.get(request.student_id, f"生徒ID:{request.student_id}")
+        subject_name = subjects.get(request.subject_id, f"科目ID:{request.subject_id}")
+        teacher_name = teachers.get(
+            request.regular_teacher_id,
+            f"講師ID:{request.regular_teacher_id}",
+        )
+        percentage = (request.regular_teacher_priority - 1) * 25
+        warnings.append(
+            f"{student_name}（{subject_name}）の通常担当講師「{teacher_name}」の優先度は"
+            f"{request.regular_teacher_priority}（目標{percentage}%・{target}回）ですが、"
+            f"通常担当は{actual}回で目標に達していません。"
+            f"代講{substitute}回・未配置{unassigned}回のため確認してください。"
+        )
+    return tuple(warnings)
 
 
 def _objective_breakdown(

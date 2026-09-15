@@ -206,7 +206,7 @@ def test_qualification_and_lesson_request_rules(
         )
 
 
-def test_changing_to_priority_five_returns_other_teacher_assignments_to_unassigned(
+def test_changing_to_priority_five_keeps_other_teacher_assignments_for_review(
     master_service: MasterDataService,
 ) -> None:
     student_id = master_service.save_student(
@@ -291,13 +291,13 @@ def test_changing_to_priority_five_returns_other_teacher_assignments_to_unassign
         note="",
     )
 
-    assert any("未配置へ戻しました" in warning for warning in saved.warnings)
+    assert not saved.warnings
     with database.session_factory() as session:
         assert (
             session.scalar(
                 select(Assignment).where(Assignment.lesson_request_id == request.record_id)
             )
-            is None
+            is not None
         )
 
 

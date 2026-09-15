@@ -27,6 +27,7 @@ class ModelVariables:
         default_factory=list
     )
     request_teacher_used: dict[tuple[int, int], cp_model.IntVar] = field(default_factory=dict)
+    regular_teacher_shortfalls: dict[tuple[int, int], cp_model.IntVar] = field(default_factory=dict)
     request_teacher_excess: dict[int, cp_model.IntVar] = field(default_factory=dict)
     request_day_excess: dict[tuple[int, date], cp_model.IntVar] = field(default_factory=dict)
     request_day_used: dict[tuple[int, date], cp_model.IntVar] = field(default_factory=dict)

@@ -401,7 +401,7 @@ def test_reset_assignments_moves_every_card_to_unassigned(
     assert _assignment(project_service, graph, graph.request_2_id) is None
 
 
-def test_hard_violation_is_rejected_even_when_soft_confirmation_is_true(
+def test_priority_five_substitute_requires_soft_confirmation(
     project_service: ProjectService,
 ) -> None:
     graph = _seed_graph(project_service)
@@ -419,21 +419,28 @@ def test_hard_violation_is_rejected_even_when_soft_confirmation_is_true(
         time_slot_id=graph.z_slot_id,
         teacher_id=graph.teacher_2_id,
     )
-    assert preview.allowed is False
-    assert preview.decision == "red"
-    assert preview.hard_issues
-    with pytest.raises(HardConstraintViolationError):
+    assert preview.allowed is True
+    assert preview.decision == "yellow"
+    with pytest.raises(SoftWarningConfirmationRequired):
         service.apply_move(
             lesson_request_id=graph.request_1_id,
             session_index=1,
             day=graph.day,
             time_slot_id=graph.z_slot_id,
             teacher_id=graph.teacher_2_id,
-            reason="強制しない",
-            confirm_soft_warnings=True,
+            reason="代講を確認",
         )
+    service.apply_move(
+        lesson_request_id=graph.request_1_id,
+        session_index=1,
+        day=graph.day,
+        time_slot_id=graph.z_slot_id,
+        teacher_id=graph.teacher_2_id,
+        reason="代講を確認",
+        confirm_soft_warnings=True,
+    )
     assert _require_assignment(project_service, graph, graph.request_1_id).teacher_id == (
-        graph.teacher_1_id
+        graph.teacher_2_id
     )
 
 

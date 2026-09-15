@@ -437,7 +437,7 @@ Item {
                     }
 
                     Label {
-                        text: qsTr("警告")
+                        text: qsTr("確認が必要な項目")
                         color: "#344054"
                         font.pixelSize: 12
                         font.weight: Font.DemiBold
@@ -481,7 +481,7 @@ Item {
                         Label {
                             anchors.centerIn: parent
                             visible: warningList.count === 0
-                            text: qsTr("警告はありません")
+                            text: qsTr("確認が必要な項目はありません")
                             color: "#7a8493"
                             font.pixelSize: 9
                         }

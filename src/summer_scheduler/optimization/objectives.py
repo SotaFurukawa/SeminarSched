@@ -10,6 +10,7 @@ from typing import Literal
 
 from ortools.sat.python import cp_model
 
+from summer_scheduler.domain.teacher_priority import minimum_regular_teacher_sessions
 from summer_scheduler.domain.time_ranges import time_ranges_overlap
 from summer_scheduler.optimization.dto import (
     CandidateData,
@@ -68,6 +69,20 @@ def build_objective_stages(
             expression=cp_model.LinearExpr.sum(
                 [variables.unassigned[key] for key in sorted(variables.unassigned)]
             ),
+        ),
+        *(
+            ObjectiveStage(
+                name=f"regular_teacher_shortfall_priority_{priority}",
+                direction="minimize",
+                expression=_regular_teacher_shortfall_expression(
+                    model,
+                    data,
+                    generation,
+                    variables,
+                    priority,
+                ),
+            )
+            for priority in (5, 4, 3, 2)
         ),
         ObjectiveStage(
             name="same_day_concentration_penalty",
@@ -181,8 +196,6 @@ def teacher_preference_penalty(
     採用する。基準点も当該LessonRequestに設定された講師区分の最大値とするため、
     希望講師を一切設定していない要求へ無意味な違反点を付けない。
     """
-    if request.regular_teacher_priority == 5:
-        return 0
     scores_by_teacher = _teacher_preference_scores(request, settings)
     best_configured_score = max(scores_by_teacher.values(), default=0)
     return best_configured_score - scores_by_teacher.get(teacher_id, 0)
@@ -290,12 +303,16 @@ def _teacher_preference_scores(
     settings: OptimizationSettings,
 ) -> dict[int, int]:
     scores: dict[int, int] = {}
-    if request.regular_teacher_id is not None and 1 <= request.regular_teacher_priority <= 4:
+    if request.regular_teacher_id is not None and 1 <= request.regular_teacher_priority <= 5:
+        priority_score = (
+            settings.regular_teacher_priority_weights[request.regular_teacher_priority - 1]
+            if request.regular_teacher_priority <= 4
+            else max(settings.regular_teacher_priority_weights) + _REGULAR_TEACHER_SCORE_BONUS
+        )
         _keep_maximum(
             scores,
             request.regular_teacher_id,
-            settings.regular_teacher_priority_weights[request.regular_teacher_priority - 1]
-            + _REGULAR_TEACHER_SCORE_BONUS,
+            priority_score + _REGULAR_TEACHER_SCORE_BONUS,
         )
     for rank, teacher_id in enumerate(request.preferred_teacher_ids[:3]):
         if teacher_id is None:
@@ -306,6 +323,67 @@ def _teacher_preference_scores(
 
 def _keep_maximum(scores: dict[int, int], teacher_id: int, score: int) -> None:
     scores[teacher_id] = max(scores.get(teacher_id, 0), score)
+
+
+def regular_teacher_shortfall(
+    data: OptimizationInput,
+    selected: Iterable[CandidateData],
+    priority: int,
+) -> int:
+    """Return the total number of regular-teacher sessions missing from a priority target."""
+    regular_counts: dict[int, int] = defaultdict(int)
+    requests = {request.id: request for request in data.lesson_requests}
+    for candidate in selected:
+        request = requests.get(candidate.lesson_request_id)
+        if request is not None and candidate.teacher_id == request.regular_teacher_id:
+            regular_counts[request.id] += 1
+    return sum(
+        max(
+            0,
+            minimum_regular_teacher_sessions(
+                request.required_sessions,
+                request.regular_teacher_priority,
+            )
+            - regular_counts.get(request.id, 0),
+        )
+        for request in data.lesson_requests
+        if request.regular_teacher_id is not None and request.regular_teacher_priority == priority
+    )
+
+
+def _regular_teacher_shortfall_expression(
+    model: cp_model.CpModel,
+    data: OptimizationInput,
+    generation: CandidateGenerationResult,
+    variables: ModelVariables,
+    priority: int,
+) -> cp_model.LinearExpr:
+    candidates_by_request: dict[int, list[CandidateData]] = defaultdict(list)
+    for candidate in generation.candidates:
+        candidates_by_request[candidate.lesson_request_id].append(candidate)
+
+    shortfalls: list[cp_model.IntVar] = []
+    for request in data.lesson_requests:
+        if request.regular_teacher_id is None or request.regular_teacher_priority != priority:
+            continue
+        target = minimum_regular_teacher_sessions(
+            request.required_sessions,
+            request.regular_teacher_priority,
+        )
+        shortfall = model.new_int_var(
+            0,
+            target,
+            f"regular_teacher_shortfall_{priority}_{request.id}",
+        )
+        variables.regular_teacher_shortfalls[(priority, request.id)] = shortfall
+        regular_assignments = [
+            variables.assignments[candidate]
+            for candidate in candidates_by_request.get(request.id, ())
+            if candidate.teacher_id == request.regular_teacher_id
+        ]
+        model.add(shortfall >= target - cp_model.LinearExpr.sum(regular_assignments))
+        shortfalls.append(shortfall)
+    return cp_model.LinearExpr.sum(shortfalls)
 
 
 def _availability_preference_expression(

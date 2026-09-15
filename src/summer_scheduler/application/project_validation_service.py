@@ -19,7 +19,7 @@ from summer_scheduler.application.phase3_dto import (
     ValidationIssueDto,
 )
 from summer_scheduler.application.project_service import ProjectFileError, ProjectService
-from summer_scheduler.domain.teacher_priority import maximum_other_teacher_sessions
+from summer_scheduler.domain.teacher_priority import minimum_regular_teacher_sessions
 from summer_scheduler.domain.time_ranges import time_ranges_overlap
 from summer_scheduler.infrastructure.db.models import (
     Assignment,
@@ -240,6 +240,9 @@ def _collect_issues(session: Session, project: CourseProject) -> list[_Issue]:
         _assignment_issues(
             assignments,
             requests_by_id={row.id: row for row in requests},
+            students=students_by_id,
+            teachers=teachers_by_id,
+            subjects=subjects_by_id,
             slots=slots_by_id,
             groups=group_lessons,
             members_by_group=members_by_group,
@@ -666,7 +669,7 @@ def _capacity_issues(
 
     for request in requests:
         teacher_id = request.regular_teacher_id_optional
-        if request.regular_teacher_priority != 5 or teacher_id is None:
+        if request.regular_teacher_priority <= 1 or teacher_id is None:
             continue
         student_keys = {
             (day, slot_id)
@@ -679,7 +682,11 @@ def _capacity_issues(
             if candidate_teacher_id == teacher_id
         }
         common = len(student_keys & teacher_keys)
-        if common < request.required_sessions:
+        target = minimum_regular_teacher_sessions(
+            request.required_sessions,
+            request.regular_teacher_priority,
+        )
+        if common < target:
             student = students.get(request.student_id)
             teacher = teachers.get(teacher_id)
             student_name = student.name if student is not None else str(request.student_id)
@@ -687,14 +694,18 @@ def _capacity_issues(
             issues.append(
                 _request_issue(
                     request,
-                    "priority5_common_availability_shortage",
+                    "regular_teacher_target_availability_shortage",
                     (
-                        f"{student_name}と優先度5担当の{teacher_name}の共通可能枠"
-                        f"{common}件は必要回数{request.required_sessions}件より少ないです"
+                        f"{student_name}と通常担当講師「{teacher_name}」の共通可能枠は"
+                        f"{common}件で、優先度{request.regular_teacher_priority}の目標"
+                        f"{target}回に達しません。代講配置となる可能性があります。"
                     ),
+                    severity="warning",
                     details={
                         "common_slots": common,
                         "required_sessions": request.required_sessions,
+                        "target_sessions": target,
+                        "priority": request.regular_teacher_priority,
                         "teacher_id": teacher_id,
                     },
                 )
@@ -706,6 +717,9 @@ def _assignment_issues(
     assignments: list[Assignment],
     *,
     requests_by_id: dict[int, LessonRequest],
+    students: dict[int, Student],
+    teachers: dict[int, Teacher],
+    subjects: dict[int, Subject],
     slots: dict[int, TimeSlot],
     groups: list[GroupLesson],
     members_by_group: dict[int, set[int]],
@@ -724,25 +738,42 @@ def _assignment_issues(
         request = requests_by_id.get(request_id)
         if request is None or request.regular_teacher_id_optional is None:
             continue
-        maximum_other = maximum_other_teacher_sessions(
+        target = minimum_regular_teacher_sessions(
             request.required_sessions,
             request.regular_teacher_priority,
         )
-        other_rows = [row for row in rows if row.teacher_id != request.regular_teacher_id_optional]
-        if len(other_rows) <= maximum_other:
+        regular_count = sum(row.teacher_id == request.regular_teacher_id_optional for row in rows)
+        if regular_count >= target:
             continue
+        student = students.get(request.student_id)
+        subject = subjects.get(request.subject_id)
+        teacher = teachers.get(request.regular_teacher_id_optional)
+        student_name = student.name if student is not None else str(request.student_id)
+        subject_name = subject.display_name if subject is not None else str(request.subject_id)
+        teacher_name = (
+            teacher.name if teacher is not None else str(request.regular_teacher_id_optional)
+        )
+        substitute_count = sum(
+            row.teacher_id != request.regular_teacher_id_optional for row in rows
+        )
+        percentage = (request.regular_teacher_priority - 1) * 25
         issues.append(
-            _assignment_issue(
-                other_rows[maximum_other],
+            _request_issue(
+                request,
                 "regular_teacher_minimum_shortage",
                 (
-                    f"担当優先度{request.regular_teacher_priority}で必要な通常担当講師の"
-                    "最低回数を満たしていません"
+                    f"{student_name}（{subject_name}）の通常担当講師「{teacher_name}」の"
+                    f"優先度は{request.regular_teacher_priority}（目標{percentage}%・{target}回）"
+                    f"ですが、通常担当は{regular_count}回で目標に達していません。"
+                    f"代講{substitute_count}回のため確認してください。"
                 ),
+                severity="warning",
                 details={
                     "regular_teacher_id": request.regular_teacher_id_optional,
-                    "other_teacher_count": len(other_rows),
-                    "maximum_other_teacher_count": maximum_other,
+                    "regular_teacher_count": regular_count,
+                    "target_regular_teacher_count": target,
+                    "other_teacher_count": substitute_count,
+                    "priority": request.regular_teacher_priority,
                 },
             )
         )

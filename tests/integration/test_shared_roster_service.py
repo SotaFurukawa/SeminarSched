@@ -120,7 +120,7 @@ def test_shared_roster_syncs_people_qualifications_and_regular_lessons(
         workbook.close()
 
 
-def test_shared_roster_priority_five_updates_requests_and_unassigns_other_teacher(
+def test_shared_roster_priority_five_updates_requests_and_keeps_other_teacher(
     roster_service: SharedRosterService,
 ) -> None:
     initial = SharedRosterData(
@@ -193,7 +193,7 @@ def test_shared_roster_priority_five_updates_requests_and_unassigns_other_teache
         assert loaded_request.regular_teacher_id_optional == regular_id
         assert (
             session.scalar(select(Assignment).where(Assignment.lesson_request_id == request_id))
-            is None
+            is not None
         )
 
 

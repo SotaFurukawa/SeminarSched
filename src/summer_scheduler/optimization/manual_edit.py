@@ -586,11 +586,12 @@ def _regular_teacher_penalty(
     request = next(item for item in data.lesson_requests if item.id == request_id)
     if (
         request.regular_teacher_id is None
-        or request.regular_teacher_priority == 5
         or teacher_id == request.regular_teacher_id
-        or not 1 <= request.regular_teacher_priority <= 4
+        or not 1 <= request.regular_teacher_priority <= 5
     ):
         return 0
+    if request.regular_teacher_priority == 5:
+        return max(data.settings.regular_teacher_priority_weights) + 1
     return data.settings.regular_teacher_priority_weights[request.regular_teacher_priority - 1]
 
 

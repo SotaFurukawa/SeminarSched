@@ -158,7 +158,7 @@ def test_candidate_boundary_rejects_unavailable_unqualified_or_closed_target(
     assert DiagnosticCode.ASSIGNMENT_NOT_CANDIDATE in _hard_codes(preview)
 
 
-def test_priority_five_teacher_change_is_rejected_at_candidate_boundary() -> None:
+def test_priority_five_teacher_change_is_allowed_with_soft_warning() -> None:
     request = _request(
         1,
         1,
@@ -177,8 +177,9 @@ def test_priority_five_teacher_change_is_rejected_at_candidate_boundary() -> Non
         target=_target(DAY_1, Y, 20),
     )
 
-    assert not preview.allowed
-    assert DiagnosticCode.ASSIGNMENT_NOT_CANDIDATE in _hard_codes(preview)
+    assert preview.allowed
+    assert preview.decision is EditDecision.YELLOW
+    assert _delta_by_code(preview, SoftMetricCode.REGULAR_TEACHER_PENALTY).worsened
 
 
 def test_group_lesson_conflict_is_rejected_at_candidate_boundary() -> None:

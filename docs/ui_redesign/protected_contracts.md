@@ -3,7 +3,7 @@
 ## 変更禁止の中核契約
 
 1. `CODEX_MASTER_SPEC.md`のハード制約を減点や警告へ変更しない。
-2. OR-Toolsの候補生成、最大2名、1対1、優先度5、資格、availability、集団授業重複、
+2. OR-Toolsの候補生成、最大2名、1対1、通常担当の優先度別目標、資格、availability、集団授業重複、
    lock、連続上限、空きコマ禁止、必要回数、辞書式目的、中断時incumbentの扱いを変更しない。
 3. DnDのgreen/yellow/redは既存`ScheduleEditService` / `manual_edit.py`の結果だけを表示し、
    QML独自判定を追加しない。redを保存する経路を作らない。

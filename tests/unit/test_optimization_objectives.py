@@ -73,6 +73,10 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
 
     assert [(stage.name, stage.direction) for stage in stages] == [
         ("unassigned_count", "minimize"),
+        ("regular_teacher_shortfall_priority_5", "minimize"),
+        ("regular_teacher_shortfall_priority_4", "minimize"),
+        ("regular_teacher_shortfall_priority_3", "minimize"),
+        ("regular_teacher_shortfall_priority_2", "minimize"),
         ("same_day_concentration_penalty", "minimize"),
         ("worst_request_spacing_quality", "maximize"),
         ("maximum_student_week_deviation", "minimize"),
@@ -99,9 +103,9 @@ def test_builds_required_stages_and_enables_balance_only_for_positive_weight() -
         CandidateGenerationResult(sessions=(), candidates=(), diagnostics=()),
         ModelVariables(),
     )
-    assert enabled_stages[9].name == "teacher_load_imbalance"
-    assert enabled_stages[9].direction == "minimize"
-    assert enabled_stages[10].name == "active_teacher_day_count"
+    assert enabled_stages[13].name == "teacher_load_imbalance"
+    assert enabled_stages[13].direction == "minimize"
+    assert enabled_stages[14].name == "active_teacher_day_count"
 
 
 def test_teacher_preference_uses_request_max_and_never_adds_duplicate_scores() -> None:
@@ -119,12 +123,13 @@ def test_teacher_preference_uses_request_max_and_never_adds_duplicate_scores() -
     rank_hole = _request(preferred_teacher_ids=(None, 20, None))
     assert teacher_preference_penalty(rank_hole, 20, settings) == 0
     assert teacher_preference_penalty(rank_hole, 30, settings) == 6
-    hard_priority = _request(
+    highest_priority = _request(
         regular_teacher_id=10,
         regular_teacher_priority=5,
         preferred_teacher_ids=(20, None, None),
     )
-    assert teacher_preference_penalty(hard_priority, 10, settings) == 0
+    assert teacher_preference_penalty(highest_priority, 10, settings) == 0
+    assert teacher_preference_penalty(highest_priority, 30, settings) > 0
 
     candidate = _candidate(teacher_id=20)
     model, stages = _fixed_candidate_model(request, (candidate,), selected=candidate)

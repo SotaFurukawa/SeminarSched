@@ -542,7 +542,7 @@ LessonRequest項目は第1～第3希望講師だけである。
 `[start, end)`で比較し、同一講師または同一生徒の重複をエラーにする。終了と次の
 開始が同じだけなら重複ではない。
 
-`ProjectValidationService`は保存済みデータから可能枠不足、優先度5共通枠不足、
+`ProjectValidationService`は保存済みデータから可能枠不足、通常担当の目標共通枠不足、
 講師資格、集団授業衝突、コマ時刻重複、休校日データ、無効マスター参照等を再計算
 する。前回の未解決ValidationIssueを解決済みにして、現在の結果を追加する。詳細な
 設計判断は[`adr/0006-phase3-import-validation-and-audit.md`](adr/0006-phase3-import-validation-and-audit.md)、
@@ -568,7 +568,6 @@ version付きJSONはkey順を正規化し、NaNや重複key、未知field、不�
 
 - 休校日、無効コマ、availability 0
 - 無効な生徒・講師・科目、講師資格なし
-- 優先度5で通常担当講師以外
 - 半開区間で重なる集団授業
 - ロック済みAssignmentとの明白な衝突
 
@@ -587,20 +586,19 @@ Phase 4で扱うハード制約は次のとおりであり、目的関数のpena
 2. 生徒の同時刻重複禁止
 3. 同一講師・同一コマは最大2名
 4. 1対1必須を含む講師枠は合計1名
-5. 優先度5は通常担当講師だけ
-6. 講師科目資格
-7. 生徒availability 0の除外
-8. 講師availability 0の除外
-9. 開校日・有効コマだけを使用
-10. 任意時刻の集団授業と受講生の重複禁止
-11. 任意時刻の集団授業と担当講師の重複禁止
-12. ロック済みAssignmentの日時・コマ・講師保持
-13. 同一LessonRequestの同一日複数回は許すが、他のハード制約を適用
-14. 生徒の最大連続コマ数
-15. `allow_gap=false`の生徒の空きコマ禁止
-16. `allow_gap=false`の講師の空きコマ禁止
-17. 必要回数超過禁止
-18. 無効な生徒・講師・科目を使用しない
+5. 講師科目資格
+6. 生徒availability 0の除外
+7. 講師availability 0の除外
+8. 開校日・有効コマだけを使用
+9. 任意時刻の集団授業と受講生の重複禁止
+10. 任意時刻の集団授業と担当講師の重複禁止
+11. ロック済みAssignmentの日時・コマ・講師保持
+12. 同一LessonRequestの同一日複数回は許すが、他のハード制約を適用
+13. 生徒の最大連続コマ数
+14. `allow_gap=false`の生徒の空きコマ禁止
+15. `allow_gap=false`の講師の空きコマ禁止
+16. 必要回数超過禁止
+17. 無効な生徒・講師・科目を使用しない
 
 空きコマはowner・日付ごとに`sort_order`順のactive列を作り、0から1へ変化する
 start変数の合計を1以下にすることで、空集合または1つの連続区間に限定する。
@@ -617,14 +615,15 @@ LessonRequestの`max_consecutive_slots_override`があればStudent標準値よ�
 目的は次の順で別々にSolveする。
 
 1. 未配置数を最小化
-2. 優先度1～4、通常担当、第1～第3希望の講師希望違反を最小化
-3. 同じLessonRequestで使用する担当講師数を最小化
-4. 必要回数8回未満のLessonRequestで同日2回目以降を最小化
-5. 複数月の講習でLessonRequestが使用する月数を最大化
-6. 設定値が正の場合だけ、勤務可能枠に対する実稼働率の講師間差を最小化
-7. 稼働する講師×日付×コマ数を最小化
-8. 生徒・講師のavailability level 2を最大化
-9. 未ロック既存Assignmentからの変更を最小化
+2. 通常担当の目標不足を優先度5、4、3、2の順に最小化
+3. 通常担当と第1～第3希望の講師希望違反を最小化
+4. 同じLessonRequestで使用する担当講師数を最小化
+5. 必要回数8回未満のLessonRequestで同日2回目以降を最小化
+6. 複数月の講習でLessonRequestが使用する月数を最大化
+7. 設定値が正の場合だけ、勤務可能枠に対する実稼働率の講師間差を最小化
+8. 稼働する講師×日付×コマ数を最小化
+9. 生徒・講師のavailability level 2を最大化
+10. 未ロック既存Assignmentからの変更を最小化
 
 候補生成開始前から全処理で1つのdeadlineを共有する。候補生成とハード制約構築には
 利用者中止または期限到達を判定するcallbackを渡し、各Solveには残り時間だけを渡す。
@@ -632,7 +631,7 @@ LessonRequestの`max_consecutive_slots_override`があればStudent標準値よ�
 Assignmentなしで終了する。初期解・model構築中は、独立検証済みincumbentがあれば
 `FEASIBLE`として復帰し、なければ`UNKNOWN`とする。
 
-候補生成後は、ロック済み授業を先に保持し、候補数、優先度5、1対1必須を考慮する
+候補生成後は、ロック済み授業を先に保持し、候補数、講師希望、1対1必須を考慮する
 決定論的greedy初期解を作る。追加ごとのschedule解析と完成後の独立validatorを通過した
 解だけをincumbentとする。CP-SATへは配置・未配置、occupancy、start、補助indicatorを
 含む全非固定変数のcomplete hintを渡す。既定規模では153,221変数であり、partial hint
@@ -761,7 +760,7 @@ OptimizationInput + CandidateGenerationResult
 
 previewは現在状態が全sessionを配置または未配置として一度ずつ表す完全partitionで
 あることを先に検証する。次に操作を不変snapshotへ仮適用し、Phase 4と同じ
-`validate_optimization_result()`で候補一致、availability、資格、優先度5、重複、
+`validate_optimization_result()`で候補一致、availability、資格、重複、
 最大2名、1対1、集団授業、ロック、連続上限、空きコマ等を再検査する。
 
 - green: 全ハード制約を満たし、悪化するソフト評価がない

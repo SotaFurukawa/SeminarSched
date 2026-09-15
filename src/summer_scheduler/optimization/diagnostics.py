@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections import Counter
 
-from summer_scheduler.domain.teacher_priority import maximum_other_teacher_sessions
 from summer_scheduler.optimization.dto import (
     CandidateData,
     CandidateGenerationResult,
@@ -72,7 +71,6 @@ _MESSAGES: dict[DiagnosticCode, str] = {
 }
 
 _UNASSIGNED_REASON_ORDER = (
-    DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED,
     DiagnosticCode.STUDENT_TIME_CONFLICT,
     DiagnosticCode.TEACHER_CAPACITY_EXCEEDED,
     DiagnosticCode.ONE_TO_ONE_CAPACITY,
@@ -139,19 +137,6 @@ def diagnose_unassigned_lessons(
             )
         else:
             request = requests[session.lesson_request_id]
-            maximum_other = (
-                maximum_other_teacher_sessions(
-                    request.required_sessions,
-                    request.regular_teacher_priority,
-                )
-                if request.regular_teacher_id is not None
-                else request.required_sessions
-            )
-            current_other = sum(
-                assignment.lesson_request_id == request.id
-                and assignment.teacher_id != request.regular_teacher_id
-                for assignment in result.assignments
-            )
             counts: Counter[DiagnosticCode] = Counter()
             for candidate in candidates:
                 blockers = _candidate_blockers(
@@ -160,12 +145,6 @@ def diagnose_unassigned_lessons(
                     candidate,
                     teachers.get(candidate.teacher_id),
                 )
-                if (
-                    request.regular_teacher_id is not None
-                    and candidate.teacher_id != request.regular_teacher_id
-                    and current_other >= maximum_other
-                ):
-                    blockers.add(DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED)
                 if not blockers:
                     counts[DiagnosticCode.GLOBAL_COMPETITION] += 1
                 else:

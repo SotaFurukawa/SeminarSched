@@ -23,7 +23,7 @@ DAY = date(2026, 8, 3)
 CLOSED_DAY = date(2026, 8, 4)
 
 
-def test_priority_five_creates_candidates_only_for_regular_teacher() -> None:
+def test_priority_five_keeps_qualified_substitute_candidates() -> None:
     source = _base_input(
         request=replace(
             _request(),
@@ -35,11 +35,11 @@ def test_priority_five_creates_candidates_only_for_regular_teacher() -> None:
     result = generate_candidates(source)
 
     candidates = result.candidates_for(1000, 1)
-    assert {candidate.teacher_id for candidate in candidates} == {10}
-    assert DiagnosticCode.PRIORITY_5_TEACHER_REQUIRED in _codes(result, 1000, 1)
+    assert {candidate.teacher_id for candidate in candidates} == {10, 20}
+    assert DiagnosticCode.PRIORITY_5_TEACHER_REQUIRED not in _codes(result, 1000, 1)
 
 
-def test_priority_five_unavailable_teacher_is_not_replaced_and_is_diagnosed() -> None:
+def test_priority_five_unavailable_teacher_can_be_replaced_and_is_diagnosed() -> None:
     source = _base_input(
         request=replace(
             _request(),
@@ -58,11 +58,11 @@ def test_priority_five_unavailable_teacher_is_not_replaced_and_is_diagnosed() ->
 
     result = generate_candidates(source)
 
-    assert result.candidates_for(1000, 1) == ()
+    assert {candidate.teacher_id for candidate in result.candidates_for(1000, 1)} == {20}
     codes = _codes(result, 1000, 1)
     assert DiagnosticCode.TEACHER_UNAVAILABLE in codes
-    assert DiagnosticCode.PRIORITY_5_COMMON_SLOT_UNAVAILABLE in codes
-    assert DiagnosticCode.NO_CANDIDATE in codes
+    assert DiagnosticCode.PRIORITY_5_COMMON_SLOT_UNAVAILABLE not in codes
+    assert DiagnosticCode.NO_CANDIDATE not in codes
 
 
 def test_arbitrary_group_time_overlap_uses_half_open_intervals() -> None:

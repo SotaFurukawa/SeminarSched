@@ -47,7 +47,7 @@ def test_zero_candidate_uses_candidate_generation_diagnostics() -> None:
 
     codes = [reason.code for reason in diagnosed[0].reasons]
     assert DiagnosticCode.TEACHER_UNAVAILABLE in codes
-    assert DiagnosticCode.PRIORITY_5_COMMON_SLOT_UNAVAILABLE in codes
+    assert DiagnosticCode.PRIORITY_5_COMMON_SLOT_UNAVAILABLE not in codes
     assert DiagnosticCode.NO_CANDIDATE in codes
 
 

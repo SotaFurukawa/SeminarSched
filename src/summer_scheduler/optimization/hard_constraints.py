@@ -8,7 +8,6 @@ from datetime import date
 
 from ortools.sat.python import cp_model
 
-from summer_scheduler.domain.teacher_priority import maximum_other_teacher_sessions
 from summer_scheduler.domain.time_ranges import time_ranges_overlap
 from summer_scheduler.optimization.dto import (
     CandidateData,
@@ -42,9 +41,9 @@ def add_hard_constraints(
 ) -> None:
     """全ハード制約を追加する。
 
-    単一候補で判定できる可用性、資格、優先度5、開校日、集団授業重複は候補生成で
-    除外済みである。この関数では、候補同士の容量、通常担当の最低割合、1対1、固定、
-    連続、空きコマをsolver上の絶対条件として表現する。
+    単一候補で判定できる可用性、資格、開校日、集団授業重複は候補生成で
+    除外済みである。この関数では、候補同士の容量、1対1、固定、連続、空きコマを
+    solver上の絶対条件として表現する。通常担当の目標割合は目的関数で扱う。
     """
     requests = {item.id: item for item in data.lesson_requests}
     students = {item.id: item for item in data.students}
@@ -72,13 +71,6 @@ def add_hard_constraints(
             variables.assignments[candidate] for candidate in candidates_by_session.get(key, ())
         ]
         model.add(sum(candidate_vars) + unassigned == 1)
-
-    _add_regular_teacher_minimums(
-        model,
-        data.lesson_requests,
-        generation,
-        variables,
-    )
 
     _fix_locked_assignments(
         model,
@@ -168,31 +160,6 @@ def add_hard_constraints(
         variables,
     )
     _raise_if_cancelled(is_cancelled)
-
-
-def _add_regular_teacher_minimums(
-    model: cp_model.CpModel,
-    requests: tuple[LessonRequestData, ...],
-    generation: CandidateGenerationResult,
-    variables: ModelVariables,
-) -> None:
-    """優先度ごとの通常担当率を、他講師へ渡せる回数の上限として固定する。"""
-    candidates_by_request: dict[int, list[CandidateData]] = defaultdict(list)
-    for candidate in generation.candidates:
-        candidates_by_request[candidate.lesson_request_id].append(candidate)
-    for request in requests:
-        if request.regular_teacher_id is None:
-            continue
-        maximum_other = maximum_other_teacher_sessions(
-            request.required_sessions,
-            request.regular_teacher_priority,
-        )
-        other_teacher_vars = [
-            variables.assignments[candidate]
-            for candidate in candidates_by_request.get(request.id, ())
-            if candidate.teacher_id != request.regular_teacher_id
-        ]
-        model.add(sum(other_teacher_vars) <= maximum_other)
 
 
 def _fix_locked_assignments(

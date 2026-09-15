@@ -46,7 +46,7 @@ def test_all_required_sessions_are_placed_when_feasible() -> None:
     assert {item.session_index for item in result.assignments} == {1, 2}
 
 
-def test_priority_five_never_uses_another_teacher() -> None:
+def test_priority_five_uses_a_substitute_when_regular_teacher_is_unavailable() -> None:
     students = (_student(1),)
     teachers = (_teacher(1), _teacher(2))
     slots = _slots(1)
@@ -73,11 +73,10 @@ def test_priority_five_never_uses_another_teacher() -> None:
         )
     )
 
-    assert not result.assignments
-    assert len(result.unassigned_lessons) == 1
-    assert DiagnosticCode.PRIORITY_5_COMMON_SLOT_UNAVAILABLE in {
-        reason.code for reason in result.unassigned_lessons[0].reasons
-    }
+    assert len(result.assignments) == 1
+    assert result.assignments[0].teacher_id == 2
+    assert not result.unassigned_lessons
+    assert any("優先度は5" in warning for warning in result.warnings)
 
 
 @pytest.mark.parametrize(
@@ -118,7 +117,7 @@ def test_regular_teacher_priority_guarantees_minimum_share(
     assert sum(row.teacher_id == 1 for row in result.assignments) == minimum_regular
 
 
-def test_missing_regular_teacher_capacity_is_not_filled_beyond_priority_limit() -> None:
+def test_missing_regular_teacher_capacity_is_filled_by_a_substitute_with_warning() -> None:
     students = (_student(1),)
     teachers = (_teacher(1), _teacher(2))
     slots = _slots(1)
@@ -145,13 +144,11 @@ def test_missing_regular_teacher_capacity_is_not_filled_beyond_priority_limit() 
         )
     )
 
-    assert len(result.assignments) == 3
+    assert len(result.assignments) == 4
     assert sum(row.teacher_id == 1 for row in result.assignments) == 2
-    assert sum(row.teacher_id == 2 for row in result.assignments) == 1
-    assert len(result.unassigned_lessons) == 1
-    assert DiagnosticCode.REGULAR_TEACHER_MINIMUM_REQUIRED in {
-        reason.code for reason in result.unassigned_lessons[0].reasons
-    }
+    assert sum(row.teacher_id == 2 for row in result.assignments) == 2
+    assert not result.unassigned_lessons
+    assert any("優先度は4" in warning for warning in result.warnings)
 
 
 def test_one_to_one_required_slot_cannot_accept_another_student() -> None:

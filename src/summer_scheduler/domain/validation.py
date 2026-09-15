@@ -247,12 +247,11 @@ def validate_lesson_request(
         )
 
     if regular_teacher_id is not None and regular_teacher_can_teach is False:
-        severity: Severity = "error" if regular_teacher_priority == 5 else "warning"
         issues.append(
             ValidationIssue(
                 "regular_teacher_id",
                 "通常担当講師はこの科目を担当不可に設定されています",
-                severity=severity,
+                severity="warning",
                 code="teacher_not_qualified",
             )
         )
