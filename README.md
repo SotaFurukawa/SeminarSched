@@ -10,7 +10,7 @@
 [Privacy policy](PRIVACY.md) |
 [Security policy](SECURITY.md)
 
-現在のアプリ版は **v1.9.4 (Beta)** です。v1系はすべてBeta版としてGitHubの
+現在のアプリ版は **v1.9.5 (Beta)** です。v1系はすべてBeta版としてGitHubの
 Pre-releaseで配布し、正式リリースを明示的に決定するまではv1系を継続します。Phase 1の
 起動基盤、Phase 2のプロジェクト・マスター管理、Phase 3のアンケート・
 入力検証、Phase 4のハード制約を破らない自動配置を維持しつつ、時間割グリッド、
