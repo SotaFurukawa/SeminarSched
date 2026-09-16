@@ -351,7 +351,12 @@ def solve_optimization(
             continue
 
         solver = cp_model.CpSolver()
-        _configure_solver(solver, data, remaining)
+        _configure_solver(
+            solver,
+            data,
+            remaining,
+            stages_remaining=len(stages) - stage_index + 1,
+        )
         token._bind(solver)
         try:
             if _cancel_requested(token):
@@ -392,15 +397,29 @@ def solve_optimization(
                 _add_safe_initial_hint(model, data, generation, variables, best.selected)
             continue
 
-        completed_all_stages = False
         if run_status == "FEASIBLE":
-            warnings.append(f"段階「{stage.name}」は制限時間内に最適性を証明できませんでした")
+            completed_all_stages = False
+            if objective_value is None:
+                raise RuntimeError("FEASIBLEなのに目的値を取得できませんでした")
+            # 各工程へ制限時間を配分するため、この工程で得られた最良値を固定して
+            # 後続工程へ進む。これにより最初の重い目的だけで全時間を使い切らない。
+            model.add(stage.expression == objective_value)
+            if best is not None:
+                _add_safe_initial_hint(model, data, generation, variables, best.selected)
+            warnings.append(
+                f"段階「{stage.name}」は最適性を証明できませんでしたが、"
+                "得られた最良値を保持して次の工程へ進みました"
+            )
+            continue
         elif run_status == "UNKNOWN":
+            completed_all_stages = False
             warnings.append(f"段階「{stage.name}」では実行可能解を取得できませんでした")
         elif run_status == "INFEASIBLE":
+            completed_all_stages = False
             warnings.append(f"段階「{stage.name}」でモデルが実行不能と判定されました")
             fatal_status = run_status
         else:
+            completed_all_stages = False
             warnings.append(f"段階「{stage.name}」でモデル不正が検出されました")
             fatal_status = run_status
         break
@@ -478,13 +497,20 @@ def _configure_solver(
     solver: cp_model.CpSolver,
     data: OptimizationInput,
     remaining_seconds: float,
+    *,
+    stages_remaining: int = 1,
 ) -> None:
     # CP-SAT停止後のsnapshot抽出、独立検証、診断にも同じ全体deadline内の時間を残す。
+    # 残り時間を未実行工程へ均等配分し、1つの辞書式目的だけで全時間を使い切らない。
     reserve = min(
         _RETURN_RESERVE_MAX_SECONDS,
         remaining_seconds * _RETURN_RESERVE_RATIO,
     )
-    solver.parameters.max_time_in_seconds = max(0.001, remaining_seconds - reserve)
+    searchable_seconds = max(0.001, remaining_seconds - reserve)
+    solver.parameters.max_time_in_seconds = max(
+        0.001,
+        searchable_seconds / max(1, stages_remaining),
+    )
     solver.parameters.random_seed = data.settings.random_seed
     solver.parameters.num_search_workers = data.settings.num_search_workers
     solver.parameters.log_search_progress = False

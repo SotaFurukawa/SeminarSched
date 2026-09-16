@@ -319,6 +319,20 @@ def test_prepare_stage_names_are_localized(
         )
     )
     assert view_model._get_stage() == "モデル構築"
+
+    view_model._time_limit_seconds = 120
+    view_model._on_progress(
+        OptimizationProgress(
+            stage_index=2,
+            stage_count=20,
+            stage_name="regular_teacher_shortfall_priority_5",
+            solver_status=None,
+            elapsed_seconds=30,
+        )
+    )
+    assert view_model._get_stage() == "通常担当講師・優先度5の目標調整（探索中）"
+    assert view_model._get_progress_value() == pytest.approx(0.25)
+    assert view_model._get_progress_detail() == "工程 2/20・制限時間 30/120秒"
     view_model._is_running = False
 
 

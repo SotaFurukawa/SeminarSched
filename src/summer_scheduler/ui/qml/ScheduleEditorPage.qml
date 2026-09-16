@@ -660,33 +660,41 @@ Item {
                             }
                         }
 
-                        ListView {
+                        Item {
                             id: teacherHeader
 
                             Layout.fillWidth: true
                             Layout.preferredHeight: 38
-                            orientation: ListView.Horizontal
-                            model: root.viewModel.teacherHeaders
-                            contentX: scheduleTable.contentX
-                            interactive: false
                             clip: true
-                            reuseItems: true
-                            delegate: Rectangle {
-                                required property var modelData
-                                width: 196 * root.viewModel.zoomFactor
-                                height: teacherHeader.height
-                                color: "#eef2f6"
-                                border.color: "#dce2ea"
-                                Label {
-                                    anchors.fill: parent
-                                    anchors.margins: 5
-                                    text: String(parent.modelData.label || "")
-                                    color: "#344054"
-                                    font.pixelSize: 9
-                                    font.weight: Font.DemiBold
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    elide: Text.ElideRight
+
+                            Row {
+                                x: -scheduleTable.contentX
+                                height: parent.height
+                                spacing: scheduleTable.columnSpacing
+
+                                Repeater {
+                                    model: root.viewModel.teacherHeaders
+
+                                    delegate: Rectangle {
+                                        id: teacherHeaderCell
+
+                                        required property var modelData
+                                        width: 196 * root.viewModel.zoomFactor
+                                        height: teacherHeader.height
+                                        color: "#eef2f6"
+                                        border.color: "#dce2ea"
+                                        Label {
+                                            anchors.fill: parent
+                                            anchors.margins: 5
+                                            text: String(teacherHeaderCell.modelData.label || "")
+                                            color: "#344054"
+                                            font.pixelSize: 9
+                                            font.weight: Font.DemiBold
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            elide: Text.ElideRight
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -700,30 +708,38 @@ Item {
                             onClicked: addTeacherDialog.open()
                         }
 
-                        ListView {
+                        Item {
                             id: slotHeader
 
                             Layout.preferredWidth: 66
                             Layout.fillHeight: true
-                            orientation: ListView.Vertical
-                            model: root.viewModel.slotHeaders
-                            contentY: scheduleTable.contentY
-                            interactive: false
                             clip: true
-                            reuseItems: true
-                            delegate: Rectangle {
-                                required property var modelData
-                                width: slotHeader.width
-                                height: 124 * root.viewModel.zoomFactor
-                                color: "#eef2f6"
-                                border.color: "#dce2ea"
-                                Label {
-                                    anchors.centerIn: parent
-                                    text: String(parent.modelData.code || "")
-                                    color: "#344054"
-                                    font.pixelSize: 10
-                                    font.weight: Font.Bold
-                                    horizontalAlignment: Text.AlignHCenter
+
+                            Column {
+                                y: -scheduleTable.contentY
+                                width: parent.width
+                                spacing: scheduleTable.rowSpacing
+
+                                Repeater {
+                                    model: root.viewModel.slotHeaders
+
+                                    delegate: Rectangle {
+                                        id: slotHeaderCell
+
+                                        required property var modelData
+                                        width: slotHeader.width
+                                        height: 124 * root.viewModel.zoomFactor
+                                        color: "#eef2f6"
+                                        border.color: "#dce2ea"
+                                        Label {
+                                            anchors.centerIn: parent
+                                            text: String(slotHeaderCell.modelData.code || "")
+                                            color: "#344054"
+                                            font.pixelSize: 10
+                                            font.weight: Font.Bold
+                                            horizontalAlignment: Text.AlignHCenter
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -79,6 +79,39 @@ def test_priority_five_uses_a_substitute_when_regular_teacher_is_unavailable() -
     assert any("優先度は5" in warning for warning in result.warnings)
 
 
+def test_priority_five_uses_regular_teacher_for_every_available_capacity() -> None:
+    students = (_student(1),)
+    teachers = (_teacher(1), _teacher(2))
+    slots = _slots(1)
+    days = tuple(DAY + timedelta(days=offset) for offset in range(4))
+    request = replace(
+        _request(1, 1, sessions=4),
+        regular_teacher_id=1,
+        regular_teacher_priority=5,
+    )
+    availability = (
+        *(AvailabilityData("student", 1, day, 1, 1) for day in days),
+        *(AvailabilityData("teacher", 1, day, 1, 1) for day in days[2:]),
+        *(AvailabilityData("teacher", 2, day, 1, 1) for day in days),
+    )
+
+    result = solve_optimization(
+        _input(
+            students=students,
+            teachers=teachers,
+            requests=(request,),
+            slots=slots,
+            availability=availability,
+            extra_dates=days[1:],
+        )
+    )
+
+    assert len(result.assignments) == 4
+    assert sum(row.teacher_id == 1 for row in result.assignments) == 2
+    assert sum(row.teacher_id == 2 for row in result.assignments) == 2
+    assert not result.unassigned_lessons
+
+
 @pytest.mark.parametrize(
     ("priority", "minimum_regular"),
     ((1, 0), (2, 1), (3, 2), (4, 3), (5, 4)),

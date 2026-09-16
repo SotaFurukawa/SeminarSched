@@ -24,9 +24,11 @@ def test_schedule_editor_uses_reusable_table_model_for_current_day() -> None:
     assert "TableView {" in qml
     assert "model: root.viewModel.teacherHeaders" in qml
     assert "model: root.viewModel.slotHeaders" in qml
-    assert "contentX: scheduleTable.contentX" in qml
-    assert "contentY: scheduleTable.contentY" in qml
-    assert qml.count("reuseItems: true") >= 3
+    assert "x: -scheduleTable.contentX" in qml
+    assert "y: -scheduleTable.contentY" in qml
+    assert "spacing: scheduleTable.columnSpacing" in qml
+    assert "spacing: scheduleTable.rowSpacing" in qml
+    assert "reuseItems: true" in qml
     assert "model: root.viewModel.gridModel" in qml
     assert "class ScheduleGridModel(QAbstractTableModel):" in python
     assert "current_date" in python

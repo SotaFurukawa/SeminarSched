@@ -244,11 +244,11 @@ Item {
 
                 ProgressBar {
                     Layout.fillWidth: true
-                    indeterminate: root.viewModel.isRunning
+                    indeterminate: false
                     from: 0
                     to: 1
-                    value: root.viewModel.isRunning ? 0.5 : 0
-                    Accessible.name: qsTr("最適化進捗")
+                    value: root.viewModel.progressValue
+                    Accessible.name: qsTr("最適化の制限時間と工程の進捗")
                 }
 
                 ColumnLayout {
@@ -265,9 +265,11 @@ Item {
                     }
                     Label {
                         Layout.fillWidth: true
-                        text: qsTr("%1 / %2")
-                              .arg(root.solverStatusText(root.viewModel.solverStatus))
-                              .arg(root.elapsedText(root.viewModel.elapsedSeconds))
+                        text: root.viewModel.isRunning
+                              ? root.viewModel.progressDetail
+                              : qsTr("%1 / %2")
+                                .arg(root.solverStatusText(root.viewModel.solverStatus))
+                                .arg(root.elapsedText(root.viewModel.elapsedSeconds))
                         color: "#667085"
                         font.pixelSize: 9
                         horizontalAlignment: Text.AlignRight

@@ -43,7 +43,9 @@ def add_hard_constraints(
 
     単一候補で判定できる可用性、資格、開校日、集団授業重複は候補生成で
     除外済みである。この関数では、候補同士の容量、1対1、固定、連続、空きコマを
-    solver上の絶対条件として表現する。通常担当の目標割合は目的関数で扱う。
+    solver上の絶対条件として表現する。通常担当の優先度5は、通常担当講師と
+    生徒に共通する配置可能枠の容量までは絶対条件とし、容量不足分だけ代講を許す。
+    優先度1～4の目標割合は目的関数で扱う。
     """
     requests = {item.id: item for item in data.lesson_requests}
     students = {item.id: item for item in data.students}
@@ -76,6 +78,13 @@ def add_hard_constraints(
         model,
         data.existing_assignments,
         candidates_by_session,
+        variables,
+    )
+    _add_priority_five_regular_teacher_minimums(
+        model,
+        data.lesson_requests,
+        data.existing_assignments,
+        generation,
         variables,
     )
     _raise_if_cancelled(is_cancelled)
@@ -160,6 +169,58 @@ def add_hard_constraints(
         variables,
     )
     _raise_if_cancelled(is_cancelled)
+
+
+def _add_priority_five_regular_teacher_minimums(
+    model: cp_model.CpModel,
+    requests: tuple[LessonRequestData, ...],
+    existing: tuple[ExistingAssignmentData, ...],
+    generation: CandidateGenerationResult,
+    variables: ModelVariables,
+) -> None:
+    """優先度5を、共通可能枠の最大容量までは通常担当へ固定する。
+
+    通常担当講師が一部または全期間に出勤できない場合でも全授業を未配置にしない。
+    講師ごとに、優先度5の授業で実際に候補となる日付・コマの容量を数え、その容量と
+    必要回数の小さい方を通常担当への最低回数とする。利用者が明示的に別講師へ
+    ロックした枠は常に優先し、その件数だけ最低回数を減らす。
+    """
+    requests_by_id = {request.id: request for request in requests}
+    priority_five_by_teacher: dict[int, list[LessonRequestData]] = defaultdict(list)
+    for request in requests:
+        if request.regular_teacher_priority == 5 and request.regular_teacher_id is not None:
+            priority_five_by_teacher[request.regular_teacher_id].append(request)
+
+    for teacher_id, teacher_requests in priority_five_by_teacher.items():
+        request_ids = {request.id for request in teacher_requests}
+        regular_candidates = [
+            candidate
+            for candidate in generation.candidates
+            if candidate.lesson_request_id in request_ids and candidate.teacher_id == teacher_id
+        ]
+        candidates_by_slot: dict[tuple[date, int], list[CandidateData]] = defaultdict(list)
+        for candidate in regular_candidates:
+            candidates_by_slot[(candidate.day, candidate.time_slot_id)].append(candidate)
+
+        capacity = 0
+        for slot_candidates in candidates_by_slot.values():
+            pairable_students = {
+                candidate.student_id
+                for candidate in slot_candidates
+                if not requests_by_id[candidate.lesson_request_id].one_to_one_required
+            }
+            capacity += 2 if len(pairable_students) >= 2 else 1
+
+        required_sessions = sum(request.required_sessions for request in teacher_requests)
+        locked_substitutes = sum(
+            row.lesson_request_id in request_ids and row.is_locked and row.teacher_id != teacher_id
+            for row in existing
+        )
+        target = min(capacity, max(0, required_sessions - locked_substitutes))
+        if target <= 0:
+            continue
+        regular_vars = [variables.assignments[candidate] for candidate in regular_candidates]
+        model.add(sum(regular_vars) >= target)
 
 
 def _fix_locked_assignments(

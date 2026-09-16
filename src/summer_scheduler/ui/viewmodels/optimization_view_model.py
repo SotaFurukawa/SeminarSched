@@ -125,6 +125,10 @@ class OptimizationViewModel(QObject):
 
         self._is_running = False
         self._elapsed_seconds = 0.0
+        self._time_limit_seconds = 0.0
+        self._stage_index = 0
+        self._stage_count = 1
+        self._stage_finished = False
         self._solver_status = "未実行"
         self._stage = "待機"
         self._assigned_count = 0
@@ -169,6 +173,38 @@ class OptimizationViewModel(QObject):
         return self._elapsed_seconds
 
     elapsedSeconds = Property(float, _get_elapsed_seconds, notify=runStateChanged)
+
+    def _get_progress_value(self) -> float:
+        if self._stage == "完了":
+            return 1.0
+        if not self._is_running:
+            return 0.0
+        elapsed_fraction = (
+            self._elapsed_seconds / self._time_limit_seconds
+            if self._time_limit_seconds > 0
+            else 0.0
+        )
+        completed_stages = max(
+            0,
+            self._stage_index if self._stage_finished else self._stage_index - 1,
+        )
+        stage_fraction = completed_stages / max(1, self._stage_count)
+        return min(0.98, max(elapsed_fraction, stage_fraction))
+
+    progressValue = Property(float, _get_progress_value, notify=runStateChanged)
+
+    def _get_progress_detail(self) -> str:
+        if not self._is_running:
+            return ""
+        stage_text = (
+            f"工程 {self._stage_index}/{self._stage_count}" if self._stage_index > 0 else "準備中"
+        )
+        if self._time_limit_seconds <= 0:
+            return stage_text
+        elapsed = min(self._elapsed_seconds, self._time_limit_seconds)
+        return f"{stage_text}・制限時間 {elapsed:.0f}/{self._time_limit_seconds:.0f}秒"
+
+    progressDetail = Property(str, _get_progress_detail, notify=runStateChanged)
 
     def _get_solver_status(self) -> str:
         return self._solver_status
@@ -295,6 +331,10 @@ class OptimizationViewModel(QObject):
         self._solver_status = "実行中"
         self._stage = "モデル準備"
         self._elapsed_seconds = 0.0
+        self._time_limit_seconds = prepared.input.settings.time_limit_seconds
+        self._stage_index = 0
+        self._stage_count = 1
+        self._stage_finished = False
         self._elapsed_clock.start()
         self._elapsed_timer.start()
         self._set_status("時間割の最適化を開始しました")
@@ -342,7 +382,15 @@ class OptimizationViewModel(QObject):
         if not isinstance(value, OptimizationProgress) or not self._is_running:
             return
         self._elapsed_seconds = max(self._elapsed_seconds, value.elapsed_seconds)
-        self._stage = _STAGE_LABELS.get(value.stage_name, value.stage_name)
+        self._stage_index = max(0, value.stage_index)
+        self._stage_count = max(1, value.stage_count)
+        self._stage_finished = value.solver_status is not None
+        stage_label = _STAGE_LABELS.get(value.stage_name, value.stage_name)
+        self._stage = (
+            f"{stage_label}（探索中）"
+            if value.stage_index > 0 and value.solver_status is None
+            else stage_label
+        )
         if value.solver_status is not None:
             self._solver_status = value.solver_status
         self.runStateChanged.emit()
@@ -534,6 +582,7 @@ class OptimizationViewModel(QObject):
         objective = result.objective_breakdown
         self._solver_status = result.solver_status
         self._stage = "完了" if not result.cancelled else "中止"
+        self._stage_finished = not result.cancelled
         self._elapsed_seconds = max(self._elapsed_seconds, result.elapsed_seconds)
         self._assigned_count = len(result.assignments)
         self._unassigned_count = len(result.unassigned_lessons)

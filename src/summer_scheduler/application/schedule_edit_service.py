@@ -679,6 +679,13 @@ class ScheduleEditService:
                         note=_normalized_note(note) if change_note else None,
                     )
                 else:
+                    # 時間割編集で利用者が配置場所を変えたカードは、次回の自動作成で
+                    # 動かさない意思決定として扱い、明示指定がなければ自動でロックする。
+                    resulting_lock = (
+                        is_locked
+                        if is_locked is not None
+                        else (True if placement_changed else before.is_locked)
+                    )
                     after = AssignmentSnapshot(
                         project_id=before.project_id,
                         lesson_request_id=before.lesson_request_id,
@@ -687,7 +694,7 @@ class ScheduleEditService:
                         time_slot_id=time_slot_id,
                         teacher_id=teacher_id,
                         optimization_run_id_optional=before.optimization_run_id_optional,
-                        is_locked=is_locked if is_locked is not None else before.is_locked,
+                        is_locked=resulting_lock,
                         is_manual=True,
                         created_by="manual",
                         note=_normalized_note(note) if change_note else before.note,

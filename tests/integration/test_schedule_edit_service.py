@@ -309,6 +309,7 @@ def test_preview_keeps_all_soft_deltas_and_apply_requires_confirmation(
         graph.teacher_2_id,
         True,
     )
+    assert saved.is_locked is True
     with project_service.require_database().session_factory() as session:
         audit = session.scalar(select(AuditLog).order_by(AuditLog.id.desc()))
         assert audit is not None
