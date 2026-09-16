@@ -478,6 +478,38 @@ def test_locked_assignment_is_preserved_even_when_another_teacher_is_preferred()
     assert [(item.teacher_id, item.is_locked) for item in result.assignments] == [(2, True)]
 
 
+def test_manual_assignment_is_preserved_without_becoming_locked() -> None:
+    request = replace(
+        _request(1, 1),
+        regular_teacher_id=1,
+        regular_teacher_priority=5,
+        preferred_teacher_ids=(1, None, None),
+    )
+    source = _input(
+        students=(_student(1),),
+        teachers=(_teacher(1), _teacher(2)),
+        requests=(request,),
+        slots=_slots(1),
+        existing=(
+            ExistingAssignmentData(
+                id=1,
+                lesson_request_id=1,
+                session_index=1,
+                day=DAY,
+                time_slot_id=1,
+                teacher_id=2,
+                is_locked=False,
+                is_manual=True,
+            ),
+        ),
+    )
+
+    result = solve_optimization(source)
+
+    assert [(item.teacher_id, item.is_locked) for item in result.assignments] == [(2, False)]
+    assert result.objective_breakdown.changed_assignment_count == 0
+
+
 def test_unlocked_existing_assignment_is_preserved_after_higher_objectives_tie() -> None:
     source = _input(
         students=(_student(1),),

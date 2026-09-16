@@ -672,20 +672,17 @@ class ScheduleEditService:
                         time_slot_id=time_slot_id,
                         teacher_id=teacher_id,
                         optimization_run_id_optional=None,
-                        # 未配置からの手動配置は利用者が先に確定した枠として扱う。
-                        is_locked=True if is_locked is None else is_locked,
+                        # 手動配置は再編集できるようロックしない。
+                        # is_manualにより、次回の自動作成では位置を維持する。
+                        is_locked=False if is_locked is None else is_locked,
                         is_manual=True,
                         created_by="manual",
                         note=_normalized_note(note) if change_note else None,
                     )
                 else:
-                    # 時間割編集で利用者が配置場所を変えたカードは、次回の自動作成で
-                    # 動かさない意思決定として扱い、明示指定がなければ自動でロックする。
-                    resulting_lock = (
-                        is_locked
-                        if is_locked is not None
-                        else (True if placement_changed else before.is_locked)
-                    )
+                    # 手動移動とロックは別の概念とし、指定がなければ
+                    # 現在のロック状態だけを維持する。
+                    resulting_lock = is_locked if is_locked is not None else before.is_locked
                     after = AssignmentSnapshot(
                         project_id=before.project_id,
                         lesson_request_id=before.lesson_request_id,
@@ -754,7 +751,7 @@ class ScheduleEditService:
                 for row in context.data.teachers
             ),
         )
-        override_generation = generate_candidates(override_data)
+        override_generation = generate_candidates(override_data, preserve_manual=False)
         override_preview = preview_edit(
             override_data,
             override_generation,
@@ -1001,7 +998,7 @@ class ScheduleEditService:
         if self._candidate_cache_key == base_fingerprint and self._candidate_cache is not None:
             generation = self._candidate_cache
         else:
-            generation = generate_candidates(data)
+            generation = generate_candidates(data, preserve_manual=False)
             self._candidate_cache_key = base_fingerprint
             self._candidate_cache = generation
         repository = self._repository_factory(session)

@@ -74,7 +74,7 @@ def add_hard_constraints(
         ]
         model.add(sum(candidate_vars) + unassigned == 1)
 
-    _fix_locked_assignments(
+    _fix_preserved_assignments(
         model,
         data.existing_assignments,
         candidates_by_session,
@@ -193,10 +193,34 @@ def _add_priority_five_regular_teacher_minimums(
 
     for teacher_id, teacher_requests in priority_five_by_teacher.items():
         request_ids = {request.id for request in teacher_requests}
+        regular_by_request: dict[int, list[CandidateData]] = defaultdict(list)
+        for candidate in generation.candidates:
+            if candidate.lesson_request_id in request_ids and candidate.teacher_id == teacher_id:
+                regular_by_request[candidate.lesson_request_id].append(candidate)
+
+        fixed_substitutes_by_request: dict[int, int] = defaultdict(int)
+        for row in existing:
+            if (
+                row.lesson_request_id in request_ids
+                and row.preserves_placement
+                and row.teacher_id != teacher_id
+            ):
+                fixed_substitutes_by_request[row.lesson_request_id] += 1
+
+        targets: dict[int, int] = {}
+        for request in teacher_requests:
+            compatible_slots = {
+                (candidate.day, candidate.time_slot_id)
+                for candidate in regular_by_request.get(request.id, ())
+            }
+            target = min(
+                max(0, request.required_sessions - fixed_substitutes_by_request[request.id]),
+                len(compatible_slots),
+            )
+            targets[request.id] = target
+
         regular_candidates = [
-            candidate
-            for candidate in generation.candidates
-            if candidate.lesson_request_id in request_ids and candidate.teacher_id == teacher_id
+            candidate for candidates in regular_by_request.values() for candidate in candidates
         ]
         candidates_by_slot: dict[tuple[date, int], list[CandidateData]] = defaultdict(list)
         for candidate in regular_candidates:
@@ -211,25 +235,34 @@ def _add_priority_five_regular_teacher_minimums(
             }
             capacity += 2 if len(pairable_students) >= 2 else 1
 
-        required_sessions = sum(request.required_sessions for request in teacher_requests)
-        locked_substitutes = sum(
-            row.lesson_request_id in request_ids and row.is_locked and row.teacher_id != teacher_id
-            for row in existing
-        )
-        target = min(capacity, max(0, required_sessions - locked_substitutes))
-        if target <= 0:
+        desired_total = sum(targets.values())
+        aggregate_target = min(capacity, desired_total)
+        if aggregate_target <= 0:
             continue
         regular_vars = [variables.assignments[candidate] for candidate in regular_candidates]
-        model.add(sum(regular_vars) >= target)
+        model.add(sum(regular_vars) >= aggregate_target)
+
+        # 講師の全体容量が足りる場合は、別の生徒の優先度5で
+        # 回数を代用せず、受講希望ごとに通常担当回数を必須にする。
+        if desired_total <= capacity:
+            for request in teacher_requests:
+                target = targets[request.id]
+                if target <= 0:
+                    continue
+                request_vars = [
+                    variables.assignments[candidate]
+                    for candidate in regular_by_request.get(request.id, ())
+                ]
+                model.add(sum(request_vars) >= target)
 
 
-def _fix_locked_assignments(
+def _fix_preserved_assignments(
     model: cp_model.CpModel,
     existing: tuple[ExistingAssignmentData, ...],
     candidates_by_session: dict[tuple[int, int], list[CandidateData]],
     variables: ModelVariables,
 ) -> None:
-    for locked in (item for item in existing if item.is_locked):
+    for locked in (item for item in existing if item.preserves_placement):
         matches = [
             candidate
             for candidate in candidates_by_session.get(
@@ -244,7 +277,7 @@ def _fix_locked_assignments(
         ]
         if len(matches) != 1:
             raise HardConstraintInputError(
-                "ロック済みAssignmentが現在の必須条件を満たす候補に一致しません"
+                "手動配置またはロック済みAssignmentが現在の必須条件を満たす候補に一致しません"
             )
         model.add(variables.assignments[matches[0]] == 1)
 
@@ -508,7 +541,7 @@ def _model_days(
     days = set(data.open_dates)
     days.update(candidate.day for candidate in generation.candidates)
     days.update(block.day for block in data.group_blocks)
-    days.update(item.day for item in data.existing_assignments if item.is_locked)
+    days.update(item.day for item in data.existing_assignments if item.preserves_placement)
     return tuple(sorted(days))
 
 

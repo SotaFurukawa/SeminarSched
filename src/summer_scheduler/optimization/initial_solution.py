@@ -119,7 +119,7 @@ def build_initial_solution(
             item.teacher_id,
         )
         for item in data.existing_assignments
-        if not item.is_locked
+        if not item.preserves_placement
     }
 
     sessions = sorted(
@@ -314,7 +314,7 @@ def _locked_assignments_by_session(
 ) -> dict[SessionKey, ExistingAssignmentData] | None:
     locked: dict[SessionKey, ExistingAssignmentData] = {}
     for item in data.existing_assignments:
-        if not item.is_locked:
+        if not item.preserves_placement:
             continue
         key = (item.lesson_request_id, item.session_index)
         if key in locked:

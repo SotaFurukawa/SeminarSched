@@ -914,7 +914,7 @@ def _changed_assignment_expression(
         ): candidate
         for candidate in generation.candidates
     }
-    existing = tuple(item for item in data.existing_assignments if not item.is_locked)
+    existing = tuple(item for item in data.existing_assignments if not item.preserves_placement)
     matching_vars: list[cp_model.IntVar] = []
     for item in existing:
         candidate = candidate_by_identity.get(

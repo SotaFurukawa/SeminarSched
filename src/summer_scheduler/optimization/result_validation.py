@@ -191,7 +191,7 @@ def validate_optimization_result(
                 )
             )
 
-    _validate_locked_assignments(data, state, violations)
+    _validate_preserved_assignments(data, state, violations)
     _validate_occupancy_constraints(data, state, violations)
     return ResultValidationReport(tuple(sorted(violations, key=_violation_sort_key)))
 
@@ -269,12 +269,12 @@ def _validate_session_partition(
             )
 
 
-def _validate_locked_assignments(
+def _validate_preserved_assignments(
     data: OptimizationInput,
     state: ScheduleState,
     violations: list[ResultViolation],
 ) -> None:
-    for locked in (item for item in data.existing_assignments if item.is_locked):
+    for locked in (item for item in data.existing_assignments if item.preserves_placement):
         matches = state.assignments_by_session.get(
             (locked.lesson_request_id, locked.session_index), ()
         )
@@ -285,7 +285,7 @@ def _validate_locked_assignments(
                 item.day == locked.day
                 and item.time_slot_id == locked.time_slot_id
                 and item.teacher_id == locked.teacher_id
-                and item.is_locked
+                and (not locked.is_locked or item.is_locked)
             )
         ]
         if len(preserved) != 1:

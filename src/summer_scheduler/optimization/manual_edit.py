@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from enum import StrEnum
 
@@ -199,8 +199,17 @@ def preview_edit(
     正常扱いすることはない。赤判定には強制適用経路を設けない。
     """
     canonical_current = _canonical_schedule(current)
-    current_report = validate_optimization_result(
+    # 手動配置の維持は「次回の自動作成」にだけ適用する。
+    # 手動編集のpreview中はロックのみを固定条件とし、手動カードを再移動できるようにする。
+    validation_data = replace(
         data,
+        existing_assignments=tuple(
+            replace(item, is_manual=False) if item.is_manual else item
+            for item in data.existing_assignments
+        ),
+    )
+    current_report = validate_optimization_result(
+        validation_data,
         generation,
         _as_result(canonical_current),
     )
@@ -238,7 +247,7 @@ def preview_edit(
 
     proposed = _apply_operation(data, generation, canonical_current, operation)
     proposed_report = validate_optimization_result(
-        data,
+        validation_data,
         generation,
         _as_result(proposed),
     )

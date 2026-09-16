@@ -142,6 +142,15 @@ class ExistingAssignmentData:
     is_locked: bool = False
     is_manual: bool = False
 
+    @property
+    def preserves_placement(self) -> bool:
+        """自動作成で日時・講師を維持する割当かを返す。
+
+        ロックは画面上の手動移動も禁止する。手動配置は再編集可能だが、
+        次回の自動作成では利用者の決定として位置を維持する。
+        """
+        return self.is_locked or self.is_manual
+
 
 @dataclass(frozen=True, slots=True)
 class OptimizationSettings:

@@ -515,26 +515,31 @@ def _assignment_rows(
     prepared: PreparedOptimization,
     result: OptimizationResult,
 ) -> list[Assignment]:
-    locked_keys = {
-        (row.lesson_request_id, row.session_index)
+    preserved_by_key = {
+        (row.lesson_request_id, row.session_index): row
         for row in prepared.input.existing_assignments
-        if row.is_locked
+        if row.preserves_placement
     }
-    return [
-        Assignment(
-            project_id=prepared.project_id,
-            lesson_request_id=row.lesson_request_id,
-            session_index=row.session_index,
-            date=row.day,
-            time_slot_id=row.time_slot_id,
-            teacher_id=row.teacher_id,
-            optimization_run_id_optional=prepared.optimization_run_id,
-            is_locked=(row.lesson_request_id, row.session_index) in locked_keys,
-            is_manual=False,
-            created_by="solver",
+    assignments: list[Assignment] = []
+    for row in result.assignments:
+        preserved = preserved_by_key.get((row.lesson_request_id, row.session_index))
+        assignments.append(
+            Assignment(
+                project_id=prepared.project_id,
+                lesson_request_id=row.lesson_request_id,
+                session_index=row.session_index,
+                date=row.day,
+                time_slot_id=row.time_slot_id,
+                teacher_id=row.teacher_id,
+                optimization_run_id_optional=prepared.optimization_run_id,
+                is_locked=preserved.is_locked if preserved is not None else False,
+                is_manual=preserved.is_manual if preserved is not None else False,
+                created_by=(
+                    "manual" if preserved is not None and preserved.is_manual else "solver"
+                ),
+            )
         )
-        for row in result.assignments
-    ]
+    return assignments
 
 
 def _result_snapshot(

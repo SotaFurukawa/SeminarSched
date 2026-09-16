@@ -34,7 +34,6 @@ from summer_scheduler.infrastructure.db.models import (
     TimeSlot,
 )
 from summer_scheduler.optimization.dto import (
-    DiagnosticCode,
     ObjectiveBreakdown,
     OptimizationResult,
     ScheduledAssignment,
@@ -204,7 +203,7 @@ def _feasible_result(
                 subject_id=graph.subject_id,
                 teacher_id=(graph.teacher_id if teacher_id is None else teacher_id),
                 day=graph.day,
-                time_slot_id=graph.target_slot_id,
+                time_slot_id=graph.previous_slot_id,
                 is_locked=False,
             ),
         ),
@@ -213,8 +212,8 @@ def _feasible_result(
             unassigned_count=0,
             teacher_preference_penalty=0,
             active_teacher_slot_count=1,
-            availability_preference_score=3,
-            changed_assignment_count=1,
+            availability_preference_score=0,
+            changed_assignment_count=0,
         ),
         elapsed_seconds=0.75,
         warnings=("匿名テスト警告",),
@@ -306,8 +305,8 @@ def test_prepare_and_finalize_updates_same_run_and_replaces_assignments(
     assert run.warning_count == 2
     assert json.loads(run.objective_summary_json) == {
         "active_teacher_slot_count": 1,
-        "availability_preference_score": 3,
-        "changed_assignment_count": 1,
+        "availability_preference_score": 0,
+        "changed_assignment_count": 0,
         "optional_balance_score": 0,
         "teacher_preference_penalty": 0,
         "unassigned_count": 0,
@@ -331,8 +330,10 @@ def test_prepare_and_finalize_updates_same_run_and_replaces_assignments(
     ]
     assignments = _assignments(project_service, graph.project_id)
     assert len(assignments) == 1
-    assert assignments[0].time_slot_id == graph.target_slot_id
-    assert assignments[0].created_by == "solver"
+    assert assignments[0].time_slot_id == graph.previous_slot_id
+    assert assignments[0].created_by == "manual"
+    assert assignments[0].is_manual is True
+    assert assignments[0].is_locked is False
     assert assignments[0].optimization_run_id_optional == run.id
     log_text = prepared.log_path.read_text(encoding="utf-8")
     log_lines = [json.loads(line) for line in log_text.splitlines()]
@@ -386,8 +387,10 @@ def test_prepare_solve_finalize_end_to_end(
     assert completed.assignment_count == 1
     assignments = _assignments(project_service, graph.project_id)
     assert [(row.time_slot_id, row.teacher_id) for row in assignments] == [
-        (graph.target_slot_id, graph.teacher_id)
+        (graph.previous_slot_id, graph.teacher_id)
     ]
+    assert assignments[0].is_manual is True
+    assert assignments[0].is_locked is False
     runs = _runs(project_service, graph.project_id)
     assert [(row.status, row.solver_status) for row in runs] == [("completed", "OPTIMAL")]
 
@@ -433,7 +436,7 @@ def test_prepare_rejects_validation_errors_without_creating_run(
     assert _runs(project_service, project_id) == []
 
 
-def test_unqualified_regular_teacher_is_warning_but_never_becomes_candidate(
+def test_manual_assignment_is_preserved_after_teacher_qualification_changes(
     project_service: ProjectService,
 ) -> None:
     graph = _seed_valid_graph(project_service)
@@ -453,12 +456,10 @@ def test_unqualified_regular_teacher_is_warning_but_never_becomes_candidate(
     result = solve_optimization(prepared.input)
 
     assert result.solver_status == "OPTIMAL"
-    assert not result.assignments
-    assert any(
-        reason.code == DiagnosticCode.TEACHER_UNQUALIFIED
-        for lesson in result.unassigned_lessons
-        for reason in lesson.reasons
-    )
+    assert [(row.time_slot_id, row.teacher_id) for row in result.assignments] == [
+        (graph.previous_slot_id, graph.teacher_id)
+    ]
+    assert not result.unassigned_lessons
 
 
 def test_changed_input_marks_run_failed_and_keeps_previous_assignments(
@@ -667,7 +668,8 @@ def test_log_append_failure_after_commit_does_not_rollback_result(
     assert run.status == "completed"
     assignments = _assignments(project_service, graph.project_id)
     assert len(assignments) == 1
-    assert assignments[0].time_slot_id == graph.target_slot_id
+    assert assignments[0].time_slot_id == graph.previous_slot_id
+    assert assignments[0].is_manual is True
     assert "RuntimeError" in caplog.text
     assert sensitive not in caplog.text
     assert len(prepared.log_path.read_text(encoding="utf-8").splitlines()) == 1

@@ -252,6 +252,29 @@ def test_unknown_before_cp_sat_solution_returns_verified_initial_incumbent(
     assert any("実行可能解を取得できませんでした" in warning for warning in result.warnings)
 
 
+def test_remaining_time_is_used_to_refine_an_unproven_stage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cp_model, "CpSolver", _AlwaysFeasibleCpSolver)
+    progress_events: list[OptimizationProgress] = []
+    source = _input(
+        student=_student(),
+        teacher=_teacher(),
+        requests=(_request(),),
+        slots=_slots(1),
+    )
+
+    result = solve_optimization(source, progress=progress_events.append)
+
+    refinement_events = [
+        event for event in progress_events if event.stage_name == "final_refinement"
+    ]
+    assert result.solver_status == "FEASIBLE"
+    assert len(refinement_events) == 2
+    assert refinement_events[0].solver_status is None
+    assert refinement_events[1].solver_status == "FEASIBLE"
+
+
 def test_model_invalid_in_later_stage_is_not_hidden_by_previous_snapshot(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -384,6 +407,29 @@ class _AlwaysUnknownCpSolver:
     def solve(self, model: cp_model.CpModel) -> int:
         del model
         return int(cp_model.UNKNOWN)
+
+    def stop_search(self) -> None:
+        self._delegate.stop_search()
+
+
+class _AlwaysFeasibleCpSolver:
+    def __init__(self) -> None:
+        self._delegate = _REAL_CP_SOLVER()
+
+    @property
+    def parameters(self) -> Any:
+        return self._delegate.parameters
+
+    def solve(self, model: cp_model.CpModel) -> int:
+        status = int(self._delegate.solve(model))
+        assert status in {int(cp_model.OPTIMAL), int(cp_model.FEASIBLE)}
+        return int(cp_model.FEASIBLE)
+
+    def value(self, expression: cp_model.LinearExpr) -> int:
+        return int(self._delegate.value(expression))
+
+    def boolean_value(self, literal: cp_model.IntVar) -> bool:
+        return self._delegate.boolean_value(literal)
 
     def stop_search(self) -> None:
         self._delegate.stop_search()

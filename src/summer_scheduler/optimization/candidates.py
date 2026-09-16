@@ -50,6 +50,7 @@ def generate_candidates(
     data: OptimizationInput,
     *,
     is_cancelled: Callable[[], bool] | None = None,
+    preserve_manual: bool = True,
 ) -> CandidateGenerationResult:
     """入力の明白な不適合を除外し、solverへ渡す疎な候補集合を返す。
 
@@ -93,8 +94,8 @@ def generate_candidates(
             input_diagnostics=input_diagnostics,
         )
 
-    indexes = _build_indexes(data)
-    candidate_dates = _candidate_dates(data)
+    indexes = _build_indexes(data, preserve_manual=preserve_manual)
+    candidate_dates = _candidate_dates(data, preserve_manual=preserve_manual)
     candidates: list[CandidateData] = []
     diagnostics: list[SessionCandidateDiagnostics] = []
 
@@ -140,6 +141,31 @@ def _generate_session_candidates(
     if immediate_reason is not None:
         immediate_reasons = (immediate_reason, _reason(DiagnosticCode.NO_CANDIDATE))
         return [], _session_diagnostics(session, 0, immediate_reasons)
+
+    preserved = indexes.locked_by_session.get(session.key)
+    if preserved is not None and preserved.is_manual:
+        # 時間割編集で利用者が配置した授業は、自動作成の候補条件が
+        # 後から変わっていても勝手に移動しない。この候補だけを残し、
+        # 他の授業との人数・同時間帯重複はsolver側の容量制約で検査する。
+        if preserved.teacher_id in indexes.teachers and preserved.time_slot_id in indexes.slots:
+            candidate = CandidateData(
+                lesson_request_id=request.id,
+                session_index=session.session_index,
+                student_id=request.student_id,
+                subject_id=request.subject_id,
+                teacher_id=preserved.teacher_id,
+                day=preserved.day,
+                time_slot_id=preserved.time_slot_id,
+                student_availability_level=indexes.availability.get(
+                    ("student", request.student_id, preserved.day, preserved.time_slot_id),
+                    0,
+                ),
+                teacher_availability_level=indexes.availability.get(
+                    ("teacher", preserved.teacher_id, preserved.day, preserved.time_slot_id),
+                    0,
+                ),
+            )
+            return [candidate], _session_diagnostics(session, 1, ())
 
     exclusion_counts: Counter[DiagnosticCode] = Counter()
     candidates: list[CandidateData] = []
@@ -323,19 +349,31 @@ def _locked_conflict(
     return None
 
 
-def _candidate_dates(data: OptimizationInput) -> tuple[date, ...]:
+def _candidate_dates(
+    data: OptimizationInput,
+    *,
+    preserve_manual: bool,
+) -> tuple[date, ...]:
     days = set(data.open_dates)
     days.update(item.day for item in data.availabilities)
-    days.update(item.day for item in data.existing_assignments if item.is_locked)
+    days.update(
+        item.day
+        for item in data.existing_assignments
+        if item.is_locked or (preserve_manual and item.is_manual)
+    )
     return tuple(sorted(days))
 
 
-def _build_indexes(data: OptimizationInput) -> _Indexes:
+def _build_indexes(data: OptimizationInput, *, preserve_manual: bool) -> _Indexes:
     availability = {
         (item.owner_type, item.owner_id, item.day, item.time_slot_id): item.level
         for item in data.availabilities
     }
-    locked = tuple(item for item in data.existing_assignments if item.is_locked)
+    locked = tuple(
+        item
+        for item in data.existing_assignments
+        if item.is_locked or (preserve_manual and item.is_manual)
+    )
     return _Indexes(
         students={item.id: item for item in data.students},
         teachers={item.id: item for item in data.teachers},

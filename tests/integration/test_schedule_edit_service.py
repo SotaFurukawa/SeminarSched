@@ -309,7 +309,7 @@ def test_preview_keeps_all_soft_deltas_and_apply_requires_confirmation(
         graph.teacher_2_id,
         True,
     )
-    assert saved.is_locked is True
+    assert saved.is_locked is False
     with project_service.require_database().session_factory() as session:
         audit = session.scalar(select(AuditLog).order_by(AuditLog.id.desc()))
         assert audit is not None
@@ -551,20 +551,11 @@ def test_unassign_assign_lock_note_and_detailed_edit_are_undoable(
     service.undo()
     restored = _assignment(project_service, graph, graph.request_1_id)
     assert restored is not None
-    # 未配置から手動で置いた授業は、自動作成で動かないよう既定で固定される。
-    assert restored.is_locked is True
+    # 手動配置は自動作成で維持するが、画面上で再移動できるようロックしない。
+    assert restored.is_locked is False
+    assert restored.is_manual is True
     assert restored.note is None
 
-    service.set_lock(
-        lesson_request_id=graph.request_1_id,
-        session_index=1,
-        is_locked=False,
-        reason="単独ロック解除",
-    )
-    service.undo()
-    assert _require_assignment(project_service, graph, graph.request_1_id).is_locked is True
-    service.redo()
-    assert _require_assignment(project_service, graph, graph.request_1_id).is_locked is False
     service.set_lock(
         lesson_request_id=graph.request_1_id,
         session_index=1,
@@ -771,10 +762,15 @@ def test_preview_reuses_cached_input_and_candidates(
         data: OptimizationInput,
         *,
         is_cancelled: Callable[[], bool] | None = None,
+        preserve_manual: bool = True,
     ) -> CandidateGenerationResult:
         nonlocal candidate_calls
         candidate_calls += 1
-        return original_generate_candidates(data, is_cancelled=is_cancelled)
+        return original_generate_candidates(
+            data,
+            is_cancelled=is_cancelled,
+            preserve_manual=preserve_manual,
+        )
 
     monkeypatch.setattr(service_module, "build_optimization_input", counted_build)
     monkeypatch.setattr(service_module, "generate_candidates", counted_candidates)

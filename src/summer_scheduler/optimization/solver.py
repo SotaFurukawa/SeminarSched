@@ -139,7 +139,9 @@ def solve_optimization(
     token = cancellation or CancellationToken()
     started_at = clock()
     deadline = started_at + data.settings.time_limit_seconds
-    expected_stage_count = 20 if data.settings.optional_balance_weight > 0 else 19
+    # 通常の辞書式工程に加え、未証明の目的が残った場合の
+    # 追加改善探索を1工程として進捗表示に予約する。
+    expected_stage_count = 21 if data.settings.optional_balance_weight > 0 else 20
     if progress is not None:
         progress(
             OptimizationProgress(
@@ -300,6 +302,7 @@ def solve_optimization(
     completed_all_stages = True
     terminal_status: SolverStatus | None = None
     fatal_status: SolverStatus | None = None
+    incomplete_stages: list[ObjectiveStage] = []
 
     for stage_index, stage in enumerate(stages, start=1):
         if _cancel_requested(token):
@@ -401,14 +404,18 @@ def solve_optimization(
             completed_all_stages = False
             if objective_value is None:
                 raise RuntimeError("FEASIBLEなのに目的値を取得できませんでした")
-            # 各工程へ制限時間を配分するため、この工程で得られた最良値を固定して
-            # 後続工程へ進む。これにより最初の重い目的だけで全時間を使い切らない。
-            model.add(stage.expression == objective_value)
+            # 得られた値より悪化させない境界だけを追加し、後続工程で
+            # この目的もさらに改善できる余地を残す。
+            if stage.direction == "minimize":
+                model.add(stage.expression <= objective_value)
+            else:
+                model.add(stage.expression >= objective_value)
+            incomplete_stages.append(stage)
             if best is not None:
                 _add_safe_initial_hint(model, data, generation, variables, best.selected)
             warnings.append(
                 f"段階「{stage.name}」は最適性を証明できませんでしたが、"
-                "得られた最良値を保持して次の工程へ進みました"
+                "得られた値を悪化させず次の工程へ進みました"
             )
             continue
         elif run_status == "UNKNOWN":
@@ -423,6 +430,59 @@ def solve_optimization(
             warnings.append(f"段階「{stage.name}」でモデル不正が検出されました")
             fatal_status = run_status
         break
+
+    if (
+        fatal_status is None
+        and best is not None
+        and incomplete_stages
+        and not _cancel_requested(token)
+        and deadline - clock() >= _MINIMUM_NEXT_STAGE_SECONDS
+    ):
+        refinement_stage = incomplete_stages[0]
+        remaining = deadline - clock()
+        _set_objective(model, refinement_stage)
+        if progress is not None:
+            progress(
+                OptimizationProgress(
+                    stage_index=len(stages) + 1,
+                    stage_count=len(stages) + 1,
+                    stage_name="final_refinement",
+                    solver_status=None,
+                    elapsed_seconds=max(0.0, clock() - started_at),
+                )
+            )
+        solver = cp_model.CpSolver()
+        _configure_solver(solver, data, remaining, stages_remaining=1)
+        token._bind(solver)
+        try:
+            raw_status = int(solver.solve(model))
+        finally:
+            token._unbind(solver)
+        run_status = _STATUS_NAMES.get(raw_status)
+        if run_status is None:
+            raise RuntimeError(f"CP-SATが未知のstatusを返しました: {raw_status}")
+        terminal_status = run_status
+        refinement_value: int | None = None
+        if run_status in ("OPTIMAL", "FEASIBLE"):
+            refinement_value = _integer_value(solver, refinement_stage)
+            best = _extract_snapshot(solver, variables, run_status)
+        if progress is not None:
+            progress(
+                OptimizationProgress(
+                    stage_index=len(stages) + 1,
+                    stage_count=len(stages) + 1,
+                    stage_name="final_refinement",
+                    solver_status=run_status,
+                    elapsed_seconds=max(0.0, clock() - started_at),
+                    objective_value=refinement_value,
+                )
+            )
+        if run_status in ("OPTIMAL", "FEASIBLE"):
+            warnings.append(f"残り時間で段階「{refinement_stage.name}」の追加改善探索を行いました")
+        elif run_status == "MODEL_INVALID":
+            fatal_status = run_status
+        else:
+            warnings.append("追加改善探索で新しい実行可能解を取得できませんでした")
 
     elapsed_seconds = max(0.0, clock() - started_at)
     if fatal_status is not None:
@@ -533,7 +593,8 @@ def _add_safe_initial_hint(
 ) -> None:
     """主変数と補助変数を含む、決定論的な完全hintを設定する。
 
-    `selected`を省略した場合はロック済みセッションだけを元の候補へ戻す。呼出側は
+    `selected`を省略した場合はロック済みまたは手動配置済みのセッションを
+    元の候補へ戻す。呼出側は
     hintを実行可能解として採用する前に独立validatorを通す。ここではCP-SATがpartial
     hintの補完に探索時間を費やさないよう、全ての派生値も同じ配置から計算する。
     """
@@ -546,7 +607,7 @@ def _add_safe_initial_hint(
             item.teacher_id,
         )
         for item in data.existing_assignments
-        if item.is_locked
+        if item.preserves_placement
     }
     selected_candidates = (
         frozenset(selected)
@@ -1108,7 +1169,7 @@ def _objective_breakdown(
         )
         not in selected_keys
         for item in data.existing_assignments
-        if not item.is_locked
+        if not item.preserves_placement
     )
     loads = realized_teacher_loads(data, generation, selected)
     balance_score = teacher_participation_imbalance(data, loads)

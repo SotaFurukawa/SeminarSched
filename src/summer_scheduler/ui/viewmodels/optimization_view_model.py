@@ -62,6 +62,7 @@ _STAGE_LABELS = {
     "availability_preference_score": "希望日時の調整",
     "changed_assignment_count": "既存時間割の維持",
     "teacher_load_imbalance": "勤務可能枠に対するシフト充足率の公平化",
+    "final_refinement": "残り時間で解を追加改善",
 }
 
 
